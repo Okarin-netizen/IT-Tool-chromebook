@@ -11,10 +11,13 @@ const FONT_FAMILY = "PdfTextJP";
 const LINE_HEIGHT = 1.25; // must match .tbox line-height in style.css
 const MIN_SCALE = 0.4;
 const MAX_SCALE = 4;
+const MAX_IMAGE_PX = 2000; // longest side of a placed photo; keeps saved PDFs small
 
 const $ = (id) => document.getElementById(id);
 const els = {
   fileInput: $("file-input"),
+  imageBtn: $("image-btn"),
+  imageInput: $("image-input"),
   fontSize: $("font-size"),
   deleteBtn: $("delete-btn"),
   zoomIn: $("zoom-in"),
@@ -33,7 +36,7 @@ const state = {
   bytes: null, // original PDF bytes (never handed to pdf.js, which detaches buffers)
   pdf: null, // pdf.js document
   pages: [], // { num, viewport (scale 1), el, canvas, layer, rendered, task }
-  items: [], // { page, x, y, size, color, text, el, box }
+  items: [], // text: { type, page, x, y, size, color, text, el, box }  image: { type, page, x, y, w, h, bytes, format, url, el, box }
   active: null,
   scale: 1,
   size: 12,
@@ -147,6 +150,7 @@ async function openFile(file) {
     }
     els.welcome.hidden = true;
     els.saveBtn.disabled = false;
+    els.imageBtn.disabled = false;
     setScale(fitWidthScale());
     els.viewer.scrollTop = 0;
     hideStatus();
@@ -165,6 +169,7 @@ function resetDocument() {
   state.pages.forEach((p) => p.task?.cancel());
   state.pdf?.destroy();
   state.pages = [];
+  state.items.forEach((item) => item.url && URL.revokeObjectURL(item.url));
   state.items = [];
   state.active = null;
   state.dirty = false;
@@ -266,7 +271,7 @@ function setScale(scale) {
 /* ---------- text items ---------- */
 
 function addItem(view, x, y) {
-  const item = { page: view.num, x, y, size: state.size, color: state.color, text: "" };
+  const item = { type: "text", page: view.num, x, y, size: state.size, color: state.color, text: "" };
 
   const box = document.createElement("div");
   box.className = "titem";
@@ -324,6 +329,12 @@ function layoutItem(item) {
   const s = state.scale;
   item.box.style.left = `${item.x * s}px`;
   item.box.style.top = `${item.y * s}px`;
+  if (item.type === "image") {
+    item.el.style.width = `${item.w * s}px`;
+    item.el.style.height = `${item.h * s}px`;
+    item.box.querySelector(".tdel").style.left = `${item.w * s + 4}px`;
+    return;
+  }
   item.el.style.fontSize = `${item.size * s}px`;
   item.el.style.color = item.color;
   autosize(item);
@@ -349,15 +360,16 @@ function removeItem(item) {
   if (i === -1) return;
   state.items.splice(i, 1);
   item.box.remove();
+  if (item.url) URL.revokeObjectURL(item.url);
   if (state.active === item) setActive(null);
-  if (item.text.trim()) state.dirty = true;
+  if (item.type === "image" || item.text.trim()) state.dirty = true;
 }
 
 function setActive(item) {
   state.active?.box.classList.remove("active");
   state.active = item;
-  if (item) {
-    item.box.classList.add("active");
+  if (item) item.box.classList.add("active");
+  if (item?.type === "text") {
     state.size = item.size;
     state.color = item.color;
   }
@@ -395,7 +407,157 @@ function enableDrag(item, handle) {
   const end = () => {
     if (!start) return;
     start = null;
-    item.el.focus();
+    focusItem(item);
+  };
+  handle.addEventListener("pointerup", end);
+  handle.addEventListener("pointercancel", end);
+}
+
+function focusItem(item) {
+  (item.type === "image" ? item.box : item.el).focus();
+}
+
+/* ---------- photos ---------- */
+
+// Re-encode the photo: applies EXIF rotation, shrinks big camera shots, and
+// turns any browser-readable format into JPEG/PNG, the two that PDFs accept.
+async function prepareImage(file) {
+  const bitmap = await createImageBitmap(file);
+  const ratio = Math.min(1, MAX_IMAGE_PX / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * ratio));
+  const height = Math.max(1, Math.round(bitmap.height * ratio));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  const keepAlpha = file.type === "image/png" || file.type === "image/gif";
+  if (!keepAlpha) {
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, width, height);
+  }
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+  const type = keepAlpha ? "image/png" : "image/jpeg";
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, type, 0.9));
+  return {
+    bytes: new Uint8Array(await blob.arrayBuffer()),
+    format: keepAlpha ? "png" : "jpg",
+    url: URL.createObjectURL(blob),
+    width,
+    height,
+  };
+}
+
+// The page that fills most of the screen right now.
+function visiblePage() {
+  const box = els.viewer.getBoundingClientRect();
+  let best = state.pages[0];
+  let bestArea = -1;
+  for (const view of state.pages) {
+    const r = view.el.getBoundingClientRect();
+    const w = Math.min(r.right, box.right) - Math.max(r.left, box.left);
+    const h = Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top);
+    const area = Math.max(0, w) * Math.max(0, h);
+    if (area > bestArea) [best, bestArea] = [view, area];
+  }
+  return best;
+}
+
+async function addImageFile(file) {
+  if (!state.pdf || !file) return;
+  let img;
+  try {
+    img = await prepareImage(file);
+  } catch (err) {
+    console.error(err);
+    showStatus("この画像は読み込めませんでした（JPEG・PNGなどを使ってください）", { error: true });
+    return;
+  }
+  const view = visiblePage();
+  const { width: pw, height: ph } = view.viewport;
+  // Start at half the page width (or less for small images), centred on the visible part of the page.
+  const w = Math.min(pw * 0.5, ph * 0.5 * (img.width / img.height), img.width);
+  const h = w * (img.height / img.width);
+  const r = view.el.getBoundingClientRect();
+  const v = els.viewer.getBoundingClientRect();
+  const midY = ((Math.max(r.top, v.top) + Math.min(r.bottom, v.bottom)) / 2 - r.top) / state.scale;
+  const x = (pw - w) / 2;
+  const y = Math.min(Math.max(0, midY - h / 2), Math.max(0, ph - h));
+  addImageItem(view, img, x, y, w, h);
+  showStatus("写真をドラッグで移動、右下の角で大きさを変えられます");
+}
+
+function addImageItem(view, img, x, y, w, h) {
+  const item = { type: "image", page: view.num, x, y, w, h, bytes: img.bytes, format: img.format, url: img.url };
+
+  const box = document.createElement("div");
+  box.className = "titem iitem";
+  box.style.position = "absolute";
+  box.tabIndex = 0;
+  box.setAttribute("aria-label", "写真");
+
+  const el = document.createElement("img");
+  el.src = img.url;
+  el.alt = "";
+  el.draggable = false;
+
+  const del = document.createElement("div");
+  del.className = "tdel";
+  del.textContent = "✕";
+  del.title = "削除";
+
+  const resize = document.createElement("div");
+  resize.className = "resize";
+  resize.title = "ドラッグで大きさを変える";
+
+  box.append(el, del, resize);
+  view.layer.append(box);
+  Object.assign(item, { el, box });
+  state.items.push(item);
+  state.dirty = true;
+  layoutItem(item);
+
+  box.addEventListener("focus", () => setActive(item));
+  box.addEventListener("keydown", (e) => {
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      removeItem(item);
+    }
+  });
+  del.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    removeItem(item);
+  });
+  enableDrag(item, el);
+  enableResize(item, resize);
+
+  box.focus();
+  return item;
+}
+
+function enableResize(item, handle) {
+  let start = null;
+  handle.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handle.setPointerCapture(e.pointerId);
+    start = { px: e.clientX, py: e.clientY, w: item.w, aspect: item.h / item.w };
+    setActive(item);
+  });
+  handle.addEventListener("pointermove", (e) => {
+    if (!start) return;
+    // Follow whichever direction the pointer moved further, keeping the photo's proportions.
+    const dw = (e.clientX - start.px) / state.scale;
+    const dh = (e.clientY - start.py) / state.scale / start.aspect;
+    item.w = Math.max(10, start.w + (Math.abs(dw) > Math.abs(dh) ? dw : dh));
+    item.h = item.w * start.aspect;
+    layoutItem(item);
+    state.dirty = true;
+  });
+  const end = () => {
+    if (!start) return;
+    start = null;
+    item.box.focus();
   };
   handle.addEventListener("pointerup", end);
   handle.addEventListener("pointercancel", end);
@@ -421,7 +583,17 @@ async function save() {
     await fontReady;
     const doc = await PDFDocument.load(state.bytes, { ignoreEncryption: true });
     doc.registerFontkit(window.fontkit);
-    const items = state.items.filter((item) => item.text.trim());
+    for (const item of state.items) {
+      if (item.type !== "image") continue;
+      const page = doc.getPage(item.page - 1);
+      const viewport = state.pages[item.page - 1].viewport;
+      const image = item.format === "png" ? await doc.embedPng(item.bytes) : await doc.embedJpg(item.bytes);
+      // The photo's bottom-left corner on screen is its origin in the PDF.
+      const [x, y] = viewport.convertToPdfPoint(item.x, item.y + item.h);
+      page.drawImage(image, { x, y, width: item.w, height: item.h, rotate: degrees(viewport.rotation) });
+    }
+
+    const items = state.items.filter((item) => item.type === "text" && item.text.trim());
     const font = items.length
       ? await doc.embedFont(await subsetFont(items.map((i) => i.text).join("")), { subset: false })
       : null;
@@ -471,7 +643,7 @@ els.fileInput.addEventListener("change", () => {
 
 els.fontSize.addEventListener("change", () => {
   state.size = Number(els.fontSize.value);
-  if (state.active) {
+  if (state.active?.type === "text") {
     state.active.size = state.size;
     layoutItem(state.active);
     state.active.el.focus();
@@ -483,13 +655,19 @@ document.querySelectorAll(".swatch").forEach((btn) => {
   btn.addEventListener("pointerdown", (e) => e.preventDefault()); // keep focus in the text box
   btn.addEventListener("click", () => {
     state.color = btn.dataset.color;
-    if (state.active) {
+    if (state.active?.type === "text") {
       state.active.color = state.color;
       layoutItem(state.active);
       state.dirty = true;
     }
     updateActiveUi();
   });
+});
+
+els.imageBtn.addEventListener("click", () => els.imageInput.click());
+els.imageInput.addEventListener("change", async () => {
+  for (const file of els.imageInput.files) await addImageFile(file);
+  els.imageInput.value = "";
 });
 
 els.deleteBtn.addEventListener("pointerdown", (e) => e.preventDefault());
@@ -510,7 +688,7 @@ window.addEventListener("beforeunload", (e) => {
   if (state.dirty) e.preventDefault();
 });
 
-// Drag & drop a PDF anywhere on the page.
+// Drag & drop a PDF (or, once one is open, photos) anywhere on the page.
 let dragDepth = 0;
 window.addEventListener("dragenter", (e) => {
   if (![...e.dataTransfer.types].includes("Files")) return;
@@ -528,9 +706,12 @@ window.addEventListener("drop", (e) => {
   e.preventDefault();
   dragDepth = 0;
   els.dropOverlay.hidden = true;
-  const file = [...e.dataTransfer.files].find((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
-  if (file) openFile(file);
-  else showStatus("PDFファイルをドロップしてください", { error: true });
+  const files = [...e.dataTransfer.files];
+  const pdf = files.find((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
+  const images = files.filter((f) => f.type.startsWith("image/"));
+  if (pdf) openFile(pdf);
+  else if (images.length && state.pdf) images.reduce((p, f) => p.then(() => addImageFile(f)), Promise.resolve());
+  else showStatus(state.pdf ? "PDFか画像ファイルをドロップしてください" : "PDFファイルをドロップしてください", { error: true });
 });
 
 // Offline support once the page has been opened online.
@@ -543,4 +724,4 @@ loadFontBytes().catch(() => {});
 loadSubsetter().catch(() => {});
 
 // Hook for automated tests.
-window.__pdfText = { state, openFile, addItem, save, setScale, fontReady };
+window.__pdfText = { state, openFile, addItem, addImageFile, save, setScale, fontReady };
