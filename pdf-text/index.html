@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDF文字入れ</title>
+  <meta name="description" content="PDFに文字を書き込んで保存できるブラウザだけで動くツール">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#1d4ed8">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
+      <label class="btn primary" for="file-input">📂 PDFを開く</label>
+      <input id="file-input" type="file" accept="application/pdf,.pdf" hidden>
+    </div>
+
+    <div class="group" role="group" aria-label="文字の設定">
+      <label class="field">サイズ
+        <select id="font-size">
+          <option value="8">8</option>
+          <option value="10">10</option>
+          <option value="12" selected>12</option>
+          <option value="14">14</option>
+          <option value="16">16</option>
+          <option value="20">20</option>
+          <option value="24">24</option>
+          <option value="32">32</option>
+          <option value="48">48</option>
+        </select>
+      </label>
+      <div class="colors" role="radiogroup" aria-label="文字の色">
+        <button class="swatch selected" data-color="#000000" style="--c:#000000" aria-label="黒"></button>
+        <button class="swatch" data-color="#d11a1a" style="--c:#d11a1a" aria-label="赤"></button>
+        <button class="swatch" data-color="#1d4ed8" style="--c:#1d4ed8" aria-label="青"></button>
+        <button class="swatch" data-color="#15803d" style="--c:#15803d" aria-label="緑"></button>
+      </div>
+      <button id="delete-btn" class="btn" disabled title="選んでいる文字を消す (Delete)">🗑 削除</button>
+    </div>
+
+    <div class="group" role="group" aria-label="表示倍率">
+      <button id="zoom-out" class="btn icon" title="縮小">－</button>
+      <span id="zoom-label" class="zoom-label">100%</span>
+      <button id="zoom-in" class="btn icon" title="拡大">＋</button>
+    </div>
+
+    <div class="group end">
+      <button id="save-btn" class="btn primary" disabled>💾 PDFを保存</button>
+    </div>
+  </header>
+
+  <main id="viewer" class="viewer">
+    <section id="welcome" class="welcome">
+      <h1>PDF文字入れ</h1>
+      <p>PDFに文字を書き込んで、新しいPDFとして保存できます。</p>
+      <ol>
+        <li>「📂 PDFを開く」を押すか、PDFをここにドラッグします。</li>
+        <li>文字を入れたい場所をクリックして、入力します。</li>
+        <li>文字の左上の「✥」をドラッグすると移動できます。</li>
+        <li>「💾 PDFを保存」で、書き込んだPDFをダウンロードします。</li>
+      </ol>
+      <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。</p>
+    </section>
+    <div id="pages" class="pages"></div>
+  </main>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+  <div id="drop-overlay" class="drop-overlay" hidden>ここにPDFをドロップ</div>
+
+  <script src="lib/pdf-lib.min.js"></script>
+  <script src="lib/fontkit.umd.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

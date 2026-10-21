@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chromebook便利ツール</title>
+  <meta name="description" content="Chromebookのブラウザだけで使える便利ツール集">
+  <link rel="icon" href="pdf-text/icon.svg" type="image/svg+xml">
+  <style>
+    :root {
+      --bg: #f3f4f6;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --accent: #1d4ed8;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111827;
+        --card: #1f2937;
+        --text: #f9fafb;
+        --muted: #9ca3af;
+        --line: #374151;
+        --accent: #93c5fd;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, "Noto Sans JP", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    main { max-width: 960px; margin: 0 auto; padding: 40px 16px 64px; }
+    h1 { margin: 0 0 4px; font-size: 28px; }
+    .lead { margin: 0 0 32px; color: var(--muted); }
+    .tools {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+    .tool {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      height: 100%;
+      padding: 20px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      color: inherit;
+      text-decoration: none;
+      transition: border-color .15s, transform .15s;
+    }
+    .tool:hover, .tool:focus-visible { border-color: var(--accent); transform: translateY(-2px); }
+    .tool img { width: 48px; height: 48px; flex: none; }
+    .tool h2 { margin: 0 0 4px; font-size: 18px; }
+    .tool p { margin: 0; color: var(--muted); font-size: 14px; }
+    footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Chromebook便利ツール</h1>
+    <p class="lead">インストール不要、ブラウザだけで使えるツール集です。ファイルはこの端末の中だけで処理されます。</p>
+
+    <!-- 新しいツールを追加するときは、フォルダを作ってここに <li> を1つ足してください -->
+    <ul class="tools">
+      <li>
+        <a class="tool" href="pdf-text/">
+          <img src="pdf-text/icon.svg" alt="">
+          <div>
+            <h2>PDF文字入れ</h2>
+            <p>PDFに日本語の文字を書き込んで、新しいPDFとして保存します。</p>
+          </div>
+        </a>
+      </li>
+    </ul>
+
+    <footer>ソース: <a href="https://github.com/Okarin-netizen/IT-Tool-chromebook">GitHub</a></footer>
+  </main>
+</body>
+</html>
