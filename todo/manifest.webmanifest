@@ -1,0 +1,9 @@
+{
+  "name": "時間割・課題チェックリスト",
+  "short_name": "時間割・課題",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#e5e7eb",
+  "theme_color": "#15803d",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
