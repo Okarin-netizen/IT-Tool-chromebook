@@ -18,6 +18,11 @@
       <input id="file-input" type="file" accept="application/pdf,.pdf" hidden>
     </div>
 
+    <div class="group">
+      <button id="image-btn" class="btn" disabled title="写真や画像をPDFに貼る">🖼 写真を追加</button>
+      <input id="image-input" type="file" accept="image/*" multiple hidden>
+    </div>
+
     <div class="group" role="group" aria-label="文字の設定">
       <label class="field">サイズ
         <select id="font-size">
@@ -38,7 +43,7 @@
         <button class="swatch" data-color="#1d4ed8" style="--c:#1d4ed8" aria-label="青"></button>
         <button class="swatch" data-color="#15803d" style="--c:#15803d" aria-label="緑"></button>
       </div>
-      <button id="delete-btn" class="btn" disabled title="選んでいる文字を消す (Delete)">🗑 削除</button>
+      <button id="delete-btn" class="btn" disabled title="選んでいる文字や写真を消す">🗑 削除</button>
     </div>
 
     <div class="group" role="group" aria-label="表示倍率">
@@ -60,6 +65,7 @@
         <li>「📂 PDFを開く」を押すか、PDFをここにドラッグします。</li>
         <li>文字を入れたい場所をクリックして、入力します。</li>
         <li>文字の左上の「✥」をドラッグすると移動できます。</li>
+        <li>「🖼 写真を追加」で写真を貼れます。写真はドラッグで移動、右下の角で大きさを変えられます。</li>
         <li>「💾 PDFを保存」で、書き込んだPDFをダウンロードします。</li>
       </ol>
       <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。</p>
