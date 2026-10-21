@@ -12,6 +12,7 @@ const LINE_HEIGHT = 1.25; // must match .tbox line-height in style.css
 const MIN_SCALE = 0.4;
 const MAX_SCALE = 4;
 const MAX_IMAGE_PX = 2000; // longest side of a placed photo; keeps saved PDFs small
+const RASTER_SCALE = 2; // 144 dpi page images when a protected PDF has to be rebuilt
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -575,22 +576,57 @@ function outputName() {
   return `${base}_記入済み.pdf`;
 }
 
+// pdf-lib cannot decrypt, so a protected (encrypted) PDF is rebuilt from page
+// images rendered by pdf.js, the same as printing it, and written on top of that.
+async function rasterizeDocument() {
+  const doc = await PDFDocument.create();
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  for (const view of state.pages) {
+    showStatus(`保護されたPDFのため、ページを画像にしています… (${view.num}/${state.pages.length})`, { sticky: true });
+    const page = await state.pdf.getPage(view.num);
+    const viewport = page.getViewport({ scale: RASTER_SCALE });
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+    const image = await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
+    const { width, height } = view.viewport;
+    doc.addPage([width, height]).drawImage(image, { x: 0, y: 0, width, height });
+  }
+  canvas.width = canvas.height = 0;
+  return doc;
+}
+
 async function save() {
   if (!state.bytes) return;
   els.saveBtn.disabled = true;
   showStatus("PDFを作成中…", { sticky: true });
   try {
     await fontReady;
-    const doc = await PDFDocument.load(state.bytes, { ignoreEncryption: true });
+    const original = await PDFDocument.load(state.bytes, { ignoreEncryption: true });
+    const rebuilt = original.isEncrypted;
+    const doc = rebuilt ? await rasterizeDocument() : original;
     doc.registerFontkit(window.fontkit);
+    // Maps screen coordinates (scale 1, top-left origin) onto a page of `doc`.
+    // Rebuilt pages are already upright, so only the y axis flips.
+    const placement = (pageNum) => {
+      const viewport = state.pages[pageNum - 1].viewport;
+      return rebuilt
+        ? { toPdf: (x, y) => [x, viewport.height - y], rotate: degrees(0) }
+        : { toPdf: (x, y) => viewport.convertToPdfPoint(x, y), rotate: degrees(viewport.rotation) };
+    };
+
     for (const item of state.items) {
       if (item.type !== "image") continue;
       const page = doc.getPage(item.page - 1);
-      const viewport = state.pages[item.page - 1].viewport;
+      const { toPdf, rotate } = placement(item.page);
       const image = item.format === "png" ? await doc.embedPng(item.bytes) : await doc.embedJpg(item.bytes);
       // The photo's bottom-left corner on screen is its origin in the PDF.
-      const [x, y] = viewport.convertToPdfPoint(item.x, item.y + item.h);
-      page.drawImage(image, { x, y, width: item.w, height: item.h, rotate: degrees(viewport.rotation) });
+      const [x, y] = toPdf(item.x, item.y + item.h);
+      page.drawImage(image, { x, y, width: item.w, height: item.h, rotate });
     }
 
     const items = state.items.filter((item) => item.type === "text" && item.text.trim());
@@ -600,13 +636,12 @@ async function save() {
 
     for (const item of items) {
       const page = doc.getPage(item.page - 1);
-      const viewport = state.pages[item.page - 1].viewport;
+      const { toPdf, rotate } = placement(item.page);
       const color = hexToRgb(item.color);
-      const rotate = degrees(viewport.rotation);
       item.text.split("\n").forEach((line, i) => {
         if (!line) return;
         const baseline = item.y + item.size * (state.baselineRatio + i * LINE_HEIGHT);
-        const [x, y] = viewport.convertToPdfPoint(item.x, baseline);
+        const [x, y] = toPdf(item.x, baseline);
         page.drawText(line, { x, y, size: item.size, font, color, rotate });
       });
     }
@@ -614,10 +649,12 @@ async function save() {
     const out = await doc.save();
     download(new Blob([out], { type: "application/pdf" }), outputName());
     state.dirty = false;
-    showStatus("保存しました（ダウンロードフォルダを確認してください）");
+    showStatus(rebuilt
+      ? "保存しました（保護されたPDFのため、元のページは画像として保存しています）"
+      : "保存しました（ダウンロードフォルダを確認してください）");
   } catch (err) {
     console.error(err);
-    showStatus("保存できませんでした。このPDFは書き込みが制限されている可能性があります", { error: true });
+    showStatus("保存できませんでした。PDFが壊れているか、対応していない形式の可能性があります", { error: true });
   } finally {
     els.saveBtn.disabled = false;
   }
