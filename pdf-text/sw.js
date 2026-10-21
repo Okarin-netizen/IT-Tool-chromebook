@@ -1,5 +1,5 @@
 // Caches the app so it keeps working without a network connection.
-const CACHE = "pdf-text-v2";
+const CACHE = "pdf-text-v3";
 const CORE = [
   "./",
   "index.html",
