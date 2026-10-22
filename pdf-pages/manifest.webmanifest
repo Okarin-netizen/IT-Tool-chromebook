@@ -1,0 +1,9 @@
+{
+  "name": "PDF結合・分割・回転",
+  "short_name": "PDF結合",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#e5e7eb",
+  "theme_color": "#0f766e",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
