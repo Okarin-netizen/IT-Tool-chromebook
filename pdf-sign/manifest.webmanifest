@@ -1,0 +1,9 @@
+{
+  "name": "PDFに手書き・署名",
+  "short_name": "PDF署名",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#e5e7eb",
+  "theme_color": "#be123c",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
