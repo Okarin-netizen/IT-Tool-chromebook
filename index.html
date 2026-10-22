@@ -36,6 +36,8 @@
     main { max-width: 960px; margin: 0 auto; padding: 40px 16px 64px; }
     h1 { margin: 0 0 4px; font-size: 28px; }
     .lead { margin: 0 0 32px; color: var(--muted); }
+    section + section { margin-top: 32px; }
+    .group-title { margin: 0 0 12px; font-size: 16px; color: var(--muted); }
     .tools {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -59,7 +61,7 @@
     }
     .tool:hover, .tool:focus-visible { border-color: var(--accent); transform: translateY(-2px); }
     .tool img { width: 48px; height: 48px; flex: none; }
-    .tool h2 { margin: 0 0 4px; font-size: 18px; }
+    .tool h3 { margin: 0 0 4px; font-size: 18px; }
     .tool p { margin: 0; color: var(--muted); font-size: 14px; }
     footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
   </style>
@@ -69,72 +71,81 @@
     <h1>Chromebook便利ツール</h1>
     <p class="lead">インストール不要、ブラウザだけで使えるツール集です。ファイルはこの端末の中だけで処理されます。</p>
 
-    <!-- 新しいツールを追加するときは、フォルダを作ってここに <li> を1つ足してください -->
-    <ul class="tools">
-      <li>
-        <a class="tool" href="pdf-text/">
-          <img src="pdf-text/icon.svg" alt="">
-          <div>
-            <h2>PDF文字入れ</h2>
-            <p>PDFに日本語の文字や写真を書き込んで、新しいPDFとして保存します。</p>
-          </div>
-        </a>
-      </li>
-      <li>
-        <a class="tool" href="image-pdf/">
-          <img src="image-pdf/icon.svg" alt="">
-          <div>
-            <h2>画像→PDF</h2>
-            <p>ノートやプリントの写真を並べ替えて、1つのPDFにまとめます。カメラでその場で撮ることもできます。</p>
-          </div>
-        </a>
-      </li>
-      <li>
-        <a class="tool" href="calc/">
-          <img src="calc/icon.svg" alt="">
-          <div>
-            <h2>関数電卓・グラフ</h2>
-            <p>三角関数・対数・累乗などの計算と、y = f(x) のグラフ描画ができます。</p>
-          </div>
-        </a>
-      </li>
-      <li>
-        <a class="tool" href="todo/">
-          <img src="todo/icon.svg" alt="">
-          <div>
-            <h2>時間割・課題チェックリスト</h2>
-            <p>時間割と課題の締め切りをブラウザに保存して、やることを管理します。</p>
-          </div>
-        </a>
-      </li>
-      <li>
-        <a class="tool" href="timer/">
-          <img src="timer/icon.svg" alt="">
-          <div>
-            <h2>タイマー・ポモドーロ</h2>
-            <p>勉強時間やテスト練習の時間を計れます。ポモドーロ・タイマー・ストップウォッチの3つのモード。</p>
-          </div>
-        </a>
-      </li>
-      <li>
-        <a class="tool" href="image-annotate/">
-          <img src="image-annotate/icon.svg" alt="">
-          <div>
-            <h2>画像に書き込み</h2>
-            <p>スクリーンショットや写真に矢印・文字・図形を書き込んで、PNG画像で保存します。</p>
-          </div>
-        </a>
-      </li>
-      <li>
-        <a class="tool" href="pdf-pages/">
-          <img src="pdf-pages/icon.svg" alt="">
-          <div>
-            <h2>PDF結合・分割・回転</h2>
-            <p>PDFを1つにまとめたり、必要なページだけ抜き出したり、向きを直したりします。</p>
-          </div>
-        </a>
-      </li>
-    </ul>
+    <!-- 新しいツールを追加するときは、フォルダを作って、合うグループの <ul> に <li> を1つ足してください -->
+    <section aria-labelledby="g-pdf">
+      <h2 class="group-title" id="g-pdf">📄 PDF</h2>
+      <ul class="tools">
+        <li>
+          <a class="tool" href="pdf-text/">
+            <img src="pdf-text/icon.svg" alt="">
+            <div>
+              <h3>PDF文字入れ</h3>
+              <p>PDFに日本語の文字や写真を書き込んで、新しいPDFとして保存します。</p>
+            </div>
+          </a>
+        </li>
+        <li>
+          <a class="tool" href="pdf-pages/">
+            <img src="pdf-pages/icon.svg" alt="">
+            <div>
+              <h3>PDF結合・分割・回転</h3>
+              <p>PDFを1つにまとめたり、必要なページだけ抜き出したり、向きを直したりします。</p>
+            </div>
+          </a>
+        </li>
+        <li>
+          <a class="tool" href="image-pdf/">
+            <img src="image-pdf/icon.svg" alt="">
+            <div>
+              <h3>画像→PDF</h3>
+              <p>ノートやプリントの写真を並べ替えて、1つのPDFにまとめます。カメラでその場で撮ることもできます。</p>
+            </div>
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="g-other">
+      <h2 class="group-title" id="g-other">🧰 そのほかのツール</h2>
+      <ul class="tools">
+        <li>
+          <a class="tool" href="calc/">
+            <img src="calc/icon.svg" alt="">
+            <div>
+              <h3>関数電卓・グラフ</h3>
+              <p>三角関数・対数・累乗などの計算と、y = f(x) のグラフ描画ができます。</p>
+            </div>
+          </a>
+        </li>
+        <li>
+          <a class="tool" href="todo/">
+            <img src="todo/icon.svg" alt="">
+            <div>
+              <h3>時間割・課題チェックリスト</h3>
+              <p>時間割と課題の締め切りをブラウザに保存して、やることを管理します。</p>
+            </div>
+          </a>
+        </li>
+        <li>
+          <a class="tool" href="timer/">
+            <img src="timer/icon.svg" alt="">
+            <div>
+              <h3>タイマー・ポモドーロ</h3>
+              <p>勉強時間やテスト練習の時間を計れます。ポモドーロ・タイマー・ストップウォッチの3つのモード。</p>
+            </div>
+          </a>
+        </li>
+        <li>
+          <a class="tool" href="image-annotate/">
+            <img src="image-annotate/icon.svg" alt="">
+            <div>
+              <h3>画像に書き込み</h3>
+              <p>スクリーンショットや写真に矢印・文字・図形を書き込んで、PNG画像で保存します。</p>
+            </div>
+          </a>
+        </li>
+      </ul>
+    </section>
 
     <footer>ソース: <a href="https://github.com/Okarin-netizen/IT-Tool-chromebook">GitHub</a></footer>
   </main>
