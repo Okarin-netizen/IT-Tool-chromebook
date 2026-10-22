@@ -23,7 +23,7 @@ GitHub Pages で公開して使います。
 2. **Source** を「Deploy from a branch」、ブランチを `main`、フォルダを `/ (root)` にして保存
 3. 数分後に `https://okarin-netizen.github.io/IT-Tool-chromebook/` で開けます
 
-一度開くとブラウザにキャッシュされ、各ツール、PDF結合・分割・回転はオフラインでも動きます。
+一度開くとブラウザにキャッシュされ、各ツールはオフラインでも動きます。
 
 ## ツールの追加方法
 
