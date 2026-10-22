@@ -5,7 +5,11 @@ const { PDFDocument, degrees } = window.PDFLib;
 const asset = (path) => new URL(path, location.href).href;
 pdfjsLib.GlobalWorkerOptions.workerSrc = asset("lib/pdfjs/pdf.worker.min.mjs");
 
-const THUMB_PX = 150; // longest side of a thumbnail, in CSS pixels
+const THUMB_SIZES = { small: 110, medium: 150, large: 220 }; // longest side of a thumbnail, in CSS pixels
+const HISTORY_LIMIT = 50;
+const LONG_PRESS_MS = 350; // touch: hold this long before a page starts to drag
+const DRAG_SLOP = 8; // px the pointer may wander before a press counts as a drag (or a scroll)
+const SCROLL_EDGE = 60; // px from the top/bottom of the page list where dragging scrolls it
 const SPLIT_CONFIRM = 10; // ask before downloading more files than this at once
 const RASTER_SCALE = 2; // 144 dpi page images for protected PDFs
 
@@ -19,6 +23,9 @@ const els = {
   rotateRight: $("rotate-right"),
   deleteBtn: $("delete-btn"),
   clearBtn: $("clear-btn"),
+  undoBtn: $("undo-btn"),
+  redoBtn: $("redo-btn"),
+  thumbSize: $("thumb-size"),
   splitBtn: $("split-btn"),
   extractBtn: $("extract-btn"),
   saveBtn: $("save-btn"),
@@ -27,15 +34,26 @@ const els = {
   grid: $("grid"),
   status: $("status"),
   dropOverlay: $("drop-overlay"),
+  preview: $("preview"),
+  previewLabel: $("preview-label"),
+  previewStage: $("preview-stage"),
+  previewPrev: $("preview-prev"),
+  previewNext: $("preview-next"),
+  previewRotate: $("preview-rotate"),
+  previewDelete: $("preview-delete"),
+  previewClose: $("preview-close"),
 };
 
 const state = {
-  files: [], // { name, bytes, pdf (pdf.js), doc (pdf-lib, null when protected) }
+  files: [], // { name, bytes, pdf (pdf.js), doc (pdf-lib, null when protected) }; kept until "最初から" so undo can bring pages back
   pages: [], // { id, file, index (0-based), baseRotation, rotation (added by the user), selected, el, canvas, rendered }
   lastClicked: null, // for shift-click range selection
-  dragging: null,
+  history: [], // snapshots for undo
+  future: [], // snapshots for redo
+  thumbPx: THUMB_SIZES.medium,
   dirty: false,
   busy: false,
+  loading: false,
 };
 let nextId = 1;
 
@@ -65,6 +83,8 @@ async function addFiles(fileList) {
   const failed = [];
   const protectedNames = [];
   let added = 0;
+  remember();
+  state.loading = true;
   for (const [i, file] of files.entries()) {
     showStatus(`PDFを読み込み中…（${i + 1}/${files.length}）`, { sticky: true });
     try {
@@ -76,6 +96,8 @@ async function addFiles(fileList) {
       failed.push({ name: file.name, reason: describeLoadError(err) });
     }
   }
+  state.loading = false;
+  if (!added) state.history.pop(); // nothing changed, so nothing to undo
   updateUi();
   if (failed.length) {
     showStatus(failed.map((f) => `${f.name}: ${f.reason}`).join(" / "), { error: true });
@@ -141,9 +163,9 @@ function createCard(view) {
   const li = document.createElement("li");
   li.className = "card";
   li.tabIndex = 0;
-  li.draggable = true;
   li.innerHTML = `
     <span class="check" aria-hidden="true">✓</span>
+    <button class="zoom" data-act="zoom" title="大きく表示" aria-label="大きく表示">🔍</button>
     <div class="thumb"><div class="placeholder"></div></div>
     <div class="label"></div>
     <div class="card-actions">
@@ -155,8 +177,10 @@ function createCard(view) {
   view.el = li;
 
   li.addEventListener("click", (e) => {
+    if (suppressClick) return;
     const act = e.target.closest("[data-act]")?.dataset.act;
-    if (act === "left") movePage(view, -1);
+    if (act === "zoom") openPreview(view);
+    else if (act === "left") movePage(view, -1);
     else if (act === "right") movePage(view, 1);
     else if (act === "rotate") rotatePages([view], 90);
     else if (act === "delete") removePages([view]);
@@ -170,49 +194,163 @@ function createCard(view) {
     } else if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
       removePages([view]);
+    } else if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      e.preventDefault();
+      movePage(view, e.key === "ArrowLeft" ? -1 : 1);
     }
   });
-
-  li.addEventListener("dragstart", (e) => {
-    state.dragging = view;
-    li.classList.add("dragging");
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", String(view.id));
+  li.addEventListener("dblclick", (e) => {
+    if (!e.target.closest("[data-act]")) openPreview(view);
   });
-  li.addEventListener("dragend", () => {
-    state.dragging = null;
-    li.classList.remove("dragging");
-    clearDropMarks();
-  });
-  li.addEventListener("dragover", (e) => {
-    if (!state.dragging || state.dragging === view) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const after = dropAfter(e, li);
-    clearDropMarks();
-    li.classList.add(after ? "drop-after" : "drop-before");
-  });
-  li.addEventListener("drop", (e) => {
-    if (!state.dragging) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const moving = state.dragging;
-    if (moving !== view) {
-      const after = dropAfter(e, li);
-      state.pages.splice(state.pages.indexOf(moving), 1);
-      state.pages.splice(state.pages.indexOf(view) + (after ? 1 : 0), 0, moving);
-      state.dirty = true;
-      syncOrder();
-    }
-    clearDropMarks();
+  li.addEventListener("pointerdown", (e) => pressCard(e, view));
+  li.addEventListener("contextmenu", (e) => {
+    if (press?.touch || drag) e.preventDefault(); // long press on a touch screen
   });
 
   thumbObserver.observe(li);
 }
 
-function dropAfter(e, el) {
-  const r = el.getBoundingClientRect();
-  return e.clientX > r.left + r.width / 2;
+/* ---------- dragging pages (mouse, touch and pen) ---------- */
+
+let press = null; // { view, pointerId, x, y, touch, timer } while a button/finger is down on a card
+let drag = null; // { views, ghost, target, after, x, y, raf } once the press has become a drag
+let suppressClick = false; // the click that ends a drag must not toggle the selection
+
+function pressCard(e, view) {
+  suppressClick = false;
+  if (!e.isPrimary || e.button !== 0 || e.target.closest("[data-act]") || state.busy) return;
+  const touch = e.pointerType !== "mouse";
+  press = { view, pointerId: e.pointerId, x: e.clientX, y: e.clientY, touch, timer: 0 };
+  // On a touch screen a quick swipe scrolls the list; holding still first picks the page up.
+  if (touch) press.timer = setTimeout(() => startDrag(press.x, press.y), LONG_PRESS_MS);
+}
+
+function endPress() {
+  if (press) clearTimeout(press.timer);
+  press = null;
+}
+
+window.addEventListener("pointermove", (e) => {
+  if (!press || e.pointerId !== press.pointerId) return;
+  if (!drag) {
+    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < DRAG_SLOP) return;
+    if (press.touch) return endPress(); // moved before the long press: it's a scroll
+    startDrag(e.clientX, e.clientY);
+  }
+  moveDrag(e.clientX, e.clientY);
+});
+window.addEventListener("pointerup", (e) => {
+  if (!press || e.pointerId !== press.pointerId) return;
+  if (drag) finishDrag();
+  endPress();
+});
+window.addEventListener("pointercancel", (e) => {
+  if (!press || e.pointerId !== press.pointerId) return;
+  cancelDrag();
+  endPress();
+});
+// Keep the page list from scrolling under a finger that is dragging a page.
+els.grid.addEventListener("touchmove", (e) => {
+  if (drag) e.preventDefault();
+}, { passive: false });
+
+function startDrag(x, y) {
+  clearTimeout(press.timer);
+  const { view } = press;
+  // Dragging a selected page carries all the selected pages along.
+  const views = view.selected ? state.pages.filter((p) => p.selected) : [view];
+  const ghost = document.createElement("div");
+  ghost.className = "drag-ghost";
+  if (view.canvas) {
+    const copy = document.createElement("canvas");
+    const k = 90 / Math.max(view.canvas.width, view.canvas.height);
+    copy.width = Math.round(view.canvas.width * k);
+    copy.height = Math.round(view.canvas.height * k);
+    copy.getContext("2d").drawImage(view.canvas, 0, 0, copy.width, copy.height);
+    ghost.append(copy);
+  }
+  if (views.length > 1) {
+    ghost.append(Object.assign(document.createElement("span"), { className: "badge", textContent: `${views.length}ページ` }));
+  }
+  document.body.append(ghost);
+  for (const v of views) v.el.classList.add("dragging");
+  document.body.classList.add("is-dragging");
+  drag = { views, ghost, target: null, after: false, x, y, raf: 0 };
+  suppressClick = true;
+  if (press.touch) navigator.vibrate?.(15);
+  moveDrag(x, y);
+  drag.raf = requestAnimationFrame(autoScroll);
+}
+
+function moveDrag(x, y) {
+  drag.x = x;
+  drag.y = y;
+  drag.ghost.style.transform = `translate(${x}px, ${y}px)`;
+  const hit = dropTarget(x, y);
+  clearDropMarks();
+  drag.target = hit?.view ?? null;
+  drag.after = hit?.after ?? false;
+  if (hit) hit.view.el.classList.add(hit.after ? "drop-after" : "drop-before");
+}
+
+// The card nearest the pointer, preferring the row it is on, and which side of it to drop on.
+function dropTarget(x, y) {
+  let best = null;
+  let bestDist = Infinity;
+  for (const view of state.pages) {
+    const r = view.el.getBoundingClientRect();
+    const dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0;
+    const dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+    const dist = dy * 4 + dx;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = { view, after: x > r.left + r.width / 2 };
+    }
+  }
+  return best;
+}
+
+function autoScroll() {
+  if (!drag) return;
+  const r = els.viewer.getBoundingClientRect();
+  let dy = 0;
+  if (drag.y < r.top + SCROLL_EDGE) dy = -(r.top + SCROLL_EDGE - drag.y);
+  else if (drag.y > r.bottom - SCROLL_EDGE) dy = drag.y - (r.bottom - SCROLL_EDGE);
+  if (dy) {
+    els.viewer.scrollTop += Math.max(-20, Math.min(20, dy / 3));
+    moveDrag(drag.x, drag.y);
+  }
+  drag.raf = requestAnimationFrame(autoScroll);
+}
+
+function cancelDrag() {
+  if (!drag) return;
+  cancelAnimationFrame(drag.raf);
+  drag.ghost.remove();
+  for (const v of drag.views) v.el.classList.remove("dragging");
+  document.body.classList.remove("is-dragging");
+  clearDropMarks();
+  drag = null;
+}
+
+function finishDrag() {
+  const { views, target, after } = drag;
+  cancelDrag();
+  if (target) placePages(views, target, after);
+}
+
+// Moves the pages, keeping their order, to just before or after the target page.
+function placePages(views, target, after) {
+  const moving = state.pages.filter((p) => views.includes(p));
+  let at = state.pages.indexOf(target) + (after ? 1 : 0);
+  at -= state.pages.slice(0, at).filter((p) => views.includes(p)).length;
+  const rest = state.pages.filter((p) => !views.includes(p));
+  const next = [...rest.slice(0, at), ...moving, ...rest.slice(at)];
+  if (next.every((p, i) => p === state.pages[i])) return;
+  remember();
+  state.pages = next;
+  state.dirty = true;
+  syncOrder();
 }
 
 function clearDropMarks() {
@@ -229,7 +367,7 @@ async function renderThumb(view) {
     const rotation = (view.baseRotation + view.rotation) % 360;
     const base = page.getViewport({ scale: 1, rotation });
     const dpr = window.devicePixelRatio || 1;
-    const scale = (THUMB_PX / Math.max(base.width, base.height)) * dpr;
+    const scale = (state.thumbPx / Math.max(base.width, base.height)) * dpr;
     const viewport = page.getViewport({ scale, rotation });
     const canvas = document.createElement("canvas");
     canvas.width = Math.ceil(viewport.width);
@@ -271,6 +409,7 @@ function movePage(view, delta) {
   const i = state.pages.indexOf(view);
   const j = i + delta;
   if (j < 0 || j >= state.pages.length) return;
+  remember();
   [state.pages[i], state.pages[j]] = [state.pages[j], state.pages[i]];
   state.dirty = true;
   syncOrder();
@@ -278,6 +417,8 @@ function movePage(view, delta) {
 }
 
 function rotatePages(views, delta) {
+  if (!views.length) return;
+  remember();
   for (const view of views) {
     view.rotation = (view.rotation + delta + 360) % 360;
     renderThumb(view);
@@ -287,23 +428,167 @@ function rotatePages(views, delta) {
 }
 
 function removePages(views) {
+  if (!views.length) return;
+  remember();
   for (const view of views) {
     thumbObserver.unobserve(view.el);
     view.el.remove();
   }
   state.pages = state.pages.filter((p) => !views.includes(p));
-  // Let go of files that no longer have any pages on screen.
-  const used = new Set(state.pages.map((p) => p.file));
-  for (const file of state.files.filter((f) => !used.has(f))) file.pdf.destroy();
-  state.files = state.files.filter((f) => used.has(f));
   state.dirty = state.pages.length > 0;
   updateUi();
+  if (views.length > 1 || !state.pages.length) showStatus(`${views.length}ページを外しました（↶ 元に戻すで戻せます）`);
+}
+
+function clearAll() {
+  removePages(state.pages.slice());
+  for (const file of state.files) file.pdf.destroy();
+  state.files = [];
+  state.history = [];
+  state.future = [];
+  hideStatus();
+  updateUi();
+}
+
+/* ---------- undo / redo ---------- */
+
+function snapshot() {
+  return state.pages.map((view) => ({ view, rotation: view.rotation }));
+}
+
+function remember() {
+  state.history.push(snapshot());
+  if (state.history.length > HISTORY_LIMIT) state.history.shift();
+  state.future = [];
+}
+
+function restore(snap) {
+  const keep = new Set(snap.map((s) => s.view));
+  for (const view of state.pages) {
+    if (keep.has(view)) continue;
+    thumbObserver.unobserve(view.el);
+    view.el.remove();
+  }
+  for (const { view, rotation } of snap) {
+    if (view.rotation !== rotation) {
+      view.rotation = rotation;
+      renderThumb(view);
+    } else if (!state.pages.includes(view)) {
+      thumbObserver.observe(view.el);
+    }
+  }
+  state.pages = snap.map((s) => s.view);
+  state.dirty = state.pages.length > 0;
+  syncOrder();
+  if (previewView && !state.pages.includes(previewView)) closePreview();
+  else if (previewView) renderPreview();
+}
+
+function undo() {
+  if (!state.history.length || state.busy || state.loading || drag) return;
+  state.future.push(snapshot());
+  restore(state.history.pop());
+  showStatus("元に戻しました");
+}
+
+function redo() {
+  if (!state.future.length || state.busy || state.loading || drag) return;
+  state.history.push(snapshot());
+  restore(state.future.pop());
+  showStatus("やり直しました");
+}
+
+/* ---------- thumbnail size ---------- */
+
+function setThumbSize(name) {
+  if (!THUMB_SIZES[name]) name = "medium";
+  els.thumbSize.value = name;
+  state.thumbPx = THUMB_SIZES[name];
+  els.grid.style.setProperty("--thumb", `${state.thumbPx}px`);
+  try { localStorage.setItem("pdf-pages-thumb", name); } catch {}
+  // Re-render as each card comes into view (observe() reports the current state right away).
+  for (const view of state.pages) {
+    view.rendered = false;
+    thumbObserver.unobserve(view.el);
+    thumbObserver.observe(view.el);
+  }
+}
+
+/* ---------- large preview ---------- */
+
+let previewView = null;
+let previewToken = null;
+
+function openPreview(view) {
+  previewView = view;
+  els.preview.hidden = false;
+  els.previewClose.focus();
+  renderPreview();
+}
+
+function closePreview() {
+  if (els.preview.hidden) return;
+  els.preview.hidden = true;
+  els.previewStage.replaceChildren();
+  const view = previewView;
+  previewView = null;
+  previewToken = null;
+  if (view && state.pages.includes(view)) view.el.focus();
+}
+
+function stepPreview(delta) {
+  const i = state.pages.indexOf(previewView) + delta;
+  if (i < 0 || i >= state.pages.length) return;
+  previewView = state.pages[i];
+  renderPreview();
+}
+
+async function renderPreview() {
+  const view = previewView;
+  const i = state.pages.indexOf(view);
+  const turned = view.rotation ? ` ・${view.rotation}°回転` : "";
+  els.previewLabel.textContent = `${i + 1} / ${state.pages.length}ページ（${view.file.name} p.${view.index + 1}${turned}）`;
+  els.previewPrev.disabled = i === 0;
+  els.previewNext.disabled = i === state.pages.length - 1;
+  const token = (previewToken = {});
+  try {
+    const page = await view.file.pdf.getPage(view.index + 1);
+    const rotation = (view.baseRotation + view.rotation) % 360;
+    const base = page.getViewport({ scale: 1, rotation });
+    const box = els.previewStage.getBoundingClientRect();
+    const fit = Math.min(box.width / base.width, box.height / base.height);
+    const dpr = window.devicePixelRatio || 1;
+    const viewport = page.getViewport({ scale: fit * dpr, rotation });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    canvas.style.width = `${viewport.width / dpr}px`;
+    canvas.style.height = `${viewport.height / dpr}px`;
+    await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+    if (token !== previewToken) return; // moved on to another page meanwhile
+    els.previewStage.replaceChildren(canvas);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function deletePreviewed() {
+  const i = state.pages.indexOf(previewView);
+  removePages([previewView]);
+  if (!state.pages.length) return closePreview();
+  previewView = state.pages[Math.min(i, state.pages.length - 1)];
+  renderPreview();
 }
 
 // Rotate/delete act on the selected pages, or on every page when none are selected.
 function targetPages() {
   const selected = state.pages.filter((p) => p.selected);
   return selected.length ? selected : state.pages;
+}
+
+// Files that still have pages in the list.
+function fileCount() {
+  return new Set(state.pages.map((p) => p.file)).size;
 }
 
 function syncOrder() {
@@ -314,7 +599,7 @@ function syncOrder() {
 function updateUi() {
   const total = state.pages.length;
   const selected = state.pages.filter((p) => p.selected).length;
-  const multiFile = state.files.length > 1;
+  const multiFile = fileCount() > 1;
   state.pages.forEach((view, i) => {
     view.el.classList.toggle("selected", view.selected);
     view.el.setAttribute("aria-selected", String(view.selected));
@@ -338,6 +623,8 @@ function updateUi() {
   els.selectNone.disabled = none || selected === 0;
   els.deleteBtn.disabled = none || selected === 0;
   els.extractBtn.disabled = none || selected === 0;
+  els.undoBtn.disabled = state.busy || state.loading || !state.history.length;
+  els.redoBtn.disabled = state.busy || state.loading || !state.future.length;
   const scope = selected ? "選んだページ" : "全ページ";
   els.rotateLeft.title = `${scope}を左に90°回転`;
   els.rotateRight.title = `${scope}を右に90°回転`;
@@ -395,7 +682,7 @@ function baseName(name) {
 
 function outputName(suffix) {
   const first = baseName(state.pages[0].file.name);
-  return state.files.length > 1 ? `${first}など_${suffix}.pdf` : `${first}_${suffix}.pdf`;
+  return fileCount() > 1 ? `${first}など_${suffix}.pdf` : `${first}_${suffix}.pdf`;
 }
 
 async function withBusy(message, fn) {
@@ -417,7 +704,7 @@ async function withBusy(message, fn) {
 function saveAll() {
   return withBusy("PDFを作成中…", async () => {
     const bytes = await buildPdf(state.pages);
-    download(bytes, outputName(state.files.length > 1 ? "結合" : "編集済み"));
+    download(bytes, outputName(fileCount() > 1 ? "結合" : "編集済み"));
     state.dirty = false;
     showStatus("保存しました");
   });
@@ -474,15 +761,55 @@ els.rotateLeft.addEventListener("click", () => rotatePages(targetPages(), -90));
 els.rotateRight.addEventListener("click", () => rotatePages(targetPages(), 90));
 els.deleteBtn.addEventListener("click", () => removePages(state.pages.filter((p) => p.selected)));
 els.clearBtn.addEventListener("click", () => {
-  if (state.dirty && !confirm("並べたページをすべて外して最初からやり直しますか？")) return;
-  removePages(state.pages.slice());
+  if (state.dirty && !confirm("並べたページをすべて外して最初からやり直しますか？（元に戻せません）")) return;
+  clearAll();
+});
+els.undoBtn.addEventListener("click", undo);
+els.redoBtn.addEventListener("click", redo);
+els.thumbSize.addEventListener("change", () => setThumbSize(els.thumbSize.value));
+els.previewClose.addEventListener("click", closePreview);
+els.previewPrev.addEventListener("click", () => stepPreview(-1));
+els.previewNext.addEventListener("click", () => stepPreview(1));
+els.previewRotate.addEventListener("click", () => {
+  rotatePages([previewView], 90);
+  renderPreview();
+});
+els.previewDelete.addEventListener("click", deletePreviewed);
+els.preview.addEventListener("click", (e) => {
+  if (e.target === els.preview || e.target.classList.contains("preview-body")) closePreview();
 });
 els.saveBtn.addEventListener("click", saveAll);
 els.extractBtn.addEventListener("click", saveSelected);
 els.splitBtn.addEventListener("click", saveEachPage);
 
 window.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === "a" && state.pages.length && !e.target.closest("input, textarea")) {
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && !e.target.closest("input, textarea, select")) {
+    const key = e.key.toLowerCase();
+    if (key === "z" && !e.shiftKey) {
+      e.preventDefault();
+      return undo();
+    }
+    if (key === "y" || (key === "z" && e.shiftKey)) {
+      e.preventDefault();
+      return redo();
+    }
+  }
+  if (drag && e.key === "Escape") {
+    cancelDrag();
+    endPress();
+    return;
+  }
+  if (!els.preview.hidden) {
+    if (e.key === "Escape") closePreview();
+    else if (e.key === "ArrowLeft") stepPreview(-1);
+    else if (e.key === "ArrowRight") stepPreview(1);
+    else if (e.key === "Delete" || e.key === "Backspace") deletePreviewed();
+    else return;
+    e.preventDefault();
+    return;
+  }
+  if (mod && e.key === "a" && state.pages.length && !e.target.closest("input, textarea")) {
     e.preventDefault();
     setAllSelected(true);
   } else if (e.key === "Escape") {
@@ -523,7 +850,10 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 
+let savedSize = "medium";
+try { savedSize = localStorage.getItem("pdf-pages-thumb") || savedSize; } catch {}
+setThumbSize(savedSize);
 updateUi();
 
 // Hook for automated tests.
-window.__pdfPages = { state, addFiles, buildPdf, rotatePages, removePages, movePage, toggleSelect };
+window.__pdfPages = { state, addFiles, buildPdf, rotatePages, removePages, movePage, toggleSelect, placePages, undo, redo, openPreview };

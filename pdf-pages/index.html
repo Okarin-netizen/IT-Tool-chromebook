@@ -24,6 +24,18 @@
       <span id="count" class="count"></span>
     </div>
 
+    <div class="group" role="group" aria-label="元に戻す">
+      <button id="undo-btn" class="btn" disabled title="元に戻す（Ctrl+Z）">↶ 元に戻す</button>
+      <button id="redo-btn" class="btn" disabled title="やり直す（Ctrl+Y）">↷ やり直す</button>
+      <label class="field" title="サムネイルの大きさ">大きさ
+        <select id="thumb-size">
+          <option value="small">小</option>
+          <option value="medium" selected>中</option>
+          <option value="large">大</option>
+        </select>
+      </label>
+    </div>
+
     <div class="group" role="group" aria-label="選んだページの操作">
       <button id="rotate-left" class="btn" disabled title="選んだページを左に90°回転（選んでいなければ全ページ）">⟲ 左に回転</button>
       <button id="rotate-right" class="btn" disabled title="選んだページを右に90°回転（選んでいなければ全ページ）">⟳ 右に回転</button>
@@ -44,8 +56,9 @@
       <p>いくつかのPDFを1つにまとめたり、必要なページだけ抜き出したり、向きを直したりできます。</p>
       <ol>
         <li>「📂 PDFを追加」を押すか、PDFをここにドラッグします。いくつでも追加できます。</li>
-        <li>ページをドラッグするか、「◀ ▶」で順番を入れかえます。</li>
-        <li>ページをクリックすると選べます。選んだページを回転・削除できます。</li>
+        <li>ページをドラッグするか、「◀ ▶」で順番を入れかえます。タッチ画面では、ページを長押ししてから動かします。</li>
+        <li>ページをクリックすると選べます。選んだページはまとめてドラッグ・回転・削除できます。</li>
+        <li>「🔍」かダブルクリックでページを大きく表示して、中身を確かめられます。まちがえたら「↶ 元に戻す」。</li>
         <li>「💾 1つのPDFに保存」で全ページをまとめて保存します。</li>
         <li>「📄 選んだページを保存」で選んだページだけ、「✂ 1ページずつ保存」でページごとに分けて保存します。</li>
       </ol>
@@ -53,6 +66,20 @@
     </section>
     <ol id="grid" class="grid" aria-label="ページ一覧"></ol>
   </main>
+
+  <div id="preview" class="preview" role="dialog" aria-modal="true" aria-label="ページを大きく表示" hidden>
+    <div class="preview-bar">
+      <span id="preview-label" class="preview-label"></span>
+      <button id="preview-rotate" class="btn">⟳ 右に回転</button>
+      <button id="preview-delete" class="btn">🗑 このページを外す</button>
+      <button id="preview-close" class="btn primary">✕ 閉じる</button>
+    </div>
+    <div class="preview-body">
+      <button id="preview-prev" class="preview-nav" title="前のページ（←）" aria-label="前のページ">‹</button>
+      <div id="preview-stage" class="preview-stage"></div>
+      <button id="preview-next" class="preview-nav" title="次のページ（→）" aria-label="次のページ">›</button>
+    </div>
+  </div>
 
   <div id="status" class="status" role="status" aria-live="polite" hidden></div>
   <div id="drop-overlay" class="drop-overlay" hidden>ここにPDFをドロップ</div>
