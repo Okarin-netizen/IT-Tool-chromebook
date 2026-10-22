@@ -1,0 +1,9 @@
+{
+  "name": "画像→PDF",
+  "short_name": "画像→PDF",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#e5e7eb",
+  "theme_color": "#0f766e",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
