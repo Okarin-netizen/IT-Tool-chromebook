@@ -1,0 +1,9 @@
+{
+  "name": "関数電卓・グラフ",
+  "short_name": "関数電卓",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#e5e7eb",
+  "theme_color": "#1d4ed8",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

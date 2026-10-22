@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>関数電卓・グラフ</title>
+  <meta name="description" content="ブラウザだけで動く関数電卓とグラフ描画ツール">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#1d4ed8">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
+    </div>
+    <div class="group tabs" role="tablist" aria-label="モード">
+      <button id="tab-calc" class="btn tab" role="tab" aria-controls="calc-pane" aria-selected="true">🧮 電卓</button>
+      <button id="tab-graph" class="btn tab" role="tab" aria-controls="graph-pane" aria-selected="false">📈 グラフ</button>
+    </div>
+  </header>
+
+  <main id="calc-pane" class="calc-pane" role="tabpanel" aria-labelledby="tab-calc">
+    <section class="calc">
+      <div class="display">
+        <div class="display-top">
+          <button id="angle-btn" class="angle" title="角度の単位を切りかえる">DEG</button>
+          <span class="hint">キーボードでも入力できます（Enter で計算）</span>
+        </div>
+        <input id="expr" class="expr" type="text" inputmode="none" autocomplete="off" spellcheck="false"
+               aria-label="式" placeholder="例: 2sin(30)+√3">
+        <output id="result" class="result" for="expr" aria-live="polite"></output>
+      </div>
+
+      <div class="keys" id="keys">
+        <button class="key fn" data-ins="sin(">sin</button>
+        <button class="key fn" data-ins="cos(">cos</button>
+        <button class="key fn" data-ins="tan(">tan</button>
+        <button class="key fn" data-ins="(">(</button>
+        <button class="key fn" data-ins=")">)</button>
+
+        <button class="key fn" data-ins="asin(">sin⁻¹</button>
+        <button class="key fn" data-ins="acos(">cos⁻¹</button>
+        <button class="key fn" data-ins="atan(">tan⁻¹</button>
+        <button class="key fn" data-ins="^" title="累乗">xʸ</button>
+        <button class="key fn" data-ins="!" title="階乗">n!</button>
+
+        <button class="key fn" data-ins="ln(" title="自然対数">ln</button>
+        <button class="key fn" data-ins="log(" title="常用対数（底10）">log</button>
+        <button class="key fn" data-ins="√(" title="平方根">√</button>
+        <button class="key fn" data-ins="^2" title="2乗">x²</button>
+        <button class="key fn" data-ins="π" title="円周率">π</button>
+
+        <button class="key" data-ins="7">7</button>
+        <button class="key" data-ins="8">8</button>
+        <button class="key" data-ins="9">9</button>
+        <button class="key op del" data-act="back" title="1文字消す">⌫</button>
+        <button class="key op del" data-act="clear" title="全部消す">AC</button>
+
+        <button class="key" data-ins="4">4</button>
+        <button class="key" data-ins="5">5</button>
+        <button class="key" data-ins="6">6</button>
+        <button class="key op" data-ins="×">×</button>
+        <button class="key op" data-ins="÷">÷</button>
+
+        <button class="key" data-ins="1">1</button>
+        <button class="key" data-ins="2">2</button>
+        <button class="key" data-ins="3">3</button>
+        <button class="key op" data-ins="+">＋</button>
+        <button class="key op" data-ins="-">−</button>
+
+        <button class="key" data-ins="0">0</button>
+        <button class="key" data-ins=".">.</button>
+        <button class="key fn" data-ins="e" title="自然対数の底">e</button>
+        <button class="key fn" data-ins="ans" title="前の答え">Ans</button>
+        <button class="key eq" data-act="eval">＝</button>
+      </div>
+    </section>
+
+    <section class="history">
+      <div class="history-head">
+        <h2>計算の履歴</h2>
+        <button id="history-clear" class="btn small">消す</button>
+      </div>
+      <p id="history-empty" class="muted">「＝」を押すとここに残ります。押すと式を呼び出せます。</p>
+      <ol id="history-list" class="history-list"></ol>
+    </section>
+  </main>
+
+  <main id="graph-pane" class="graph-pane" role="tabpanel" aria-labelledby="tab-graph" hidden>
+    <aside class="side">
+      <h2>関数</h2>
+      <ul id="func-list" class="func-list"></ul>
+      <button id="func-add" class="btn">＋ 関数を追加</button>
+      <p class="muted small-text">
+        例: <code>x^2-2x-3</code>、<code>2sin(x)</code>、<code>1/x</code>、<code>√x</code>、<code>|x|</code> は <code>abs(x)</code><br>
+        グラフの角度はラジアンです。ドラッグで移動、ホイールやピンチで拡大縮小できます。
+      </p>
+    </aside>
+    <section class="plot">
+      <canvas id="plot" aria-label="グラフ"></canvas>
+      <div class="plot-tools">
+        <button id="zoom-in" class="btn icon" title="拡大">＋</button>
+        <button id="zoom-out" class="btn icon" title="縮小">－</button>
+        <button id="zoom-reset" class="btn icon" title="はじめの表示に戻す">⌂</button>
+      </div>
+      <div id="readout" class="readout" hidden></div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
