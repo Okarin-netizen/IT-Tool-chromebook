@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDFに手書き・署名</title>
+  <meta name="description" content="PDFにペンで書き込んだり、ハンコや署名を押したりできるブラウザだけで動くツール">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#be123c">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
+      <label class="btn primary" for="file-input">📂 PDFを開く</label>
+      <input id="file-input" type="file" accept="application/pdf,.pdf" hidden>
+    </div>
+
+    <div class="group tools" role="radiogroup" aria-label="道具">
+      <button class="btn tool" data-tool="select" title="書いたものを選んで動かす (V)">👆 選択</button>
+      <button class="btn tool selected" data-tool="pen" title="ペンで書く (P)">✏️ ペン</button>
+      <button class="btn tool" data-tool="marker" title="蛍光ペンで線を引く (M)">🖍 蛍光ペン</button>
+      <button class="btn tool" data-tool="eraser" title="書いたものをなぞって消す (E)">🧽 消しゴム</button>
+      <div class="menu-wrap">
+        <button id="stamp-btn" class="btn tool" data-tool="stamp" aria-haspopup="true" title="ハンコ・記号を押す (H)">🔴 ハンコ ▾</button>
+        <div id="stamp-menu" class="menu" hidden>
+          <div class="menu-title">ハンコ（朱色）</div>
+          <label class="name-field">名前 <input id="seal-name" type="text" maxlength="4" placeholder="例: 山田" autocomplete="off"></label>
+          <div id="seal-list" class="stamp-grid"></div>
+          <div class="menu-title">記号（いまの色）</div>
+          <div id="mark-list" class="stamp-grid"></div>
+        </div>
+      </div>
+      <div class="menu-wrap">
+        <button id="sign-btn" class="btn tool" data-tool="sign" aria-haspopup="true" title="署名（サイン）を入れる (S)">✍ 署名 ▾</button>
+        <div id="sign-menu" class="menu" hidden>
+          <div class="menu-title">保存した署名</div>
+          <div id="sign-list" class="sign-list"></div>
+          <button id="new-sign-btn" class="btn">＋ 新しい署名を書く</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="group" role="group" aria-label="色と太さ">
+      <div class="colors" role="radiogroup" aria-label="色">
+        <button class="swatch selected" data-color="#111111" style="--c:#111111" aria-label="黒"></button>
+        <button class="swatch" data-color="#d11a1a" style="--c:#d11a1a" aria-label="赤"></button>
+        <button class="swatch" data-color="#1d4ed8" style="--c:#1d4ed8" aria-label="青"></button>
+        <button class="swatch" data-color="#15803d" style="--c:#15803d" aria-label="緑"></button>
+        <button class="swatch" data-color="#facc15" style="--c:#facc15" aria-label="黄"></button>
+      </div>
+      <label class="field">太さ
+        <select id="width">
+          <option value="1">細い</option>
+          <option value="2" selected>ふつう</option>
+          <option value="4">太い</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="group">
+      <button id="undo-btn" class="btn icon" disabled title="元に戻す (Ctrl+Z)">↶</button>
+      <button id="redo-btn" class="btn icon" disabled title="やり直す (Ctrl+Y)">↷</button>
+      <button id="delete-btn" class="btn" disabled title="選んでいるものを消す (Delete)">🗑 削除</button>
+    </div>
+
+    <div class="group" role="group" aria-label="表示倍率">
+      <button id="zoom-out" class="btn icon" title="縮小">－</button>
+      <span id="zoom-label" class="zoom-label">100%</span>
+      <button id="zoom-in" class="btn icon" title="拡大">＋</button>
+    </div>
+
+    <div class="group end">
+      <button id="save-btn" class="btn primary" disabled title="書き込んだPDFを保存 (Ctrl+S)">💾 PDFを保存</button>
+    </div>
+  </header>
+
+  <main id="viewer" class="viewer">
+    <section id="welcome" class="welcome">
+      <h1>PDFに手書き・署名</h1>
+      <p>プリントや書類のPDFに、ペンで書き込んだり、ハンコや署名を入れたりできます。</p>
+      <ol>
+        <li>「📂 PDFを開く」を押すか、PDFをここにドラッグします。</li>
+        <li>「✏️ ペン」「🖍 蛍光ペン」でページの上をなぞって書きます。タッチペンや指でも書けます。</li>
+        <li>「🔴 ハンコ」で名前の印鑑や「済」「✓」「○」などを選び、押したい場所をクリックします。</li>
+        <li>「✍ 署名」で自分のサインを書いておくと、何度でも使えます。</li>
+        <li>「👆 選択」でハンコや署名をドラッグして動かし、右下の角で大きさを変えられます。</li>
+        <li>「💾 PDFを保存」で、書き込んだPDFをダウンロードします。</li>
+      </ol>
+      <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。署名と名前はこのブラウザにだけ保存されます。</p>
+    </section>
+    <div id="pages" class="pages"></div>
+  </main>
+
+  <dialog id="sign-dialog" class="sign-dialog">
+    <form method="dialog">
+      <h2>署名を書く</h2>
+      <p class="hint">下の枠の中に、マウス・タッチペン・指でサインを書いてください。</p>
+      <canvas id="sign-pad" class="sign-pad" width="560" height="200"></canvas>
+      <div class="dialog-row">
+        <div class="colors" role="radiogroup" aria-label="署名の色">
+          <button type="button" class="swatch pad-swatch selected" data-color="#111111" style="--c:#111111" aria-label="黒"></button>
+          <button type="button" class="swatch pad-swatch" data-color="#1d4ed8" style="--c:#1d4ed8" aria-label="青"></button>
+        </div>
+        <button type="button" id="pad-clear" class="btn">書き直す</button>
+        <span class="spacer"></span>
+        <button value="cancel" class="btn">やめる</button>
+        <button type="button" id="pad-ok" class="btn primary">この署名を使う</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+  <div id="drop-overlay" class="drop-overlay" hidden>ここにPDFをドロップ</div>
+
+  <script src="lib/pdf-lib.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

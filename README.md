@@ -9,6 +9,7 @@ GitHub Pages で公開して使います。
 | --- | --- | --- |
 | [`pdf-text/`](pdf-text/) | PDF文字入れ | PDFに日本語の文字や写真を書き込み、新しいPDFとしてダウンロード |
 | [`pdf-pages/`](pdf-pages/) | PDF結合・分割・回転 | 複数のPDFを結合、ページの抜き出し・1ページずつ分割、並べ替え、回転 |
+| [`pdf-sign/`](pdf-sign/) | PDFに手書き・署名 | PDFにペン・蛍光ペンで書き込み、名前の印鑑や「済」「✓」などのハンコ、手書きの署名を入れて保存 |
 | [`image-pdf/`](image-pdf/) | 画像→PDF | 写真や画像を並べ替えて1つのPDFにまとめてダウンロード |
 | [`pdf-compress/`](pdf-compress/) | PDF圧縮 | PDFの中の画像を縮小・再圧縮してファイルサイズを小さくする（目標サイズ指定も可） |
 | [`pdf-image/`](pdf-image/) | PDF→画像 | PDFのページをPNG / JPGの画像にして保存（複数ページはZIP）、コピーして貼り付け |
@@ -173,3 +174,16 @@ GitHub Pages で公開して使います。
 | [pdf.js](https://github.com/mozilla/pdf.js) 4.10.38 | PDFの表示・文字の取り出し（PDF文字入れと同じもの） | Apache-2.0 |
 | [tesseract.js](https://github.com/naptha/tesseract.js) 7.0.0 / tesseract.js-core 7.0.0 | OCR（SIMD版のみ同梱） | Apache-2.0 |
 | [tessdata_best](https://github.com/tesseract-ocr/tessdata_best)（`@tesseract.js-data` 1.0.0 の jpn / jpn_vert / eng、best_int） | OCRの学習データ | Apache-2.0 |
+
+## PDFに手書き・署名
+
+- 「📂 PDFを開く」またはドラッグでPDFを開き、ページの上に直接書き込みます
+- 「✏️ ペン」「🖍 蛍光ペン」でなぞって書く（マウス・タッチペン・指）。色5色・太さ3段階。蛍光ペンは下の文字を隠しません
+- 「🧽 消しゴム」でなぞった線やハンコを消す。元に戻す/やり直す（<kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd>）
+- 「🔴 ハンコ」: 名前を入れた丸い印鑑（4文字までOK）、「済」「確認」「提出済」（朱色）、「✓ ○ × △」と今日の日付（いまの色）。押したい場所をクリック
+- 「✍ 署名」: 枠の中にサインを書くと、このブラウザに5つまで保存され、何度でも使えます
+- 「👆 選択」でハンコ・署名・線をドラッグして移動、右下の角で大きさを変更、<kbd>Delete</kbd> で削除
+- 「💾 PDFを保存」で `元の名前_書き込み済み.pdf` をダウンロード。元のページの文字はそのまま残り、書き込みはその上に重ねます
+- 保護（編集制限）がかかったPDFも保存できます。その場合は元のページを画像にしてから書き込みます（文字の選択はできなくなります）。開くのにパスワードが必要なPDFは使えません
+- 同梱ライブラリは pdf.js 4.10.38（表示）と pdf-lib 1.17.1（保存）。PDF文字入れと同じものを `pdf-sign/lib/` にも入れています
+- PDF・署名・名前はどこにも送信されず、ブラウザ内だけで処理・保存されます
