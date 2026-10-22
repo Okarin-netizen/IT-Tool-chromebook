@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDF圧縮</title>
+  <meta name="description" content="PDFのファイルサイズを小さくする、ブラウザだけで動くツール">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#c2410c">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
+      <label class="btn primary" for="file-input">📂 PDFを開く</label>
+      <input id="file-input" type="file" accept="application/pdf,.pdf" hidden>
+    </div>
+  </header>
+
+  <main class="viewer">
+    <section id="welcome" class="panel welcome">
+      <h1>PDF圧縮</h1>
+      <p>PDFのファイルサイズを小さくします。提出のサイズ制限に引っかかるときに使えます。</p>
+      <ol>
+        <li>「📂 PDFを開く」を押すか、PDFをここにドラッグします。</li>
+        <li>圧縮のしかたと強さを選んで「🗜 圧縮する」を押します。</li>
+        <li>できあがりのサイズと見た目を確認して「💾 保存」します。</li>
+      </ol>
+      <p class="note">写真やスキャンが入ったPDFほど小さくなります。文字だけのPDFはもともと軽いので、あまり変わりません。</p>
+      <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。</p>
+    </section>
+
+    <section id="work" class="panel" hidden>
+      <div class="file">
+        <img src="icon.svg" alt="" width="40" height="40">
+        <div class="file-text">
+          <div id="file-name" class="file-name"></div>
+          <div id="file-info" class="muted"></div>
+        </div>
+      </div>
+
+      <fieldset class="choice">
+        <legend>圧縮のしかた</legend>
+        <label class="option">
+          <input type="radio" name="method" value="images" checked>
+          <span><b>画像だけ軽くする（おすすめ）</b><small>中の写真・スキャン画像を小さくします。文字はそのままなので、選択や検索もできます。</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="method" value="raster">
+          <span><b>ページ全体を画像にする（強力）</b><small>どんなPDFでも小さくしやすい方法です。文字は選択・検索できなくなります。</small></span>
+        </label>
+      </fieldset>
+
+      <fieldset class="choice">
+        <legend>強さ</legend>
+        <div class="segmented" role="radiogroup">
+          <label><input type="radio" name="level" value="0"><span>弱め<small>きれい</small></span></label>
+          <label><input type="radio" name="level" value="1" checked><span>標準</span></label>
+          <label><input type="radio" name="level" value="2"><span>強め<small>小さい</small></span></label>
+          <label><input type="radio" name="level" value="target"><span>サイズ指定</span></label>
+        </div>
+        <div id="target-row" class="target-row" hidden>
+          <input id="target-mb" type="number" min="0.1" step="0.1" value="2" inputmode="decimal" aria-label="目標サイズ（MB）"> MB 以下にする
+          <small class="muted">（いちばんきれいなものから順に試します）</small>
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button id="compress-btn" class="btn primary big">🗜 圧縮する</button>
+      </div>
+
+      <div id="result" class="result" hidden>
+        <div class="sizes">
+          <div><span class="muted">元のサイズ</span><b id="size-before"></b></div>
+          <div class="arrow">→</div>
+          <div><span class="muted">圧縮後</span><b id="size-after"></b></div>
+          <div id="size-rate" class="rate"></div>
+        </div>
+        <p id="result-note" class="result-note"></p>
+        <div class="preview-wrap">
+          <div class="preview-head">
+            <span class="muted">仕上がりの確認（<span id="preview-label"></span>）</span>
+            <span class="pager">
+              <button id="prev-page" class="mini" aria-label="前のページ">◀</button>
+              <button id="next-page" class="mini" aria-label="次のページ">▶</button>
+            </span>
+          </div>
+          <canvas id="preview" class="preview"></canvas>
+        </div>
+        <div class="actions">
+          <button id="save-btn" class="btn primary big">💾 保存</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+  <div id="drop-overlay" class="drop-overlay" hidden>ここにPDFをドロップ</div>
+
+  <script src="lib/pdf-lib.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
