@@ -7,16 +7,25 @@
   <meta name="description" content="写真や画像を1つのPDFにまとめるブラウザだけで動くツール">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#0f766e">
+  <meta name="theme-color" content="#b84a28">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><path d="M3 5h18v14H3z"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-switch" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5l2 2M20 12a8 8 0 0 1-14 5l-2-2M20 4v5h-5M4 20v-5h5"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  </svg>
   <header class="toolbar">
     <div class="group">
-      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
-      <label class="btn primary" for="file-input">🖼 画像を追加</label>
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">画像→PDF</span>
+      <label class="btn primary" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-image"/></svg>画像を追加</label>
       <input id="file-input" type="file" accept="image/*" multiple hidden>
-      <button id="camera-btn" class="btn" title="カメラで撮影して追加">📷 カメラで撮る</button>
+      <button id="camera-btn" class="btn" title="カメラで撮影して追加"><svg class="i" aria-hidden="true"><use href="#i-camera"/></svg>カメラで撮る</button>
     </div>
 
     <div class="group" role="group" aria-label="PDFの設定">
@@ -51,15 +60,15 @@
     </div>
 
     <div class="group">
-      <button id="sort-btn" class="btn" disabled title="ファイル名の順に並べる">↕ 名前順</button>
-      <button id="clear-btn" class="btn" disabled title="すべての画像を外す">🗑 全部消す</button>
+      <button id="sort-btn" class="btn" disabled title="ファイル名の順に並べる">名前順</button>
+      <button id="clear-btn" class="btn" disabled title="すべての画像を外す"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>全部消す</button>
     </div>
 
     <div class="group end">
       <label class="field">ファイル名
         <input id="file-name" type="text" value="まとめ" size="12" autocomplete="off">
       </label>
-      <button id="save-btn" class="btn primary" disabled>💾 PDFを保存</button>
+      <button id="save-btn" class="btn primary" disabled><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>PDFを保存</button>
     </div>
   </header>
 
@@ -68,10 +77,10 @@
       <h1>画像→PDF</h1>
       <p>ノートやプリントの写真を、1つのPDFにまとめて保存できます。</p>
       <ol>
-        <li>「🖼 画像を追加」を押すか、画像をここにドラッグします（何枚でもOK）。</li>
-        <li>「📷 カメラで撮る」で、その場で撮影して追加することもできます。</li>
+        <li>「画像を追加」を押すか、画像をここにドラッグします（何枚でもOK）。</li>
+        <li>「カメラで撮る」で、その場で撮影して追加することもできます。</li>
         <li>画像をドラッグするか「◀ ▶」で順番を入れ替えます。「⟳」で90°回転します。</li>
-        <li>用紙・向き・余白を選んで「💾 PDFを保存」を押すと、1枚1ページのPDFができます。</li>
+        <li>用紙・向き・余白を選んで「PDFを保存」を押すと、1枚1ページのPDFができます。</li>
       </ol>
       <p class="note">画像はこのパソコンの中だけで処理され、どこにも送信されません。</p>
     </section>
@@ -81,7 +90,7 @@
   <dialog id="camera" class="camera">
     <video id="camera-video" autoplay playsinline muted></video>
     <div class="camera-bar">
-      <button id="camera-switch" class="btn" title="前後のカメラを切り替える">🔄 切替</button>
+      <button id="camera-switch" class="btn" title="前後のカメラを切り替える"><svg class="i" aria-hidden="true"><use href="#i-switch"/></svg>切替</button>
       <button id="camera-shot" class="btn primary shot">● 撮影</button>
       <button id="camera-close" class="btn">完了</button>
     </div>

@@ -7,18 +7,24 @@
   <meta name="description" content="時間割と課題をブラウザに保存して管理できるツール">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#15803d">
+  <meta name="theme-color" content="#2b8463">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M5 20h14"/></symbol>
+  </svg>
   <header class="toolbar">
     <div class="group">
-      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
       <h1 class="title">時間割・課題</h1>
     </div>
     <div class="group end">
-      <button id="export-btn" class="btn" title="データをファイルに保存（バックアップ）">⬇ バックアップ</button>
-      <label class="btn" for="import-input" title="バックアップしたファイルから読み込む">⬆ 読み込み</label>
+      <button id="export-btn" class="btn" title="データをファイルに保存（バックアップ）"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>バックアップ</button>
+      <label class="btn" for="import-input" title="バックアップしたファイルから読み込む"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg>読み込み</label>
       <input id="import-input" type="file" accept="application/json,.json" hidden>
     </div>
   </header>
@@ -69,7 +75,7 @@
     </section>
   </main>
 
-  <p class="note">データはこのブラウザの中だけに保存され、どこにも送信されません。別の端末で使うときや、念のための保存には「⬇ バックアップ」を使ってください。</p>
+  <p class="note">データはこのブラウザの中だけに保存され、どこにも送信されません。別の端末で使うときや、念のための保存には「バックアップ」を使ってください。</p>
 
   <div id="status" class="status" role="status" aria-live="polite" hidden></div>
 

@@ -119,8 +119,8 @@ function createCard(view) {
     <div class="thumb"><div class="placeholder"></div></div>
     <div class="label"><b>${view.index + 1}</b> ページ</div>
     <div class="card-actions">
-      <button class="mini" data-act="save" title="このページを画像で保存" aria-label="このページを画像で保存">💾</button>
-      <button class="mini" data-act="copy" title="このページをコピー（スライドやドキュメントに貼り付けできます）" aria-label="このページをコピー">📋</button>
+      <button class="mini" data-act="save" title="このページを画像で保存" aria-label="このページを画像で保存"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg></button>
+      <button class="mini" data-act="copy" title="このページをコピー（スライドやドキュメントに貼り付けできます）" aria-label="このページをコピー"><svg class="i" aria-hidden="true"><use href="#i-copy"/></svg></button>
     </div>`;
   view.el = li;
 
@@ -195,7 +195,7 @@ function updateUi() {
   els.saveBtn.disabled = !total || state.busy;
   els.fileInput.disabled = state.busy;
   els.count.textContent = total ? (chosen ? `${chosen}/${total}ページ選択中` : `全${total}ページ`) : "";
-  els.saveBtn.textContent = chosen ? `💾 選んだ${chosen}ページを保存` : "💾 全ページを保存";
+  els.saveBtn.innerHTML = `<svg class="i" aria-hidden="true"><use href="#i-save"/></svg>${chosen ? `選んだ${chosen}ページを保存` : "全ページを保存"}`;
 }
 
 /* ---------- making images ---------- */
@@ -283,7 +283,7 @@ function saveSelectedOrAll() {
 
 function copyPage(view) {
   if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
-    showStatus("このブラウザではコピーできません。「💾」で保存してください", { error: true });
+    showStatus("このブラウザではコピーできません。保存ボタンで保存してください", { error: true });
     return;
   }
   return withBusy(async () => {

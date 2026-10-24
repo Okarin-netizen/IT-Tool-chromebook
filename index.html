@@ -6,202 +6,260 @@
   <title>Chromebook便利ツール</title>
   <meta name="description" content="Chromebookのブラウザだけで使える便利ツール集">
   <link rel="icon" href="pdf-text/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#f1f3f6">
   <style>
     :root {
-      --bg: #f3f4f6;
-      --card: #ffffff;
-      --text: #111827;
-      --muted: #6b7280;
-      --line: #e5e7eb;
-      --accent: #1d4ed8;
+      --bg: #f1f3f6;
+      --bar: #ffffff;
+      --text: #1f2329;
+      --muted: #5f6672;
+      --line: #d6dae1;
+      --hover: #e3e7ed;
+      --field: #ffffff;
+      --accent: #3565c9;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #111827;
-        --card: #1f2937;
-        --text: #f9fafb;
-        --muted: #9ca3af;
-        --line: #374151;
-        --accent: #93c5fd;
+        --bg: #1f2329;
+        --bar: #2a2f37;
+        --text: #eef0f3;
+        --muted: #a4abb6;
+        --line: #3a3f48;
+        --hover: #323842;
+        --field: #2a2f37;
+        --accent: #8fb0f0;
+        color-scheme: dark;
       }
     }
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     body {
       margin: 0;
       font-family: system-ui, "Noto Sans JP", sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.6;
+      line-height: 1.5;
     }
-    main { max-width: 960px; margin: 0 auto; padding: 40px 16px 64px; }
-    h1 { margin: 0 0 4px; font-size: 28px; }
-    .lead { margin: 0 0 32px; color: var(--muted); }
-    section + section { margin-top: 32px; }
-    .group-title { margin: 0 0 12px; font-size: 16px; color: var(--muted); }
-    .tools {
+    .appbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--bar);
+      border-bottom: 1px solid var(--line);
+    }
+    .appbar-inner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 16px;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 10px 16px;
+    }
+    h1 { margin: 0 auto 0 0; font-size: 18px; font-weight: 600; }
+    .search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 1 280px;
+      min-width: 0;
+      height: 38px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 19px;
+      background: var(--field);
+      color: var(--muted);
+    }
+    .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .search svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
+    .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; }
+    main { max-width: 960px; margin: 0 auto; padding: 20px 16px 48px; }
+    .note { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+    h2 { margin: 20px 4px 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+    .apps {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 16px;
-      padding: 0;
+      grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+      gap: 4px;
       margin: 0;
+      padding: 0;
       list-style: none;
     }
-    .tool {
+    .app {
       display: flex;
-      gap: 16px;
-      align-items: flex-start;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
       height: 100%;
-      padding: 20px;
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 14px;
+      padding: 14px 6px 12px;
+      border-radius: 8px;
       color: inherit;
       text-decoration: none;
-      transition: border-color .15s, transform .15s;
+      text-align: center;
     }
-    .tool:hover, .tool:focus-visible { border-color: var(--accent); transform: translateY(-2px); }
-    .tool img { width: 48px; height: 48px; flex: none; }
-    .tool h3 { margin: 0 0 4px; font-size: 18px; }
-    .tool p { margin: 0; color: var(--muted); font-size: 14px; }
-    footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
+    .app:hover { background: var(--hover); }
+    .app:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .app img { width: 48px; height: 48px; }
+    .name { font-size: 13px; line-height: 1.35; }
+    .desc { display: none; }
+    /* While searching, show what each tool does. */
+    body.searching .apps { grid-template-columns: 1fr; }
+    body.searching .app { display: grid; grid-template-columns: 40px 1fr; grid-template-rows: auto auto; gap: 0 12px; align-items: center; padding: 8px 10px; text-align: left; }
+    body.searching .app img { width: 40px; height: 40px; grid-row: span 2; }
+    body.searching .name { font-size: 14px; font-weight: 600; }
+    body.searching .desc { display: block; font-size: 13px; color: var(--muted); }
+    .empty { margin: 24px 4px; color: var(--muted); }
+    footer { margin-top: 40px; padding: 0 4px; color: var(--muted); font-size: 13px; }
+    footer a { color: var(--accent); }
   </style>
 </head>
 <body>
+  <header class="appbar">
+    <div class="appbar-inner">
+      <h1>Chromebook便利ツール</h1>
+      <label class="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+        <input id="q" type="search" placeholder="ツールをさがす" aria-label="ツールをさがす" autocomplete="off">
+      </label>
+    </div>
+  </header>
+
   <main>
-    <h1>Chromebook便利ツール</h1>
-    <p class="lead">インストール不要、ブラウザだけで使えるツール集です。ファイルはこの端末の中だけで処理されます。</p>
+    <p class="note">インストール不要、ブラウザだけで使えます。ファイルはこの端末の中だけで処理されます。</p>
 
     <!-- 新しいツールを追加するときは、フォルダを作って、合うグループの <ul> に <li> を1つ足してください -->
     <section aria-labelledby="g-pdf">
-      <h2 class="group-title" id="g-pdf">📄 PDF</h2>
-      <ul class="tools">
+      <h2 id="g-pdf">PDF</h2>
+      <ul class="apps">
         <li>
-          <a class="tool" href="pdf-text/">
-            <img src="pdf-text/icon.svg" alt="">
-            <div>
-              <h3>PDF文字入れ</h3>
-              <p>PDFに日本語の文字や写真を書き込んで、新しいPDFとして保存します。</p>
-            </div>
+          <a class="app" href="pdf-text/" title="PDFに日本語の文字や写真を書き込んで、新しいPDFとして保存します。">
+            <img src="pdf-text/icon.svg" alt="" width="48" height="48">
+            <span class="name">PDF文字入れ</span>
+            <span class="desc">PDFに日本語の文字や写真を書き込んで、新しいPDFとして保存します。</span>
           </a>
         </li>
         <li>
-          <a class="tool" href="pdf-pages/">
-            <img src="pdf-pages/icon.svg" alt="">
-            <div>
-              <h3>PDF結合・分割・回転</h3>
-              <p>PDFを1つにまとめたり、必要なページだけ抜き出したり、向きを直したりします。</p>
-            </div>
+          <a class="app" href="pdf-pages/" title="PDFを1つにまとめたり、必要なページだけ抜き出したり、向きを直したりします。">
+            <img src="pdf-pages/icon.svg" alt="" width="48" height="48">
+            <span class="name">PDF結合・分割・回転</span>
+            <span class="desc">PDFを1つにまとめたり、必要なページだけ抜き出したり、向きを直したりします。</span>
           </a>
         </li>
         <li>
-          <a class="tool" href="image-pdf/">
-            <img src="image-pdf/icon.svg" alt="">
-            <div>
-              <h3>画像→PDF</h3>
-              <p>ノートやプリントの写真を並べ替えて、1つのPDFにまとめます。カメラでその場で撮ることもできます。</p>
-            </div>
+          <a class="app" href="image-pdf/" title="ノートやプリントの写真を並べ替えて、1つのPDFにまとめます。カメラでその場で撮ることもできます。">
+            <img src="image-pdf/icon.svg" alt="" width="48" height="48">
+            <span class="name">画像→PDF</span>
+            <span class="desc">ノートやプリントの写真を並べ替えて、1つのPDFにまとめます。カメラでその場で撮ることもできます。</span>
           </a>
         </li>
         <li>
-          <a class="tool" href="pdf-compress/">
-            <img src="pdf-compress/icon.svg" alt="">
-            <div>
-              <h3>PDF圧縮</h3>
-              <p>写真やスキャンの入ったPDFを軽くします。提出のサイズ制限に引っかかるときに。</p>
-            </div>
+          <a class="app" href="pdf-compress/" title="写真やスキャンの入ったPDFを軽くします。提出のサイズ制限に引っかかるときに。">
+            <img src="pdf-compress/icon.svg" alt="" width="48" height="48">
+            <span class="name">PDF圧縮</span>
+            <span class="desc">写真やスキャンの入ったPDFを軽くします。提出のサイズ制限に引っかかるときに。</span>
           </a>
         </li>
         <li>
-          <a class="tool" href="pdf-image/">
-            <img src="pdf-image/icon.svg" alt="">
-            <div>
-              <h3>PDF→画像</h3>
-              <p>PDFのページをPNGやJPGの画像にして保存・コピーします。スライドやClassroomに貼りたいときに。</p>
-            </div>
+          <a class="app" href="pdf-image/" title="PDFのページをPNGやJPGの画像にして保存・コピーします。スライドやClassroomに貼りたいときに。">
+            <img src="pdf-image/icon.svg" alt="" width="48" height="48">
+            <span class="name">PDF→画像</span>
+            <span class="desc">PDFのページをPNGやJPGの画像にして保存・コピーします。スライドやClassroomに貼りたいときに。</span>
           </a>
         </li>
         <li>
-          <a class="tool" href="pdf-stamp/">
-            <img src="pdf-stamp/icon.svg" alt="">
-            <div>
-              <h3>ページ番号・透かし入れ</h3>
-              <p>PDFの全ページにページ番号や「下書き」「見本」などの透かしをまとめて入れます。</p>
-            </div>
+          <a class="app" href="pdf-stamp/" title="PDFの全ページにページ番号や「下書き」「見本」などの透かしをまとめて入れます。">
+            <img src="pdf-stamp/icon.svg" alt="" width="48" height="48">
+            <span class="name">ページ番号・透かし入れ</span>
+            <span class="desc">PDFの全ページにページ番号や「下書き」「見本」などの透かしをまとめて入れます。</span>
           </a>
         </li>
         <li>
-          <a class="tool" href="pdf-extract/">
-            <img src="pdf-extract/icon.svg" alt="">
-            <div>
-              <h3>PDF文字取り出し</h3>
-              <p>PDFの文字を取り出してコピーやテキスト保存ができます。スキャンしたPDFもOCRで読み取れます。</p>
-            </div>
+          <a class="app" href="pdf-extract/" title="PDFの文字を取り出してコピーやテキスト保存ができます。スキャンしたPDFもOCRで読み取れます。">
+            <img src="pdf-extract/icon.svg" alt="" width="48" height="48">
+            <span class="name">PDF文字取り出し</span>
+            <span class="desc">PDFの文字を取り出してコピーやテキスト保存ができます。スキャンしたPDFもOCRで読み取れます。</span>
           </a>
         </li>
         <li>
-          <a class="tool" href="pdf-sign/">
-            <img src="pdf-sign/icon.svg" alt="">
-            <div>
-              <h3>PDFに手書き・署名</h3>
-              <p>プリントのPDFにペンで書き込んだり、ハンコや署名を押したりして保存します。</p>
-            </div>
+          <a class="app" href="pdf-sign/" title="プリントのPDFにペンで書き込んだり、ハンコや署名を押したりして保存します。">
+            <img src="pdf-sign/icon.svg" alt="" width="48" height="48">
+            <span class="name">PDFに手書き・署名</span>
+            <span class="desc">プリントのPDFにペンで書き込んだり、ハンコや署名を押したりして保存します。</span>
           </a>
         </li>
         <li>
-          <a class="tool" href="pdf-grade/">
-            <img src="pdf-grade/icon.svg" alt="">
-            <div>
-              <h3>PDF一括採点</h3>
-              <p>提出された何人分ものPDFをまとめて開いて採点し、1人ずつ別々のPDFにして返却用に保存します。</p>
-            </div>
+          <a class="app" href="pdf-grade/" title="提出された何人分ものPDFをまとめて開いて採点し、1人ずつ別々のPDFにして返却用に保存します。">
+            <img src="pdf-grade/icon.svg" alt="" width="48" height="48">
+            <span class="name">PDF一括採点</span>
+            <span class="desc">提出された何人分ものPDFをまとめて開いて採点し、1人ずつ別々のPDFにして返却用に保存します。</span>
           </a>
         </li>
       </ul>
     </section>
 
     <section aria-labelledby="g-other">
-      <h2 class="group-title" id="g-other">🧰 そのほかのツール</h2>
-      <ul class="tools">
+      <h2 id="g-other">そのほかのツール</h2>
+      <ul class="apps">
         <li>
-          <a class="tool" href="calc/">
-            <img src="calc/icon.svg" alt="">
-            <div>
-              <h3>関数電卓・グラフ</h3>
-              <p>三角関数・対数・累乗などの計算と、y = f(x) のグラフ描画ができます。</p>
-            </div>
+          <a class="app" href="calc/" title="三角関数・対数・累乗などの計算と、y = f(x) のグラフ描画ができます。">
+            <img src="calc/icon.svg" alt="" width="48" height="48">
+            <span class="name">関数電卓・グラフ</span>
+            <span class="desc">三角関数・対数・累乗などの計算と、y = f(x) のグラフ描画ができます。</span>
           </a>
         </li>
         <li>
-          <a class="tool" href="todo/">
-            <img src="todo/icon.svg" alt="">
-            <div>
-              <h3>時間割・課題チェックリスト</h3>
-              <p>時間割と課題の締め切りをブラウザに保存して、やることを管理します。</p>
-            </div>
+          <a class="app" href="todo/" title="時間割と課題の締め切りをブラウザに保存して、やることを管理します。">
+            <img src="todo/icon.svg" alt="" width="48" height="48">
+            <span class="name">時間割・課題チェックリスト</span>
+            <span class="desc">時間割と課題の締め切りをブラウザに保存して、やることを管理します。</span>
           </a>
         </li>
         <li>
-          <a class="tool" href="timer/">
-            <img src="timer/icon.svg" alt="">
-            <div>
-              <h3>タイマー・ポモドーロ</h3>
-              <p>勉強時間やテスト練習の時間を計れます。ポモドーロ・タイマー・ストップウォッチの3つのモード。</p>
-            </div>
+          <a class="app" href="timer/" title="勉強時間やテスト練習の時間を計れます。ポモドーロ・タイマー・ストップウォッチの3つのモード。">
+            <img src="timer/icon.svg" alt="" width="48" height="48">
+            <span class="name">タイマー・ポモドーロ</span>
+            <span class="desc">勉強時間やテスト練習の時間を計れます。ポモドーロ・タイマー・ストップウォッチの3つのモード。</span>
           </a>
         </li>
         <li>
-          <a class="tool" href="image-annotate/">
-            <img src="image-annotate/icon.svg" alt="">
-            <div>
-              <h3>画像に書き込み</h3>
-              <p>スクリーンショットや写真に矢印・文字・図形を書き込んで、PNG画像で保存します。</p>
-            </div>
+          <a class="app" href="image-annotate/" title="スクリーンショットや写真に矢印・文字・図形を書き込んで、PNG画像で保存します。">
+            <img src="image-annotate/icon.svg" alt="" width="48" height="48">
+            <span class="name">画像に書き込み</span>
+            <span class="desc">スクリーンショットや写真に矢印・文字・図形を書き込んで、PNG画像で保存します。</span>
           </a>
         </li>
       </ul>
     </section>
 
+    <p id="empty" class="empty" hidden>「<span id="empty-q"></span>」に合うツールはありません。</p>
+
     <footer>ソース: <a href="https://github.com/Okarin-netizen/IT-Tool-chromebook">GitHub</a></footer>
   </main>
+
+  <script>
+    // Filters the launcher by tool name and description.
+    const q = document.getElementById("q");
+    q.addEventListener("input", () => {
+      const words = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      document.body.classList.toggle("searching", words.length > 0);
+      let shown = 0;
+      document.querySelectorAll("section").forEach((sec) => {
+        let inSection = 0;
+        sec.querySelectorAll("li").forEach((li) => {
+          const text = li.textContent.toLowerCase();
+          const hit = words.every((w) => text.includes(w));
+          li.hidden = !hit;
+          if (hit) inSection++;
+        });
+        sec.hidden = inSection === 0;
+        shown += inSection;
+      });
+      document.getElementById("empty-q").textContent = q.value.trim();
+      document.getElementById("empty").hidden = shown > 0;
+    });
+    q.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.querySelector("li:not([hidden]) .app")?.click();
+      if (e.key === "Escape") { q.value = ""; q.dispatchEvent(new Event("input")); }
+    });
+  </script>
 </body>
 </html>

@@ -3,7 +3,13 @@
   "short_name": "PDF文字取り出し",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#e5e7eb",
-  "theme_color": "#4338ca",
-  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+  "background_color": "#f1f3f6",
+  "theme_color": "#5157c0",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
 }

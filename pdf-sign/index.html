@@ -7,24 +7,39 @@
   <meta name="description" content="PDFにペンで書き込んだり、ハンコや署名を押したりできるブラウザだけで動くツール">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#be123c">
+  <meta name="theme-color" content="#bd3b58">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-eraser" viewBox="0 0 24 24"><path d="M5 15l9-9 5 5-8 8H9z"/><path d="M9 11l5 5M9 19h11"/></symbol>
+    <symbol id="i-marker" viewBox="0 0 24 24"><path d="M14 4l6 6-8 8H6v-6z"/><path d="M4 21h9"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 19V6a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v2"/><path d="M4 19l3-8h14l-3 8z"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/></symbol>
+    <symbol id="i-pointer" viewBox="0 0 24 24"><path d="M6 3l12 8-5.5 1.2L10 18z"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-sign" viewBox="0 0 24 24"><path d="M3 16c3 0 4-8 6-8s0 8 3 8 3-4 5-4 2 3 4 3"/><path d="M3 20h18"/></symbol>
+    <symbol id="i-stamp" viewBox="0 0 24 24"><path d="M9 4h6v5l-1 3h5v4H5v-4h5L9 9z"/><path d="M5 20h14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+  </svg>
   <header class="toolbar">
     <div class="group">
-      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
-      <label class="btn primary" for="file-input">📂 PDFを開く</label>
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">PDFに手書き・署名</span>
+      <label class="btn primary" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg>PDFを開く</label>
       <input id="file-input" type="file" accept="application/pdf,.pdf" hidden>
     </div>
 
     <div class="group tools" role="radiogroup" aria-label="道具">
-      <button class="btn tool" data-tool="select" title="書いたものを選んで動かす (V)">👆 選択</button>
-      <button class="btn tool selected" data-tool="pen" title="ペンで書く (P)">✏️ ペン</button>
-      <button class="btn tool" data-tool="marker" title="蛍光ペンで線を引く (M)">🖍 蛍光ペン</button>
-      <button class="btn tool" data-tool="eraser" title="書いたものをなぞって消す (E)">🧽 消しゴム</button>
+      <button class="btn tool" data-tool="select" title="書いたものを選んで動かす (V)"><svg class="i" aria-hidden="true"><use href="#i-pointer"/></svg>選択</button>
+      <button class="btn tool selected" data-tool="pen" title="ペンで書く (P)"><svg class="i" aria-hidden="true"><use href="#i-pen"/></svg>ペン</button>
+      <button class="btn tool" data-tool="marker" title="蛍光ペンで線を引く (M)"><svg class="i" aria-hidden="true"><use href="#i-marker"/></svg>蛍光ペン</button>
+      <button class="btn tool" data-tool="eraser" title="書いたものをなぞって消す (E)"><svg class="i" aria-hidden="true"><use href="#i-eraser"/></svg>消しゴム</button>
       <div class="menu-wrap">
-        <button id="stamp-btn" class="btn tool" data-tool="stamp" aria-haspopup="true" title="ハンコ・記号を押す (H)">🔴 ハンコ ▾</button>
+        <button id="stamp-btn" class="btn tool" data-tool="stamp" aria-haspopup="true" title="ハンコ・記号を押す (H)"><svg class="i" aria-hidden="true"><use href="#i-stamp"/></svg>ハンコ ▾</button>
         <div id="stamp-menu" class="menu" hidden>
           <div class="menu-title">ハンコ（朱色）</div>
           <label class="name-field">名前 <input id="seal-name" type="text" maxlength="4" placeholder="例: 山田" autocomplete="off"></label>
@@ -34,7 +49,7 @@
         </div>
       </div>
       <div class="menu-wrap">
-        <button id="sign-btn" class="btn tool" data-tool="sign" aria-haspopup="true" title="署名（サイン）を入れる (S)">✍ 署名 ▾</button>
+        <button id="sign-btn" class="btn tool" data-tool="sign" aria-haspopup="true" title="署名（サイン）を入れる (S)"><svg class="i" aria-hidden="true"><use href="#i-sign"/></svg>署名 ▾</button>
         <div id="sign-menu" class="menu" hidden>
           <div class="menu-title">保存した署名</div>
           <div id="sign-list" class="sign-list"></div>
@@ -61,9 +76,9 @@
     </div>
 
     <div class="group">
-      <button id="undo-btn" class="btn icon" disabled title="元に戻す (Ctrl+Z)">↶</button>
-      <button id="redo-btn" class="btn icon" disabled title="やり直す (Ctrl+Y)">↷</button>
-      <button id="delete-btn" class="btn" disabled title="選んでいるものを消す (Delete)">🗑 削除</button>
+      <button id="undo-btn" class="btn icon" disabled title="元に戻す (Ctrl+Z)"><svg class="i" aria-hidden="true"><use href="#i-undo"/></svg></button>
+      <button id="redo-btn" class="btn icon" disabled title="やり直す (Ctrl+Y)"><svg class="i" aria-hidden="true"><use href="#i-redo"/></svg></button>
+      <button id="delete-btn" class="btn" disabled title="選んでいるものを消す (Delete)"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>削除</button>
     </div>
 
     <div class="group" role="group" aria-label="表示倍率">
@@ -73,7 +88,7 @@
     </div>
 
     <div class="group end">
-      <button id="save-btn" class="btn primary" disabled title="書き込んだPDFを保存 (Ctrl+S)">💾 PDFを保存</button>
+      <button id="save-btn" class="btn primary" disabled title="書き込んだPDFを保存 (Ctrl+S)"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>PDFを保存</button>
     </div>
   </header>
 
@@ -82,12 +97,12 @@
       <h1>PDFに手書き・署名</h1>
       <p>プリントや書類のPDFに、ペンで書き込んだり、ハンコや署名を入れたりできます。</p>
       <ol>
-        <li>「📂 PDFを開く」を押すか、PDFをここにドラッグします。</li>
-        <li>「✏️ ペン」「🖍 蛍光ペン」でページの上をなぞって書きます。タッチペンや指でも書けます。</li>
-        <li>「🔴 ハンコ」で名前の印鑑や「済」「✓」「○」などを選び、押したい場所をクリックします。</li>
-        <li>「✍ 署名」で自分のサインを書いておくと、何度でも使えます。</li>
-        <li>「👆 選択」でハンコや署名をドラッグして動かし、右下の角で大きさを変えられます。</li>
-        <li>「💾 PDFを保存」で、書き込んだPDFをダウンロードします。</li>
+        <li>「PDFを開く」を押すか、PDFをここにドラッグします。</li>
+        <li>「ペン」「蛍光ペン」でページの上をなぞって書きます。タッチペンや指でも書けます。</li>
+        <li>「ハンコ」で名前の印鑑や「済」「✓」「○」などを選び、押したい場所をクリックします。</li>
+        <li>「署名」で自分のサインを書いておくと、何度でも使えます。</li>
+        <li>「選択」でハンコや署名をドラッグして動かし、右下の角で大きさを変えられます。</li>
+        <li>「PDFを保存」で、書き込んだPDFをダウンロードします。</li>
       </ol>
       <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。署名と名前はこのブラウザにだけ保存されます。</p>
     </section>

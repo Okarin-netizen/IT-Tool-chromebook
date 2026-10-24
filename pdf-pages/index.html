@@ -7,26 +7,40 @@
   <meta name="description" content="PDFをまとめたり、ページを抜き出したり、回転したりできるブラウザだけで動くツール">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#0f766e">
+  <meta name="theme-color" content="#2b8463">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-11"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-cut" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8 16L19 4M16 16L5 4"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 19V6a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v2"/><path d="M4 19l3-8h14l-3 8z"/></symbol>
+    <symbol id="i-page" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+    <symbol id="i-zoom" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></symbol>
+  </svg>
   <header class="toolbar">
     <div class="group">
-      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
-      <label class="btn primary" for="file-input">📂 PDFを追加</label>
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">PDF結合・分割・回転</span>
+      <label class="btn primary" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg>PDFを追加</label>
       <input id="file-input" type="file" accept="application/pdf,.pdf" multiple hidden>
     </div>
 
     <div class="group" role="group" aria-label="選択">
-      <button id="select-all" class="btn" disabled>☑ すべて選択</button>
-      <button id="select-none" class="btn" disabled>☐ 選択を解除</button>
+      <button id="select-all" class="btn" disabled>すべて選択</button>
+      <button id="select-none" class="btn" disabled>選択を解除</button>
       <span id="count" class="count"></span>
     </div>
 
     <div class="group" role="group" aria-label="元に戻す">
-      <button id="undo-btn" class="btn" disabled title="元に戻す（Ctrl+Z）">↶ 元に戻す</button>
-      <button id="redo-btn" class="btn" disabled title="やり直す（Ctrl+Y）">↷ やり直す</button>
+      <button id="undo-btn" class="btn" disabled title="元に戻す（Ctrl+Z）"><svg class="i" aria-hidden="true"><use href="#i-undo"/></svg>元に戻す</button>
+      <button id="redo-btn" class="btn" disabled title="やり直す（Ctrl+Y）"><svg class="i" aria-hidden="true"><use href="#i-redo"/></svg>やり直す</button>
       <label class="field" title="サムネイルの大きさ">大きさ
         <select id="thumb-size">
           <option value="small">小</option>
@@ -39,14 +53,14 @@
     <div class="group" role="group" aria-label="選んだページの操作">
       <button id="rotate-left" class="btn" disabled title="選んだページを左に90°回転（選んでいなければ全ページ）">⟲ 左に回転</button>
       <button id="rotate-right" class="btn" disabled title="選んだページを右に90°回転（選んでいなければ全ページ）">⟳ 右に回転</button>
-      <button id="delete-btn" class="btn" disabled title="選んだページを一覧から外す">🗑 削除</button>
+      <button id="delete-btn" class="btn" disabled title="選んだページを一覧から外す"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>削除</button>
       <button id="clear-btn" class="btn" disabled title="すべてのページを一覧から外す">最初から</button>
     </div>
 
     <div class="group end" role="group" aria-label="保存">
-      <button id="split-btn" class="btn" disabled title="1ページずつ別々のPDFとして保存">✂ 1ページずつ保存</button>
-      <button id="extract-btn" class="btn" disabled title="選んだページだけを1つのPDFとして保存">📄 選んだページを保存</button>
-      <button id="save-btn" class="btn primary" disabled title="並んでいる全ページを1つのPDFとして保存">💾 1つのPDFに保存</button>
+      <button id="split-btn" class="btn" disabled title="1ページずつ別々のPDFとして保存"><svg class="i" aria-hidden="true"><use href="#i-cut"/></svg>1ページずつ保存</button>
+      <button id="extract-btn" class="btn" disabled title="選んだページだけを1つのPDFとして保存"><svg class="i" aria-hidden="true"><use href="#i-page"/></svg>選んだページを保存</button>
+      <button id="save-btn" class="btn primary" disabled title="並んでいる全ページを1つのPDFとして保存"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>1つのPDFに保存</button>
     </div>
   </header>
 
@@ -55,12 +69,12 @@
       <h1>PDF結合・分割・回転</h1>
       <p>いくつかのPDFを1つにまとめたり、必要なページだけ抜き出したり、向きを直したりできます。</p>
       <ol>
-        <li>「📂 PDFを追加」を押すか、PDFをここにドラッグします。いくつでも追加できます。</li>
+        <li>「PDFを追加」を押すか、PDFをここにドラッグします。いくつでも追加できます。</li>
         <li>ページをドラッグするか、「◀ ▶」で順番を入れかえます。タッチ画面では、ページを長押ししてから動かします。</li>
         <li>ページをクリックすると選べます。選んだページはまとめてドラッグ・回転・削除できます。</li>
-        <li>「🔍」かダブルクリックでページを大きく表示して、中身を確かめられます。まちがえたら「↶ 元に戻す」。</li>
-        <li>「💾 1つのPDFに保存」で全ページをまとめて保存します。</li>
-        <li>「📄 選んだページを保存」で選んだページだけ、「✂ 1ページずつ保存」でページごとに分けて保存します。</li>
+        <li>「」かダブルクリックでページを大きく表示して、中身を確かめられます。まちがえたら「元に戻す」。</li>
+        <li>「1つのPDFに保存」で全ページをまとめて保存します。</li>
+        <li>「選んだページを保存」で選んだページだけ、「1ページずつ保存」でページごとに分けて保存します。</li>
       </ol>
       <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。</p>
     </section>
@@ -71,8 +85,8 @@
     <div class="preview-bar">
       <span id="preview-label" class="preview-label"></span>
       <button id="preview-rotate" class="btn">⟳ 右に回転</button>
-      <button id="preview-delete" class="btn">🗑 このページを外す</button>
-      <button id="preview-close" class="btn primary">✕ 閉じる</button>
+      <button id="preview-delete" class="btn"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>このページを外す</button>
+      <button id="preview-close" class="btn primary">閉じる</button>
     </div>
     <div class="preview-body">
       <button id="preview-prev" class="preview-nav" title="前のページ（←）" aria-label="前のページ">‹</button>

@@ -7,26 +7,42 @@
   <meta name="description" content="スクリーンショットや写真に矢印・文字・図形を書き込んで保存できるブラウザだけで動くツール">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#c2410c">
+  <meta name="theme-color" content="#b84a28">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 19L19 5M10 5h9v9"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/></symbol>
+    <symbol id="i-marker" viewBox="0 0 24 24"><path d="M14 4l6 6-8 8H6v-6z"/><path d="M4 21h9"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 19V6a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v2"/><path d="M4 19l3-8h14l-3 8z"/></symbol>
+    <symbol id="i-page" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/></symbol>
+    <symbol id="i-pointer" viewBox="0 0 24 24"><path d="M6 3l12 8-5.5 1.2L10 18z"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-text" viewBox="0 0 24 24"><path d="M5 7V4h14v3M12 4v16M9 20h6"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+  </svg>
   <header class="toolbar">
     <div class="group">
-      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
-      <label class="btn primary" for="file-input">📂 画像を開く</label>
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">画像に書き込み</span>
+      <label class="btn primary" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg>画像を開く</label>
       <input id="file-input" type="file" accept="image/*" hidden>
     </div>
 
     <div class="group tools" role="radiogroup" aria-label="道具">
-      <button class="btn tool selected" data-tool="select" title="選ぶ・動かす (V)">👆 選択</button>
-      <button class="btn tool" data-tool="arrow" title="矢印 (A)">↗ 矢印</button>
-      <button class="btn tool" data-tool="text" title="文字 (T)">🔤 文字</button>
+      <button class="btn tool selected" data-tool="select" title="選ぶ・動かす (V)"><svg class="i" aria-hidden="true"><use href="#i-pointer"/></svg>選択</button>
+      <button class="btn tool" data-tool="arrow" title="矢印 (A)"><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg>矢印</button>
+      <button class="btn tool" data-tool="text" title="文字 (T)"><svg class="i" aria-hidden="true"><use href="#i-text"/></svg>文字</button>
       <button class="btn tool" data-tool="rect" title="四角 (R)">▭ 四角</button>
       <button class="btn tool" data-tool="ellipse" title="丸 (O)">◯ 丸</button>
       <button class="btn tool" data-tool="line" title="直線 (L)">／ 直線</button>
-      <button class="btn tool" data-tool="pen" title="ペン (P)">✏️ ペン</button>
-      <button class="btn tool" data-tool="marker" title="蛍光ペン (M)">🖍 蛍光ペン</button>
+      <button class="btn tool" data-tool="pen" title="ペン (P)"><svg class="i" aria-hidden="true"><use href="#i-pen"/></svg>ペン</button>
+      <button class="btn tool" data-tool="marker" title="蛍光ペン (M)"><svg class="i" aria-hidden="true"><use href="#i-marker"/></svg>蛍光ペン</button>
       <button class="btn tool" data-tool="mosaic" title="見せたくない所をぼかす (B)">▦ モザイク</button>
     </div>
 
@@ -53,14 +69,14 @@
     </div>
 
     <div class="group">
-      <button id="undo-btn" class="btn icon" disabled title="元に戻す (Ctrl+Z)">↶</button>
-      <button id="redo-btn" class="btn icon" disabled title="やり直す (Ctrl+Y)">↷</button>
-      <button id="delete-btn" class="btn" disabled title="選んでいるものを消す (Delete)">🗑 削除</button>
+      <button id="undo-btn" class="btn icon" disabled title="元に戻す (Ctrl+Z)"><svg class="i" aria-hidden="true"><use href="#i-undo"/></svg></button>
+      <button id="redo-btn" class="btn icon" disabled title="やり直す (Ctrl+Y)"><svg class="i" aria-hidden="true"><use href="#i-redo"/></svg></button>
+      <button id="delete-btn" class="btn" disabled title="選んでいるものを消す (Delete)"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>削除</button>
     </div>
 
     <div class="group end">
-      <button id="copy-btn" class="btn" disabled title="画像をコピーして、ドキュメントなどに貼り付ける">📋 コピー</button>
-      <button id="save-btn" class="btn primary" disabled title="PNG画像として保存 (Ctrl+S)">💾 保存</button>
+      <button id="copy-btn" class="btn" disabled title="画像をコピーして、ドキュメントなどに貼り付ける"><svg class="i" aria-hidden="true"><use href="#i-copy"/></svg>コピー</button>
+      <button id="save-btn" class="btn primary" disabled title="PNG画像として保存 (Ctrl+S)"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>保存</button>
     </div>
   </header>
 
@@ -69,14 +85,14 @@
       <h1>画像に書き込み</h1>
       <p>スクリーンショットや写真に、矢印・文字・図形を書き込んで保存できます。</p>
       <ol>
-        <li>「📂 画像を開く」を押すか、画像をここにドラッグします。<br>
+        <li>「画像を開く」を押すか、画像をここにドラッグします。<br>
           スクリーンショットを撮ったあと <kbd>Ctrl</kbd>+<kbd>V</kbd> で貼り付けることもできます。</li>
         <li>上の道具（矢印・文字・四角など）を選んで、画像の上をドラッグして描きます。</li>
-        <li>「👆 選択」で、描いたものをドラッグして動かせます。文字はダブルクリックで直せます。</li>
+        <li>「選択」で、描いたものをドラッグして動かせます。文字はダブルクリックで直せます。</li>
         <li>「▦ モザイク」で、名前など見せたくない所をぼかせます。</li>
-        <li>「💾 保存」でPNG画像をダウンロード、「📋 コピー」でほかのアプリに貼り付けられます。</li>
+        <li>「保存」でPNG画像をダウンロード、「コピー」でほかのアプリに貼り付けられます。</li>
       </ol>
-      <p><button id="blank-btn" class="btn">📄 白い紙に描く</button></p>
+      <p><button id="blank-btn" class="btn"><svg class="i" aria-hidden="true"><use href="#i-page"/></svg>白い紙に描く</button></p>
       <p class="note">画像はこのパソコンの中だけで処理され、どこにも送信されません。</p>
     </section>
     <div id="stage" class="stage" hidden>

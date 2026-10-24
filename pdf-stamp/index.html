@@ -7,19 +7,25 @@
   <meta name="description" content="PDFにページ番号や「下書き」などの透かしを一括で入れる、ブラウザだけで動くツール">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#7c3aed">
+  <meta name="theme-color" content="#1f7f8c">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 19V6a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v2"/><path d="M4 19l3-8h14l-3 8z"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+  </svg>
   <header class="toolbar">
     <div class="group">
-      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
-      <label class="btn" for="file-input">📂 PDFを開く</label>
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">ページ番号・透かし入れ</span>
+      <label class="btn" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg>PDFを開く</label>
       <input id="file-input" type="file" accept="application/pdf,.pdf" hidden>
       <span id="file-name" class="file-name"></span>
     </div>
     <div class="group end">
-      <button id="save-btn" class="btn primary" disabled>💾 PDFを保存</button>
+      <button id="save-btn" class="btn primary" disabled><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>PDFを保存</button>
     </div>
   </header>
 
@@ -137,9 +143,9 @@
         <h1>ページ番号・透かし入れ</h1>
         <p>PDFの全ページに、ページ番号や「下書き」「見本」などの透かしをまとめて入れます。</p>
         <ol>
-          <li>「📂 PDFを開く」を押すか、PDFをここにドラッグします。</li>
+          <li>「PDFを開く」を押すか、PDFをここにドラッグします。</li>
           <li>左の設定で、ページ番号の形式・位置や、透かしの文字・向き・濃さを選びます。右に仕上がりが表示されます。</li>
-          <li>「💾 PDFを保存」で、番号や透かしの入ったPDFをダウンロードします。</li>
+          <li>「PDFを保存」で、番号や透かしの入ったPDFをダウンロードします。</li>
         </ol>
         <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。</p>
       </section>

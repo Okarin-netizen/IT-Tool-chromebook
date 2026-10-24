@@ -7,17 +7,22 @@
   <meta name="description" content="ブラウザだけで動く関数電卓とグラフ描画ツール">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#1d4ed8">
+  <meta name="theme-color" content="#3565c9">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/></symbol>
+  </svg>
   <header class="toolbar">
     <div class="group">
-      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">関数電卓・グラフ</span>
     </div>
     <div class="group tabs" role="tablist" aria-label="モード">
-      <button id="tab-calc" class="btn tab" role="tab" aria-controls="calc-pane" aria-selected="true">🧮 電卓</button>
-      <button id="tab-graph" class="btn tab" role="tab" aria-controls="graph-pane" aria-selected="false">📈 グラフ</button>
+      <button id="tab-calc" class="btn tab" role="tab" aria-controls="calc-pane" aria-selected="true">電卓</button>
+      <button id="tab-graph" class="btn tab" role="tab" aria-controls="graph-pane" aria-selected="false">グラフ</button>
     </div>
   </header>
 
@@ -103,7 +108,7 @@
       <div class="plot-tools">
         <button id="zoom-in" class="btn icon" title="拡大">＋</button>
         <button id="zoom-out" class="btn icon" title="縮小">－</button>
-        <button id="zoom-reset" class="btn icon" title="はじめの表示に戻す">⌂</button>
+        <button id="zoom-reset" class="btn icon" title="はじめの表示に戻す"><svg class="i" aria-hidden="true"><use href="#i-home"/></svg></button>
       </div>
       <div id="readout" class="readout" hidden></div>
     </section>

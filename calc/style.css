@@ -1,16 +1,18 @@
 :root {
-  --bg: #e5e7eb;
+  --accent-dark: #2a52a8;
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, #fff);
+  --bg: #f1f3f6;
   --bar: #ffffff;
-  --text: #111827;
-  --muted: #6b7280;
-  --line: #d1d5db;
-  --accent: #1d4ed8;
+  --text: #1f2329;
+  --muted: #5f6672;
+  --line: #d6dae1;
+  --accent: #3565c9;
   --accent-text: #ffffff;
-  --select: #2563eb;
+  --select: #3565c9;
   --key: #ffffff;
-  --key-fn: #f3f4f6;
-  --key-op: #e0e7ff;
-  --error: #b91c1c;
+  --key-fn: #eef0f3;
+  --key-op: #e4e6f8;
+  --error: #c0392b;
 }
 
 * { box-sizing: border-box; }
@@ -57,14 +59,14 @@ body {
   user-select: none;
   text-decoration: none;
 }
-.btn:hover:not(:disabled) { background: #f3f4f6; }
+.btn:hover:not(:disabled) { background: #eef0f3; }
 .btn.icon { width: 36px; padding: 0; font-size: 18px; }
 .btn.small { min-height: 28px; padding: 0 10px; font-size: 13px; }
 .tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 
 .muted { color: var(--muted); }
 .small-text { font-size: 13px; line-height: 1.7; }
-code { font-family: ui-monospace, monospace; background: #f3f4f6; padding: 0 4px; border-radius: 4px; }
+code { font-family: ui-monospace, monospace; background: #eef0f3; padding: 0 4px; border-radius: 4px; }
 h2 { margin: 0; font-size: 16px; }
 
 /* ---------- 電卓 ---------- */
@@ -94,7 +96,7 @@ h2 { margin: 0; font-size: 16px; }
   border-radius: 10px;
   padding: 8px 12px 10px;
   margin-bottom: 14px;
-  background: #f9fafb;
+  background: #f7f8fa;
 }
 .display-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .hint { font-size: 12px; color: var(--muted); }
@@ -173,14 +175,14 @@ h2 { margin: 0; font-size: 16px; }
   width: 100%;
   text-align: right;
   border: 0;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid #eef0f3;
   background: none;
   padding: 8px 4px;
   font: inherit;
   cursor: pointer;
   color: var(--text);
 }
-.history-list button:hover { background: #f3f4f6; }
+.history-list button:hover { background: #eef0f3; }
 .history-list .h-expr { display: block; font-size: 13px; color: var(--muted); font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
 .history-list .h-val { display: block; font-size: 18px; font-weight: bold; overflow-wrap: anywhere; }
 
@@ -215,7 +217,7 @@ h2 { margin: 0; font-size: 16px; }
   border-radius: 8px;
   padding: 4px 4px 4px 8px;
 }
-.func.error { border-color: #fca5a5; border-left-color: var(--c); background: #fef2f2; }
+.func.error { border-color: #eba59c; border-left-color: var(--c); background: #fdf1ef; }
 .func label { font-family: ui-monospace, monospace; font-size: 14px; white-space: nowrap; }
 .func input[type="text"] {
   flex: 1;
@@ -238,7 +240,7 @@ h2 { margin: 0; font-size: 16px; }
   border-radius: 6px;
   cursor: pointer;
 }
-.func .remove:hover { background: #f3f4f6; color: var(--error); }
+.func .remove:hover { background: #eef0f3; color: var(--error); }
 .func-msg { font-size: 12px; color: var(--error); margin: -4px 0 0 14px; }
 
 .plot { position: relative; flex: 1; min-width: 0; background: #fff; }
@@ -270,3 +272,24 @@ h2 { margin: 0; font-size: 16px; }
   .plot { min-height: 320px; }
   .key { min-height: 46px; }
 }
+
+/* ---------- app look shared by all tools (keep in sync across tools) ---------- */
+
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+.toolbar { min-height: 56px; padding: 8px 12px; gap: 8px 12px; background: var(--bar); border-bottom: 1px solid var(--line); box-shadow: none; }
+.app-title { font-size: 16px; font-weight: 600; white-space: nowrap; margin-right: 4px; }
+
+.btn { min-height: 36px; padding: 0 14px; gap: 6px; border-radius: 18px; border-color: var(--line); font-weight: 500; }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.primary { font-weight: 600; }
+.btn.primary:hover:not(:disabled) { background: var(--accent-dark); border-color: var(--accent-dark); }
+.btn.icon { width: 36px; padding: 0; justify-content: center; border-radius: 50%; }
+.btn.back { width: 40px; min-height: 40px; padding: 0; justify-content: center; border: 0; border-radius: 50%; background: transparent; }
+.btn.back .i { width: 22px; height: 22px; }
+.btn.tool.selected { background: var(--accent-soft); border-color: transparent; color: var(--accent-dark); }
+
+.status { border-radius: 8px; }
+
+@media (max-width: 900px) { .app-title { display: none; } }

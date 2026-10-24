@@ -5,7 +5,7 @@ const $ = (id) => document.getElementById(id);
 const STORE_KEY = "timer-tool-v1";
 const PRESETS = [1, 3, 5, 10, 15, 20, 30, 45, 50, 60];
 const RING_LEN = 2 * Math.PI * 90;
-const PHASE_LABEL = { work: "🍅 集中", short: "☕ 休憩", long: "🌿 長い休憩" };
+const PHASE_LABEL = { work: "集中", short: "休憩", long: "長い休憩" };
 
 const defaults = {
   mode: "pomodoro",
@@ -262,7 +262,7 @@ function finish(kind) {
     Object.assign(state.timer, { remaining: 0, endAt: null });
     if (shown) document.body.classList.add("done");
     notify("時間になりました！");
-    showStatus("⏰ 時間になりました！");
+    showStatus("時間になりました");
     keepAwake(false);
     afterChange();
     return;
@@ -270,7 +270,7 @@ function finish(kind) {
   const finished = state.pomodoro.phase;
   nextPhase({ counted: true });
   const msg = finished === "work"
-    ? `お疲れさまでした！${PHASE_LABEL[state.pomodoro.phase].slice(2)}しましょう`
+    ? `お疲れさまでした！${PHASE_LABEL[state.pomodoro.phase]}しましょう`
     : "休憩おわり。集中をはじめましょう";
   notify(msg);
   showStatus(msg);
@@ -340,9 +340,9 @@ function render() {
 
   const startBtn = $("start-btn");
   const paused = mode === "stopwatch" ? state.stopwatch.elapsed > 0 : countdown().remaining > 0 && countdown().remaining < totalOf(mode);
-  startBtn.textContent = running ? "⏸ 一時停止" : paused ? "▶ 再開" : "▶ スタート";
+  startBtn.textContent = running ? "一時停止" : paused ? "再開" : "スタート";
 
-  $("sound-btn").textContent = state.sound ? "🔔" : "🔕";
+  $("sound-btn").innerHTML = `<svg class="i" aria-hidden="true"><use href="#i-${state.sound ? "bell" : "bell-off"}"/></svg>`;
 
   if (mode === "pomodoro") {
     const p = state.pomodoro;
@@ -358,9 +358,9 @@ function render() {
     $("today-count").textContent = t.count;
     $("today-min").textContent = t.minutes;
   } else if (mode === "timer") {
-    $("phase").textContent = `⏳ ${fmt(state.timer.total)} のタイマー`;
+    $("phase").textContent = `${fmt(state.timer.total)} のタイマー`;
   } else {
-    $("phase").textContent = "⏱ ストップウォッチ";
+    $("phase").textContent = "ストップウォッチ";
     renderLaps();
   }
 
@@ -389,13 +389,13 @@ function tick() {
     const ms = swElapsed();
     text = fmt(ms, { tenths: true, ceil: false });
     progress = (ms % 60000) / 60000;
-    document.title = isRunning() ? `${fmt(ms, { ceil: false })} ⏱ ストップウォッチ` : "タイマー・ポモドーロ";
+    document.title = isRunning() ? `${fmt(ms, { ceil: false })} ストップウォッチ` : "タイマー・ポモドーロ";
   } else {
     const left = Math.max(0, remaining());
     const total = totalOf(state.mode);
     text = fmt(left);
     progress = total ? left / total : 0;
-    const label = state.mode === "pomodoro" ? PHASE_LABEL[state.pomodoro.phase].slice(2) : "タイマー";
+    const label = state.mode === "pomodoro" ? PHASE_LABEL[state.pomodoro.phase] : "タイマー";
     document.title = isRunning() ? `${text} ${label}` : "タイマー・ポモドーロ";
   }
   if (display.textContent !== text) display.textContent = text;
@@ -418,7 +418,7 @@ $("sound-btn").addEventListener("click", () => {
   save();
   render();
   if (state.sound) { unlockAudio(); beep(1); }
-  showStatus(state.sound ? "🔔 音をオンにしました" : "🔕 音をオフにしました");
+  showStatus(state.sound ? "音をオンにしました" : "音をオフにしました");
 });
 
 $("custom-set").addEventListener("click", () => {

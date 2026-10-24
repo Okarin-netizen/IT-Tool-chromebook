@@ -251,9 +251,9 @@ async function openFile(file) {
     }
     const empty = state.pages.filter(isEmpty).length;
     if (empty === state.pages.length) {
-      showStatus("文字が入っていないPDFです（スキャンした画像など）。「🔍 文字のないページを読み取る」でOCRできます", { ms: 9000 });
+      showStatus("文字が入っていないPDFです（スキャンした画像など）。「文字のないページを読み取る」でOCRできます", { ms: 9000 });
     } else if (empty) {
-      showStatus(`${state.pages.length}ページ中${empty}ページは文字が入っていません。「🔍 文字のないページを読み取る」でOCRできます`, { ms: 7000 });
+      showStatus(`${state.pages.length}ページ中${empty}ページは文字が入っていません。「文字のないページを読み取る」でOCRできます`, { ms: 7000 });
     } else {
       hideStatus();
       showStatus(`${state.pages.length}ページの文字を取り出しました`);
@@ -314,9 +314,9 @@ function createPageRow(view) {
 
   const actions = document.createElement("div");
   actions.className = "page-actions";
-  view.copyBtn = miniButton("📋 コピー", "このページの文字をコピー", () => copyText(view.textarea.value, `${view.num}ページをコピーしました`));
-  view.ocrBtn = miniButton("🔍 画像から読み取る（OCR）", "このページを画像として文字を読み取ります", () => ocrPages([view], { confirmReplace: true }));
-  view.resetBtn = miniButton("↺ 元に戻す", "書き直す前の文字に戻します", () => {
+  view.copyBtn = miniButton("コピー", "このページの文字をコピー", () => copyText(view.textarea.value, `${view.num}ページをコピーしました`));
+  view.ocrBtn = miniButton("画像から読み取る（OCR）", "このページを画像として文字を読み取ります", () => ocrPages([view], { confirmReplace: true }));
+  view.resetBtn = miniButton("元に戻す", "書き直す前の文字に戻します", () => {
     view.edited = false;
     formatPage(view);
     updateUi();
@@ -327,7 +327,7 @@ function createPageRow(view) {
 
   view.empty = document.createElement("p");
   view.empty.className = "empty-note";
-  view.empty.textContent = "このページには文字が入っていません。スキャンした画像や写真のページは「🔍 画像から読み取る（OCR）」で読み取れます。";
+  view.empty.textContent = "このページには文字が入っていません。スキャンした画像や写真のページは「画像から読み取る（OCR）」で読み取れます。";
   view.empty.hidden = true;
 
   view.textarea = document.createElement("textarea");
@@ -571,12 +571,12 @@ els.fileInput.addEventListener("change", () => {
 els.joinLines.addEventListener("change", () => {
   for (const view of state.pages) formatPage(view);
   updateUi();
-  if (state.pages.some((p) => p.edited)) showStatus("書き直したページはそのままにしています（「↺ 元に戻す」で切りかわります）", { ms: 5000 });
+  if (state.pages.some((p) => p.edited)) showStatus("書き直したページはそのままにしています（「元に戻す」で切りかわります）", { ms: 5000 });
 });
 els.togglePreview.addEventListener("click", () => {
   state.preview = !state.preview;
   els.pages.classList.toggle("no-preview", !state.preview);
-  els.togglePreview.textContent = state.preview ? "🖼 ページを隠す" : "🖼 ページを表示";
+  els.togglePreview.textContent = state.preview ? "ページを隠す" : "ページを表示";
 });
 els.ocrEmpty.addEventListener("click", () => ocrPages(state.pages.filter(isEmpty)));
 els.copyAll.addEventListener("click", () => copyText(allText(), "全ページの文字をコピーしました"));

@@ -1,12 +1,14 @@
 :root {
-  --bg: #e5e7eb;
+  --accent-dark: #923c74;
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, #fff);
+  --bg: #f1f3f6;
   --bar: #ffffff;
-  --text: #111827;
-  --muted: #6b7280;
-  --line: #d1d5db;
-  --accent: #c2410c;
+  --text: #1f2329;
+  --muted: #5f6672;
+  --line: #d6dae1;
+  --accent: #b04a8c;
   --accent-text: #ffffff;
-  --select: #2563eb;
+  --select: #3565c9;
 }
 
 * { box-sizing: border-box; }
@@ -55,12 +57,12 @@ body {
   text-decoration: none;
   white-space: nowrap;
 }
-.btn:hover:not(:disabled) { background: #f3f4f6; }
+.btn:hover:not(:disabled) { background: #eef0f3; }
 .btn:disabled { opacity: .45; cursor: default; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
-.btn.primary:hover:not(:disabled) { background: #9a3412; }
+.btn.primary:hover:not(:disabled) { background: var(--accent-dark); }
 .btn.icon { width: 36px; justify-content: center; padding: 0; font-size: 18px; }
-.btn.tool.selected { background: #dbeafe; border-color: var(--select); color: #1e3a8a; }
+.btn.tool.selected { background: #dfe8fb; border-color: var(--select); color: #234a9a; }
 
 .field { display: flex; align-items: center; gap: 6px; font-size: 14px; }
 .field select { min-height: 36px; font: inherit; padding: 0 6px; border-radius: 8px; border: 1px solid var(--line); }
@@ -117,7 +119,7 @@ body {
   background: #fff;
   cursor: pointer;
 }
-.stamp-choice:hover { background: #f3f4f6; }
+.stamp-choice:hover { background: #eef0f3; }
 .stamp-choice.selected { border-color: var(--select); box-shadow: 0 0 0 2px var(--select); }
 .stamp-choice canvas { display: block; max-width: 100%; max-height: 100%; }
 .menu-note { margin: 8px 0 10px; font-size: 13px; line-height: 1.6; color: var(--muted); }
@@ -148,7 +150,7 @@ body.show-files .files-panel { display: flex; }
   border-radius: 8px;
   counter-increment: file;
 }
-.file-row.current { background: #ffedd5; }
+.file-row.current { background: var(--accent-soft); }
 .file-jump {
   flex: 1;
   min-width: 0;
@@ -165,8 +167,8 @@ body.show-files .files-panel { display: flex; }
   cursor: pointer;
   border-radius: 6px;
 }
-.file-jump:hover { background: #f3f4f6; }
-.file-row.current .file-jump:hover { background: #fed7aa; }
+.file-jump:hover { background: #eef0f3; }
+.file-row.current .file-jump:hover { background: var(--accent-soft); }
 .file-jump::before {
   content: counter(file);
   grid-area: num;
@@ -175,7 +177,7 @@ body.show-files .files-panel { display: flex; }
   color: var(--muted);
   text-align: right;
 }
-.file-row.marked .file-jump::before { content: "✓"; color: #15803d; font-weight: bold; }
+.file-row.marked .file-jump::before { content: "✓"; color: #2b8463; font-weight: bold; }
 .file-name { grid-area: name; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-meta { grid-area: meta; font-size: 11px; color: var(--muted); }
 .file-row[data-score]:not([data-score=""]) .file-jump::after {
@@ -186,7 +188,7 @@ body.show-files .files-panel { display: flex; }
   color: #d11a1a;
 }
 .row-btn { min-height: 28px; width: 28px; padding: 0; justify-content: center; font-size: 13px; flex: none; }
-.row-del { color: #b91c1c; }
+.row-del { color: #c0392b; }
 
 /* ---------- pages ---------- */
 
@@ -203,7 +205,7 @@ body.show-files .files-panel { display: flex; }
 }
 .welcome h1 { margin-top: 0; font-size: 24px; }
 .welcome .note { color: var(--muted); font-size: 14px; }
-.welcome code { font-size: 13px; background: #f3f4f6; padding: 1px 4px; border-radius: 4px; }
+.welcome code { font-size: 13px; background: #eef0f3; padding: 1px 4px; border-radius: 4px; }
 
 .docs {
   display: flex;
@@ -230,14 +232,14 @@ body.show-files .files-panel { display: flex; }
   gap: 12px;
   max-width: 100%;
   padding: 6px 16px;
-  background: #1f2937;
+  background: #2a2f37;
   color: #fff;
   border-radius: 999px;
   font-size: 15px;
   box-shadow: 0 2px 6px rgba(0,0,0,.2);
 }
 .doc-title { font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.doc-score { color: #fca5a5; font-weight: bold; }
+.doc-score { color: #eba59c; font-weight: bold; }
 .doc-score:empty { display: none; }
 .page {
   position: relative;
@@ -301,7 +303,7 @@ body[data-tool="score"] .page canvas.ink { cursor: text; }
   position: fixed;
   left: 50%; bottom: 20px;
   transform: translateX(-50%);
-  background: #111827;
+  background: #1f2329;
   color: #fff;
   padding: 10px 18px;
   border-radius: 999px;
@@ -310,12 +312,12 @@ body[data-tool="score"] .page canvas.ink { cursor: text; }
   z-index: 20;
   max-width: calc(100% - 32px);
 }
-.status.error { background: #b91c1c; }
+.status.error { background: #c0392b; }
 
 .drop-overlay {
   position: fixed; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(194, 65, 12, .12);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   border: 4px dashed var(--accent);
   font-size: 24px; color: var(--accent); font-weight: bold;
   z-index: 30;
@@ -335,3 +337,24 @@ body[data-tool="score"] .page canvas.ink { cursor: text; }
   .viewer { padding: 16px 8px 64px; }
   .menu { position: fixed; left: 8px; right: 8px; top: auto; width: auto; }
 }
+
+/* ---------- app look shared by all tools (keep in sync across tools) ---------- */
+
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+.toolbar { min-height: 56px; padding: 8px 12px; gap: 8px 12px; background: var(--bar); border-bottom: 1px solid var(--line); box-shadow: none; }
+.app-title { font-size: 16px; font-weight: 600; white-space: nowrap; margin-right: 4px; }
+
+.btn { min-height: 36px; padding: 0 14px; gap: 6px; border-radius: 18px; border-color: var(--line); font-weight: 500; }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.primary { font-weight: 600; }
+.btn.primary:hover:not(:disabled) { background: var(--accent-dark); border-color: var(--accent-dark); }
+.btn.icon { width: 36px; padding: 0; justify-content: center; border-radius: 50%; }
+.btn.back { width: 40px; min-height: 40px; padding: 0; justify-content: center; border: 0; border-radius: 50%; background: transparent; }
+.btn.back .i { width: 22px; height: 22px; }
+.btn.tool.selected { background: var(--accent-soft); border-color: transparent; color: var(--accent-dark); }
+
+.status { border-radius: 8px; }
+
+@media (max-width: 900px) { .app-title { display: none; } }
