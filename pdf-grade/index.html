@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDF一括採点</title>
+  <meta name="description" content="提出された何人分ものPDFをまとめて開いて採点し、1人ずつ別々のPDFにして返せるブラウザだけで動くツール">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#c2410c">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="show-files">
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
+      <label class="btn primary" for="file-input" title="PDF（いくつでも）か、PDFの入ったZIPを選ぶ">📂 PDFを追加</label>
+      <input id="file-input" type="file" accept="application/pdf,.pdf,application/zip,.zip" multiple hidden>
+      <label class="btn" for="folder-input" title="フォルダの中のPDFをまとめて追加">📁 フォルダ</label>
+      <input id="folder-input" type="file" webkitdirectory multiple hidden>
+      <button id="files-btn" class="btn icon" title="提出者の一覧を表示/かくす" aria-pressed="true">👥</button>
+    </div>
+
+    <div class="group tools" role="radiogroup" aria-label="道具">
+      <button class="btn tool" data-tool="select" title="書いたものを選んで動かす。文字・点数はダブルクリックで書き直し (V)">👆 選択</button>
+      <button class="btn tool selected" data-tool="pen" title="ペンで書く (P)">✏️ ペン</button>
+      <button class="btn tool" data-tool="marker" title="蛍光ペンで線を引く (M)">🖍 蛍光ペン</button>
+      <button class="btn tool" data-tool="eraser" title="書いたものをなぞって消す (E)">🧽 消しゴム</button>
+      <div class="menu-wrap">
+        <button id="stamp-btn" class="btn tool" data-tool="stamp" aria-haspopup="true" title="○ × ✓ やハンコを押す (H)">⭕ 記号 ▾</button>
+        <div id="stamp-menu" class="menu" hidden>
+          <div class="menu-title">記号（いまの色）</div>
+          <div id="mark-list" class="stamp-grid"></div>
+          <div class="menu-title">ハンコ（朱色）</div>
+          <div id="seal-list" class="stamp-grid"></div>
+        </div>
+      </div>
+      <div class="menu-wrap">
+        <button id="score-btn" class="btn tool" data-tool="score" aria-haspopup="true" title="点数を書く。1人に1つ (S)">💯 点数 ▾</button>
+        <div id="score-menu" class="menu" hidden>
+          <div class="menu-title">点数の書き方</div>
+          <label class="name-field">満点 <input id="score-max" type="text" inputmode="numeric" maxlength="5" placeholder="例: 100（空欄なら「点」）" autocomplete="off"></label>
+          <p class="menu-note">点数を入れたい場所をクリックして数字を入力し、Enter。1人に1つで、別の場所をクリックすると移動します。点数は一覧とCSVにも出ます。</p>
+          <button id="score-use" class="btn primary">この書き方で点数を入れる</button>
+        </div>
+      </div>
+      <button class="btn tool" data-tool="text" title="コメントなどの文字を書く (T)">🔤 文字</button>
+    </div>
+
+    <div class="group" role="group" aria-label="色と太さ">
+      <div class="colors" role="radiogroup" aria-label="色">
+        <button class="swatch selected" data-color="#d11a1a" style="--c:#d11a1a" aria-label="赤"></button>
+        <button class="swatch" data-color="#111111" style="--c:#111111" aria-label="黒"></button>
+        <button class="swatch" data-color="#1d4ed8" style="--c:#1d4ed8" aria-label="青"></button>
+        <button class="swatch" data-color="#15803d" style="--c:#15803d" aria-label="緑"></button>
+        <button class="swatch" data-color="#facc15" style="--c:#facc15" aria-label="黄"></button>
+      </div>
+      <label class="field">太さ
+        <select id="width">
+          <option value="1">細い</option>
+          <option value="2" selected>ふつう</option>
+          <option value="4">太い</option>
+        </select>
+      </label>
+      <label class="field">文字
+        <select id="text-size">
+          <option value="14">小</option>
+          <option value="20" selected>中</option>
+          <option value="30">大</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="group">
+      <button id="undo-btn" class="btn icon" disabled title="元に戻す (Ctrl+Z)">↶</button>
+      <button id="redo-btn" class="btn icon" disabled title="やり直す (Ctrl+Y)">↷</button>
+      <button id="delete-btn" class="btn" disabled title="選んでいるものを消す (Delete)">🗑 削除</button>
+    </div>
+
+    <div class="group" role="group" aria-label="表示倍率">
+      <button id="zoom-out" class="btn icon" title="縮小">－</button>
+      <span id="zoom-label" class="zoom-label">100%</span>
+      <button id="zoom-in" class="btn icon" title="拡大">＋</button>
+    </div>
+
+    <div class="group" role="group" aria-label="提出者の移動">
+      <button id="prev-btn" class="btn" disabled title="前の人へ (Shift+N)">▲ 前の人</button>
+      <button id="next-btn" class="btn" disabled title="次の人へ (N)">▼ 次の人</button>
+    </div>
+
+    <div class="group end">
+      <button id="folder-save-btn" class="btn" disabled hidden title="1人ずつのPDFを、選んだフォルダに直接保存">📁 フォルダに保存</button>
+      <button id="save-btn" class="btn primary" disabled title="1人ずつのPDFをZIPにまとめて保存 (Ctrl+S)">💾 まとめて保存</button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <aside id="files-panel" class="files-panel" aria-label="提出者の一覧">
+      <div class="files-head">
+        <span id="files-count">提出物</span>
+        <button id="files-close" class="btn row-btn files-close" title="一覧を閉じる">✕</button>
+      </div>
+      <ol id="file-list" class="file-list"></ol>
+      <p id="files-empty" class="files-empty">まだありません</p>
+    </aside>
+
+    <main id="viewer" class="viewer">
+      <section id="welcome" class="welcome">
+        <h1>PDF一括採点</h1>
+        <p>生徒から提出されたPDFをまとめて開いて、続けて採点できます。終わったら1人ずつ別々のPDFにして保存するので、そのまま返却できます。</p>
+        <ol>
+          <li>「📂 PDFを追加」で提出されたPDFをまとめて選びます（Ctrl+A で全部選べます）。PDFの入ったZIPや「📁 フォルダ」、ドラッグでもOKです。</li>
+          <li>全員のPDFが名前順に縦につながって表示されます。左の一覧や「▼ 次の人」で移動できます。</li>
+          <li>「✏️ ペン」で書き込み、「⭕ 記号」で ○ × ✓ 花丸 や「済」「よくできました」などを押します。</li>
+          <li>「💯 点数」で点数の場所をクリックして数字を入力します（1人に1つ）。「🔤 文字」でコメントも書けます。</li>
+          <li>「💾 まとめて保存」で、1人ずつのPDF（<code>元の名前_採点済.pdf</code>）と点数一覧（CSV）を1つのZIPにして保存します。</li>
+        </ol>
+        <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。ページを閉じると書き込みは消えるので、保存してから閉じてください。</p>
+      </section>
+      <div id="docs" class="docs"></div>
+    </main>
+  </div>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+  <div id="drop-overlay" class="drop-overlay" hidden>ここにPDF（いくつでも）をドロップ</div>
+
+  <script src="lib/pdf-lib.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

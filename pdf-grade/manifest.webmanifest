@@ -1,0 +1,9 @@
+{
+  "name": "PDF一括採点",
+  "short_name": "一括採点",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#e5e7eb",
+  "theme_color": "#c2410c",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
