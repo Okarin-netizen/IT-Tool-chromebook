@@ -7,27 +7,45 @@
   <meta name="description" content="提出された何人分ものPDFをまとめて開いて採点し、1人ずつ別々のPDFにして返せるブラウザだけで動くツール">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#c2410c">
+  <meta name="theme-color" content="#b04a8c">
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="show-files">
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-eraser" viewBox="0 0 24 24"><path d="M5 15l9-9 5 5-8 8H9z"/><path d="M9 11l5 5M9 19h11"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-marker" viewBox="0 0 24 24"><path d="M14 4l6 6-8 8H6v-6z"/><path d="M4 21h9"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 19V6a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v2"/><path d="M4 19l3-8h14l-3 8z"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/></symbol>
+    <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14c2.5 0 4.5 2 4.5 5"/></symbol>
+    <symbol id="i-pointer" viewBox="0 0 24 24"><path d="M6 3l12 8-5.5 1.2L10 18z"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-score" viewBox="0 0 24 24"><path d="M4 13l5 5L20 6"/></symbol>
+    <symbol id="i-stamp" viewBox="0 0 24 24"><path d="M9 4h6v5l-1 3h5v4H5v-4h5L9 9z"/><path d="M5 20h14"/></symbol>
+    <symbol id="i-text" viewBox="0 0 24 24"><path d="M5 7V4h14v3M12 4v16M9 20h6"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+  </svg>
   <header class="toolbar">
     <div class="group">
-      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
-      <label class="btn primary" for="file-input" title="PDF（いくつでも）か、PDFの入ったZIPを選ぶ">📂 PDFを追加</label>
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">PDF一括採点</span>
+      <label class="btn primary" for="file-input" title="PDF（いくつでも）か、PDFの入ったZIPを選ぶ"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg>PDFを追加</label>
       <input id="file-input" type="file" accept="application/pdf,.pdf,application/zip,.zip" multiple hidden>
-      <label class="btn" for="folder-input" title="フォルダの中のPDFをまとめて追加">📁 フォルダ</label>
+      <label class="btn" for="folder-input" title="フォルダの中のPDFをまとめて追加"><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg>フォルダ</label>
       <input id="folder-input" type="file" webkitdirectory multiple hidden>
-      <button id="files-btn" class="btn icon" title="提出者の一覧を表示/かくす" aria-pressed="true">👥</button>
+      <button id="files-btn" class="btn icon" title="提出者の一覧を表示/かくす" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-people"/></svg></button>
     </div>
 
     <div class="group tools" role="radiogroup" aria-label="道具">
-      <button class="btn tool" data-tool="select" title="書いたものを選んで動かす。文字・点数はダブルクリックで書き直し (V)">👆 選択</button>
-      <button class="btn tool selected" data-tool="pen" title="ペンで書く (P)">✏️ ペン</button>
-      <button class="btn tool" data-tool="marker" title="蛍光ペンで線を引く (M)">🖍 蛍光ペン</button>
-      <button class="btn tool" data-tool="eraser" title="書いたものをなぞって消す (E)">🧽 消しゴム</button>
+      <button class="btn tool" data-tool="select" title="書いたものを選んで動かす。文字・点数はダブルクリックで書き直し (V)"><svg class="i" aria-hidden="true"><use href="#i-pointer"/></svg>選択</button>
+      <button class="btn tool selected" data-tool="pen" title="ペンで書く (P)"><svg class="i" aria-hidden="true"><use href="#i-pen"/></svg>ペン</button>
+      <button class="btn tool" data-tool="marker" title="蛍光ペンで線を引く (M)"><svg class="i" aria-hidden="true"><use href="#i-marker"/></svg>蛍光ペン</button>
+      <button class="btn tool" data-tool="eraser" title="書いたものをなぞって消す (E)"><svg class="i" aria-hidden="true"><use href="#i-eraser"/></svg>消しゴム</button>
       <div class="menu-wrap">
-        <button id="stamp-btn" class="btn tool" data-tool="stamp" aria-haspopup="true" title="○ × ✓ やハンコを押す (H)">⭕ 記号 ▾</button>
+        <button id="stamp-btn" class="btn tool" data-tool="stamp" aria-haspopup="true" title="○ × ✓ やハンコを押す (H)"><svg class="i" aria-hidden="true"><use href="#i-stamp"/></svg>記号 ▾</button>
         <div id="stamp-menu" class="menu" hidden>
           <div class="menu-title">記号（いまの色）</div>
           <div id="mark-list" class="stamp-grid"></div>
@@ -36,7 +54,7 @@
         </div>
       </div>
       <div class="menu-wrap">
-        <button id="score-btn" class="btn tool" data-tool="score" aria-haspopup="true" title="点数を書く。1人に1つ (S)">💯 点数 ▾</button>
+        <button id="score-btn" class="btn tool" data-tool="score" aria-haspopup="true" title="点数を書く。1人に1つ (S)"><svg class="i" aria-hidden="true"><use href="#i-score"/></svg>点数 ▾</button>
         <div id="score-menu" class="menu" hidden>
           <div class="menu-title">点数の書き方</div>
           <label class="name-field">満点 <input id="score-max" type="text" inputmode="numeric" maxlength="5" placeholder="例: 100（空欄なら「点」）" autocomplete="off"></label>
@@ -44,7 +62,7 @@
           <button id="score-use" class="btn primary">この書き方で点数を入れる</button>
         </div>
       </div>
-      <button class="btn tool" data-tool="text" title="コメントなどの文字を書く (T)">🔤 文字</button>
+      <button class="btn tool" data-tool="text" title="コメントなどの文字を書く (T)"><svg class="i" aria-hidden="true"><use href="#i-text"/></svg>文字</button>
     </div>
 
     <div class="group" role="group" aria-label="色と太さ">
@@ -72,9 +90,9 @@
     </div>
 
     <div class="group">
-      <button id="undo-btn" class="btn icon" disabled title="元に戻す (Ctrl+Z)">↶</button>
-      <button id="redo-btn" class="btn icon" disabled title="やり直す (Ctrl+Y)">↷</button>
-      <button id="delete-btn" class="btn" disabled title="選んでいるものを消す (Delete)">🗑 削除</button>
+      <button id="undo-btn" class="btn icon" disabled title="元に戻す (Ctrl+Z)"><svg class="i" aria-hidden="true"><use href="#i-undo"/></svg></button>
+      <button id="redo-btn" class="btn icon" disabled title="やり直す (Ctrl+Y)"><svg class="i" aria-hidden="true"><use href="#i-redo"/></svg></button>
+      <button id="delete-btn" class="btn" disabled title="選んでいるものを消す (Delete)"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>削除</button>
     </div>
 
     <div class="group" role="group" aria-label="表示倍率">
@@ -89,8 +107,8 @@
     </div>
 
     <div class="group end">
-      <button id="folder-save-btn" class="btn" disabled hidden title="1人ずつのPDFを、選んだフォルダに直接保存">📁 フォルダに保存</button>
-      <button id="save-btn" class="btn primary" disabled title="1人ずつのPDFをZIPにまとめて保存 (Ctrl+S)">💾 まとめて保存</button>
+      <button id="folder-save-btn" class="btn" disabled hidden title="1人ずつのPDFを、選んだフォルダに直接保存"><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg>フォルダに保存</button>
+      <button id="save-btn" class="btn primary" disabled title="1人ずつのPDFをZIPにまとめて保存 (Ctrl+S)"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>まとめて保存</button>
     </div>
   </header>
 
@@ -109,11 +127,11 @@
         <h1>PDF一括採点</h1>
         <p>生徒から提出されたPDFをまとめて開いて、続けて採点できます。終わったら1人ずつ別々のPDFにして保存するので、そのまま返却できます。</p>
         <ol>
-          <li>「📂 PDFを追加」で提出されたPDFをまとめて選びます（Ctrl+A で全部選べます）。PDFの入ったZIPや「📁 フォルダ」、ドラッグでもOKです。</li>
+          <li>「PDFを追加」で提出されたPDFをまとめて選びます（Ctrl+A で全部選べます）。PDFの入ったZIPや「フォルダ」、ドラッグでもOKです。</li>
           <li>全員のPDFが名前順に縦につながって表示されます。左の一覧や「▼ 次の人」で移動できます。</li>
-          <li>「✏️ ペン」で書き込み、「⭕ 記号」で ○ × ✓ 花丸 や「済」「よくできました」などを押します。</li>
-          <li>「💯 点数」で点数の場所をクリックして数字を入力します（1人に1つ）。「🔤 文字」でコメントも書けます。</li>
-          <li>「💾 まとめて保存」で、1人ずつのPDF（<code>元の名前_採点済.pdf</code>）と点数一覧（CSV）を1つのZIPにして保存します。</li>
+          <li>「ペン」で書き込み、「記号」で ○ × ✓ 花丸 や「済」「よくできました」などを押します。</li>
+          <li>「点数」で点数の場所をクリックして数字を入力します（1人に1つ）。「文字」でコメントも書けます。</li>
+          <li>「まとめて保存」で、1人ずつのPDF（<code>元の名前_採点済.pdf</code>）と点数一覧（CSV）を1つのZIPにして保存します。</li>
         </ol>
         <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。ページを閉じると書き込みは消えるので、保存してから閉じてください。</p>
       </section>

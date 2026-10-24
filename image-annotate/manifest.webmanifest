@@ -3,7 +3,13 @@
   "short_name": "画像書き込み",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#e5e7eb",
-  "theme_color": "#c2410c",
-  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+  "background_color": "#f1f3f6",
+  "theme_color": "#b84a28",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
 }

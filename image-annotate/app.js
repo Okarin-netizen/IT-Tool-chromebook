@@ -794,7 +794,7 @@ async function copyImage() {
     await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
     showStatus("コピーしました。ドキュメントやスライドに Ctrl+V で貼り付けられます");
   } catch {
-    showStatus("コピーできませんでした。「💾 保存」を使ってください", { error: true });
+    showStatus("コピーできませんでした。「保存」を使ってください", { error: true });
   }
 }
 

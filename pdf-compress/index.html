@@ -7,14 +7,21 @@
   <meta name="description" content="PDFのファイルサイズを小さくする、ブラウザだけで動くツール">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#c2410c">
+  <meta name="theme-color" content="#9a6a12">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-compress" viewBox="0 0 24 24"><path d="M12 3v6M9 6l3 3 3-3M12 21v-6M9 18l3-3 3 3M4 12h16"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 19V6a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v2"/><path d="M4 19l3-8h14l-3 8z"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+  </svg>
   <header class="toolbar">
     <div class="group">
-      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
-      <label class="btn primary" for="file-input">📂 PDFを開く</label>
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">PDF圧縮</span>
+      <label class="btn primary" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg>PDFを開く</label>
       <input id="file-input" type="file" accept="application/pdf,.pdf" hidden>
     </div>
   </header>
@@ -24,9 +31,9 @@
       <h1>PDF圧縮</h1>
       <p>PDFのファイルサイズを小さくします。提出のサイズ制限に引っかかるときに使えます。</p>
       <ol>
-        <li>「📂 PDFを開く」を押すか、PDFをここにドラッグします。</li>
-        <li>圧縮のしかたと強さを選んで「🗜 圧縮する」を押します。</li>
-        <li>できあがりのサイズと見た目を確認して「💾 保存」します。</li>
+        <li>「PDFを開く」を押すか、PDFをここにドラッグします。</li>
+        <li>圧縮のしかたと強さを選んで「圧縮する」を押します。</li>
+        <li>できあがりのサイズと見た目を確認して「保存」します。</li>
       </ol>
       <p class="note">写真やスキャンが入ったPDFほど小さくなります。文字だけのPDFはもともと軽いので、あまり変わりません。</p>
       <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。</p>
@@ -68,7 +75,7 @@
       </fieldset>
 
       <div class="actions">
-        <button id="compress-btn" class="btn primary big">🗜 圧縮する</button>
+        <button id="compress-btn" class="btn primary big"><svg class="i" aria-hidden="true"><use href="#i-compress"/></svg>圧縮する</button>
       </div>
 
       <div id="result" class="result" hidden>
@@ -84,13 +91,13 @@
             <span class="muted">仕上がりの確認（<span id="preview-label"></span>）</span>
             <span class="pager">
               <button id="prev-page" class="mini" aria-label="前のページ">◀</button>
-              <button id="next-page" class="mini" aria-label="次のページ">▶</button>
+              <button id="next-page" class="mini" aria-label="次のページ"></button>
             </span>
           </div>
           <canvas id="preview" class="preview"></canvas>
         </div>
         <div class="actions">
-          <button id="save-btn" class="btn primary big">💾 保存</button>
+          <button id="save-btn" class="btn primary big"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>保存</button>
         </div>
       </div>
     </section>

@@ -7,24 +7,33 @@
   <meta name="description" content="勉強時間やテスト練習の時間を計れる、ブラウザだけで動くタイマー">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#dc2626">
+  <meta name="theme-color" content="#c03a2a">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
+    <symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/><path d="M4 4l16 16"/></symbol>
+    <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v5h5"/></symbol>
+    <symbol id="i-skip" viewBox="0 0 24 24"><path d="M6 5l9 7-9 7z"/><path d="M18 5v14"/></symbol>
+  </svg>
   <header class="toolbar">
     <div class="group">
-      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">タイマー・ポモドーロ</span>
     </div>
 
     <div class="tabs" role="tablist" aria-label="モード">
-      <button class="tab" role="tab" data-mode="pomodoro">🍅 ポモドーロ</button>
-      <button class="tab" role="tab" data-mode="timer">⏳ タイマー</button>
-      <button class="tab" role="tab" data-mode="stopwatch">⏱ ストップウォッチ</button>
+      <button class="tab" role="tab" data-mode="pomodoro">ポモドーロ</button>
+      <button class="tab" role="tab" data-mode="timer">タイマー</button>
+      <button class="tab" role="tab" data-mode="stopwatch">ストップウォッチ</button>
     </div>
 
     <div class="group end">
-      <button id="sound-btn" class="btn icon" title="音のオン・オフ">🔔</button>
-      <button id="fullscreen-btn" class="btn icon" title="全画面表示（F）">⛶</button>
+      <button id="sound-btn" class="btn icon" title="音のオン・オフ"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg></button>
+      <button id="fullscreen-btn" class="btn icon" title="全画面表示（F）"><svg class="i" aria-hidden="true"><use href="#i-fullscreen"/></svg></button>
     </div>
   </header>
 
@@ -50,10 +59,10 @@
     </section>
 
     <div class="controls">
-      <button id="start-btn" class="btn primary big">▶ スタート</button>
-      <button id="reset-btn" class="btn big">↺ リセット</button>
-      <button id="skip-btn" class="btn big" title="次の時間へ進む">⏭ スキップ</button>
-      <button id="lap-btn" class="btn big">🏁 ラップ</button>
+      <button id="start-btn" class="btn primary big">スタート</button>
+      <button id="reset-btn" class="btn big"><svg class="i" aria-hidden="true"><use href="#i-reset"/></svg>リセット</button>
+      <button id="skip-btn" class="btn big" title="次の時間へ進む"><svg class="i" aria-hidden="true"><use href="#i-skip"/></svg>スキップ</button>
+      <button id="lap-btn" class="btn big">ラップ</button>
     </div>
 
     <!-- ポモドーロ: 進み具合と設定 -->
@@ -61,7 +70,7 @@
       <div id="dots" class="dots" aria-label="今のセットの進み具合"></div>
       <p class="today">今日の集中: <strong id="today-count">0</strong> 回（<span id="today-min">0</span> 分）</p>
       <details class="settings">
-        <summary>⚙ 時間の設定</summary>
+        <summary>時間の設定</summary>
         <div class="settings-grid">
           <label class="field">集中 <input id="set-work" type="number" min="1" max="180"> 分</label>
           <label class="field">休憩 <input id="set-short" type="number" min="1" max="60"> 分</label>

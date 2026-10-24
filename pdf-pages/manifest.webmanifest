@@ -3,7 +3,13 @@
   "short_name": "PDF結合",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#e5e7eb",
-  "theme_color": "#0f766e",
-  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+  "background_color": "#f1f3f6",
+  "theme_color": "#2b8463",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
 }

@@ -7,19 +7,27 @@
   <meta name="description" content="PDFに文字を書き込んで保存できるブラウザだけで動くツール">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#1d4ed8">
+  <meta name="theme-color" content="#3565c9">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><path d="M3 5h18v14H3z"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 19V6a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v2"/><path d="M4 19l3-8h14l-3 8z"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  </svg>
   <header class="toolbar">
     <div class="group">
-      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
-      <label class="btn primary" for="file-input">📂 PDFを開く</label>
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">PDF文字入れ</span>
+      <label class="btn primary" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg>PDFを開く</label>
       <input id="file-input" type="file" accept="application/pdf,.pdf" hidden>
     </div>
 
     <div class="group">
-      <button id="image-btn" class="btn" disabled title="写真や画像をPDFに貼る">🖼 写真を追加</button>
+      <button id="image-btn" class="btn" disabled title="写真や画像をPDFに貼る"><svg class="i" aria-hidden="true"><use href="#i-image"/></svg>写真を追加</button>
       <input id="image-input" type="file" accept="image/*" multiple hidden>
     </div>
 
@@ -43,7 +51,7 @@
         <button class="swatch" data-color="#1d4ed8" style="--c:#1d4ed8" aria-label="青"></button>
         <button class="swatch" data-color="#15803d" style="--c:#15803d" aria-label="緑"></button>
       </div>
-      <button id="delete-btn" class="btn" disabled title="選んでいる文字や写真を消す">🗑 削除</button>
+      <button id="delete-btn" class="btn" disabled title="選んでいる文字や写真を消す"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>削除</button>
     </div>
 
     <div class="group" role="group" aria-label="表示倍率">
@@ -53,7 +61,7 @@
     </div>
 
     <div class="group end">
-      <button id="save-btn" class="btn primary" disabled>💾 PDFを保存</button>
+      <button id="save-btn" class="btn primary" disabled><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>PDFを保存</button>
     </div>
   </header>
 
@@ -62,11 +70,11 @@
       <h1>PDF文字入れ</h1>
       <p>PDFに文字を書き込んで、新しいPDFとして保存できます。</p>
       <ol>
-        <li>「📂 PDFを開く」を押すか、PDFをここにドラッグします。</li>
+        <li>「PDFを開く」を押すか、PDFをここにドラッグします。</li>
         <li>文字を入れたい場所をクリックして、入力します。</li>
         <li>文字の左上の「✥」をドラッグすると移動できます。</li>
-        <li>「🖼 写真を追加」で写真を貼れます。写真はドラッグで移動、右下の角で大きさを変えられます。</li>
-        <li>「💾 PDFを保存」で、書き込んだPDFをダウンロードします。</li>
+        <li>「写真を追加」で写真を貼れます。写真はドラッグで移動、右下の角で大きさを変えられます。</li>
+        <li>「PDFを保存」で、書き込んだPDFをダウンロードします。</li>
       </ol>
       <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。</p>
     </section>

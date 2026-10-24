@@ -7,14 +7,24 @@
   <meta name="description" content="PDFの文字を取り出してコピーやテキスト保存ができる、ブラウザだけで動くツール">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#4338ca">
+  <meta name="theme-color" content="#5157c0">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><path d="M3 5h18v14H3z"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 19V6a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v2"/><path d="M4 19l3-8h14l-3 8z"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v5h5"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-zoom" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></symbol>
+  </svg>
   <header class="toolbar">
     <div class="group">
-      <a class="btn" href="../" title="ツール一覧に戻る">← 一覧</a>
-      <label class="btn primary" for="file-input">📂 PDFを開く</label>
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">PDF文字取り出し</span>
+      <label class="btn primary" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg>PDFを開く</label>
       <input id="file-input" type="file" accept="application/pdf,.pdf" hidden>
       <span id="file-name" class="file-name"></span>
     </div>
@@ -26,7 +36,7 @@
       <label class="check" title="コピー・保存するときに「― 1ページ ―」のような区切りを入れます">
         <input id="page-headers" type="checkbox" checked> ページの区切りを入れる
       </label>
-      <button id="toggle-preview" class="btn" disabled title="ページの画像を表示する／隠す">🖼 ページを隠す</button>
+      <button id="toggle-preview" class="btn" disabled title="ページの画像を表示する／隠す"><svg class="i" aria-hidden="true"><use href="#i-image"/></svg>ページを隠す</button>
     </div>
 
     <div class="group" role="group" aria-label="OCR（画像から文字を読み取る）">
@@ -38,12 +48,12 @@
           <option value="eng">英語</option>
         </select>
       </label>
-      <button id="ocr-empty" class="btn" disabled title="文字が取り出せなかったページ（スキャンしたページなど）を、画像から読み取ります">🔍 文字のないページを読み取る</button>
+      <button id="ocr-empty" class="btn" disabled title="文字が取り出せなかったページ（スキャンしたページなど）を、画像から読み取ります"><svg class="i" aria-hidden="true"><use href="#i-zoom"/></svg>文字のないページを読み取る</button>
     </div>
 
     <div class="group end" role="group" aria-label="コピー・保存">
-      <button id="copy-all" class="btn" disabled title="全ページの文字をクリップボードにコピー">📋 全部コピー</button>
-      <button id="save-txt" class="btn primary" disabled title="全ページの文字をテキストファイル（.txt）で保存">💾 テキストで保存</button>
+      <button id="copy-all" class="btn" disabled title="全ページの文字をクリップボードにコピー"><svg class="i" aria-hidden="true"><use href="#i-copy"/></svg>全部コピー</button>
+      <button id="save-txt" class="btn primary" disabled title="全ページの文字をテキストファイル（.txt）で保存"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>テキストで保存</button>
     </div>
   </header>
 
@@ -52,11 +62,11 @@
       <h1>PDF文字取り出し</h1>
       <p>PDFの文字を取り出して、コピーしたりテキストファイルに保存したりできます。</p>
       <ol>
-        <li>「📂 PDFを開く」を押すか、PDFをここにドラッグします。</li>
+        <li>「PDFを開く」を押すか、PDFをここにドラッグします。</li>
         <li>ページごとに、取り出した文字が右側に出ます。直接書き直すこともできます。</li>
-        <li>「📋 コピー」でそのページ、「📋 全部コピー」で全ページをコピーします。「💾 テキストで保存」で .txt ファイルになります。</li>
+        <li>「コピー」でそのページ、「全部コピー」で全ページをコピーします。「テキストで保存」で .txt ファイルになります。</li>
         <li>行の途中で改行されてしまうときは「改行をつなげる」をオンにします。</li>
-        <li>スキャンしたPDFや写真のPDFは文字が入っていないので、「🔍 画像から読み取る（OCR）」で読み取ります。縦書きのときは OCR を「日本語（縦書き）」にしてください。</li>
+        <li>スキャンしたPDFや写真のPDFは文字が入っていないので、「画像から読み取る（OCR）」で読み取ります。縦書きのときは OCR を「日本語（縦書き）」にしてください。</li>
       </ol>
       <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。OCRは初めて使うときに約11MBのデータを読み込みます（2回目からはオフラインでも使えます）。</p>
     </section>

@@ -165,7 +165,7 @@ function createCard(view) {
   li.tabIndex = 0;
   li.innerHTML = `
     <span class="check" aria-hidden="true">✓</span>
-    <button class="zoom" data-act="zoom" title="大きく表示" aria-label="大きく表示">🔍</button>
+    <button class="zoom" data-act="zoom" title="大きく表示" aria-label="大きく表示"><svg class="i" aria-hidden="true"><use href="#i-zoom"/></svg></button>
     <div class="thumb"><div class="placeholder"></div></div>
     <div class="label"></div>
     <div class="card-actions">
@@ -437,7 +437,7 @@ function removePages(views) {
   state.pages = state.pages.filter((p) => !views.includes(p));
   state.dirty = state.pages.length > 0;
   updateUi();
-  if (views.length > 1 || !state.pages.length) showStatus(`${views.length}ページを外しました（↶ 元に戻すで戻せます）`);
+  if (views.length > 1 || !state.pages.length) showStatus(`${views.length}ページを外しました（「元に戻す」で戻せます）`);
 }
 
 function clearAll() {

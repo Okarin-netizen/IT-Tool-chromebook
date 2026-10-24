@@ -52,7 +52,7 @@ function save() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
-    showStatus("保存できませんでした。「⬇ バックアップ」でファイルに保存してください。", true);
+    showStatus("保存できませんでした。「バックアップ」でファイルに保存してください。", true);
   }
 }
 
@@ -258,7 +258,7 @@ function renderTasks() {
   const empty = $("task-empty");
   empty.hidden = shown.length > 0;
   empty.textContent = filter === "open" && state.tasks.length
-    ? "未完了の課題はありません 🎉"
+    ? "未完了の課題はありません"
     : "課題はまだありません。上の欄から追加してください。";
   $("task-count").textContent = state.tasks.length ? `未完了 ${open}件 ・ 完了 ${done}件` : "";
   $("clear-done").hidden = done === 0;
