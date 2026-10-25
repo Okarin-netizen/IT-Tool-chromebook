@@ -1,5 +1,6 @@
 // pdf.js set up for this site: worker, character maps and fonts from shared/vendor.
 import * as pdfjsLib from "../vendor/pdfjs-4.10.38/pdf.min.mjs";
+import { loadPdfLib } from "./pdf-lib.js";
 
 const PDFJS = new URL("../vendor/pdfjs-4.10.38/", import.meta.url).href;
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.mjs";
@@ -20,7 +21,8 @@ export function openPdf(data) {
 // pdf-lib cannot decrypt, so a protected (encrypted) PDF is rebuilt from page images
 // rendered by pdf.js, the same as printing it. `onPage(num, count)` reports progress.
 export async function rasterizePdf(pdf, { scale = 2, onPage } = {}) {
-  const doc = await window.PDFLib.PDFDocument.create();
+  const { PDFDocument } = await loadPdfLib();
+  const doc = await PDFDocument.create();
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   for (let num = 1; num <= pdf.numPages; num++) {

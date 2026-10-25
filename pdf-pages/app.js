@@ -2,9 +2,9 @@ import { openPdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, download, onFileDrop } from "../shared/js/files.js";
 import { loadText, saveText } from "../shared/js/storage.js";
+import { createLazyRenderer, freeCanvas } from "../shared/js/lazy.js";
 import { registerOffline } from "../shared/js/offline.js";
-
-const { PDFDocument, degrees } = window.PDFLib;
+import { loadPdfLib } from "../shared/js/pdf-lib.js";
 
 const THUMB_SIZES = { small: 110, medium: 150, large: 220 }; // longest side of a thumbnail, in CSS pixels
 const HISTORY_LIMIT = 50;
@@ -102,6 +102,7 @@ async function addFile(file) {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const pdf = await openPdf(bytes.slice()).promise;
   // pdf-lib can't decrypt, so pages of a protected PDF are saved as images rendered by pdf.js.
+  const { PDFDocument } = await loadPdfLib();
   const loaded = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
   const doc = loaded.isEncrypted ? null : loaded;
   const entry = { name: file.name || "document.pdf", bytes, pdf, doc };
@@ -130,13 +131,17 @@ async function addFile(file) {
 
 /* ---------- page cards ---------- */
 
-const thumbObserver = new IntersectionObserver((entries) => {
-  for (const entry of entries) {
-    if (!entry.isIntersecting) continue;
-    const view = state.pages.find((p) => p.el === entry.target);
-    if (view && !view.rendered) renderThumb(view);
-  }
-}, { root: els.viewer, rootMargin: "400px" });
+// Thumbnails far off screen are freed, so a long PDF does not fill up memory.
+const thumbs = createLazyRenderer({
+  root: els.viewer,
+  renderMargin: "400px",
+  releaseMargin: "2500px",
+  render: renderThumb,
+  release: (view) => {
+    view.renderToken = null; // drop a thumbnail still being drawn
+    if (view.canvas) freeCanvas(view.canvas);
+  },
+});
 
 function createCard(view) {
   const li = document.createElement("li");
@@ -186,7 +191,7 @@ function createCard(view) {
     if (press?.touch || drag) e.preventDefault(); // long press on a touch screen
   });
 
-  thumbObserver.observe(li);
+  thumbs.add(view);
 }
 
 /* ---------- dragging pages (mouse, touch and pen) ---------- */
@@ -410,7 +415,7 @@ function removePages(views) {
   if (!views.length) return;
   remember();
   for (const view of views) {
-    thumbObserver.unobserve(view.el);
+    thumbs.remove(view);
     view.el.remove();
   }
   state.pages = state.pages.filter((p) => !views.includes(p));
@@ -445,7 +450,7 @@ function restore(snap) {
   const keep = new Set(snap.map((s) => s.view));
   for (const view of state.pages) {
     if (keep.has(view)) continue;
-    thumbObserver.unobserve(view.el);
+    thumbs.remove(view);
     view.el.remove();
   }
   for (const { view, rotation } of snap) {
@@ -453,7 +458,7 @@ function restore(snap) {
       view.rotation = rotation;
       renderThumb(view);
     } else if (!state.pages.includes(view)) {
-      thumbObserver.observe(view.el);
+      thumbs.add(view);
     }
   }
   state.pages = snap.map((s) => s.view);
@@ -485,12 +490,7 @@ function setThumbSize(name) {
   state.thumbPx = THUMB_SIZES[name];
   els.grid.style.setProperty("--thumb", `${state.thumbPx}px`);
   saveText("pdf-pages-thumb", name);
-  // Re-render as each card comes into view (observe() reports the current state right away).
-  for (const view of state.pages) {
-    view.rendered = false;
-    thumbObserver.unobserve(view.el);
-    thumbObserver.observe(view.el);
-  }
+  thumbs.redrawAll(state.pages);
 }
 
 /* ---------- large preview ---------- */
@@ -612,6 +612,7 @@ function updateUi() {
 /* ---------- saving ---------- */
 
 async function buildPdf(views) {
+  const { PDFDocument, degrees } = await loadPdfLib();
   const out = await PDFDocument.create();
   // Copy runs of pages from the same file together so shared resources are copied once.
   let i = 0;

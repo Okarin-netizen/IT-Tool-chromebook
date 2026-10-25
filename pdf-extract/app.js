@@ -1,6 +1,7 @@
 import { openPdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
+import { createLazyRenderer, freeCanvas } from "../shared/js/lazy.js";
 import { registerOffline } from "../shared/js/offline.js";
 
 const asset = (path) => new URL(path, location.href).href;
@@ -252,7 +253,7 @@ async function openFile(file) {
 }
 
 function closeCurrent() {
-  for (const view of state.pages) thumbObserver.unobserve(view.el);
+  previews.clear();
   state.pages = [];
   els.pages.replaceChildren();
   state.pdf?.destroy();
@@ -263,13 +264,14 @@ const isEmpty = (view) => !view.textarea.value.trim();
 
 /* ---------- page rows ---------- */
 
-const thumbObserver = new IntersectionObserver((entries) => {
-  for (const entry of entries) {
-    if (!entry.isIntersecting) continue;
-    const view = state.pages.find((p) => p.el === entry.target);
-    if (view && !view.rendered) renderPreview(view);
-  }
-}, { root: els.viewer, rootMargin: "600px" });
+// Previews far off screen are freed, so a long PDF does not fill up memory.
+const previews = createLazyRenderer({
+  root: els.viewer,
+  renderMargin: "600px",
+  releaseMargin: "2500px",
+  render: renderPreview,
+  release: (view) => freeCanvas(view.canvas),
+});
 
 function createPageRow(view) {
   const li = document.createElement("li");
@@ -322,7 +324,7 @@ function createPageRow(view) {
   body.append(head, view.empty, view.textarea);
   li.append(preview, body);
   view.el = li;
-  thumbObserver.observe(li);
+  previews.add(view);
 }
 
 function miniButton(label, title, onClick) {

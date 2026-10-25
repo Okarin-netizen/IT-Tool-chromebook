@@ -1,4 +1,5 @@
 import { openPdf, rasterizePdf } from "../shared/js/pdf.js";
+import { createPageViewer, clampScale } from "../shared/js/page-viewer.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
@@ -9,11 +10,8 @@ import {
 import { makeZip } from "../shared/js/zip.js";
 import { readZip } from "../shared/js/unzip.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { loadPdfLib } from "../shared/js/pdf-lib.js";
 
-const { PDFDocument, degrees, BlendMode } = window.PDFLib;
-
-const MIN_SCALE = 0.4;
-const MAX_SCALE = 4;
 const SCORE_H = 34; // height of a new score, in page points
 const OUT_SUFFIX = "_採点済";
 const STORE = { max: "pdf-grade-score-max" };
@@ -252,7 +250,7 @@ async function addFiles(fileList) {
   }
   els.welcome.hidden = state.files.length > 0;
   const wasEmpty = state.files.length === added;
-  if (added) setScale(wasEmpty ? fitWidthScale() : state.scale);
+  if (added) setScale(wasEmpty ? viewer.fitWidthScale() : state.scale);
   if (wasEmpty && added) els.viewer.scrollTop = 0;
   refreshAllRows();
   updateCurrent();
@@ -340,16 +338,12 @@ function createPageView(file, num, viewport) {
   file.pagesEl.append(el);
 
   const view = { id: nextId++, file, num, viewport, el, canvas, ink, selbox, rendered: false, task: null };
-  view.el.style.width = `${viewport.width * state.scale}px`;
-  view.el.style.height = `${viewport.height * state.scale}px`;
   ink.addEventListener("pointerdown", (e) => onPointerDown(e, view));
   ink.addEventListener("dblclick", (e) => onDoubleClick(e, view));
   resize.addEventListener("pointerdown", (e) => editor.onResizeDown(e, view));
   file.views.push(view);
   state.pages.set(view.id, view);
-  viewByEl.set(el, view);
-  observer.observe(el);
-  unloader.observe(el);
+  viewer.add(view);
   return view;
 }
 
@@ -358,9 +352,7 @@ function removeFile(file) {
   const count = fileItems(file).length;
   if (count && !confirm(`「${file.name}」の書き込み（${count}個）は保存されていません。一覧から外しますか？`)) return;
   for (const view of file.views) {
-    observer.unobserve(view.el);
-    unloader.unobserve(view.el);
-    view.task?.cancel();
+    viewer.remove(view);
     state.pages.delete(view.id);
   }
   file.pdf.destroy();
@@ -442,94 +434,26 @@ function stepFile(delta) {
 
 /* ---------- rendering ---------- */
 
-const viewByEl = new WeakMap();
-const viewOf = (el) => viewByEl.get(el);
-
-const observer = new IntersectionObserver(
-  (entries) => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-      const view = viewOf(entry.target);
-      if (view && !view.rendered) renderPage(view);
-    }
+// With dozens of students the page images would fill up memory, so pages far off screen are freed.
+const viewer = createPageViewer({
+  state,
+  viewer: els.viewer,
+  zoomLabel: els.zoomLabel,
+  views: () => state.pages.values(),
+  pdfOf: (view) => view.file.pdf,
+  onRender: (view) => {
+    const dpr = window.devicePixelRatio || 1;
+    view.ink.width = Math.floor(view.viewport.width * state.scale * dpr);
+    view.ink.height = Math.floor(view.viewport.height * state.scale * dpr);
+    renderInk(view);
   },
-  { root: els.viewer, rootMargin: "600px 0px" },
-);
-
-// With dozens of students the page images would fill up memory, so pages far off screen are dropped.
-const unloader = new IntersectionObserver(
-  (entries) => {
-    for (const entry of entries) {
-      if (entry.isIntersecting) continue;
-      const view = viewOf(entry.target);
-      if (!view?.rendered) continue;
-      view.task?.cancel();
-      view.rendered = false;
-      view.canvas.width = view.canvas.height = 0;
-      view.ink.width = view.ink.height = 0;
-    }
-  },
-  { root: els.viewer, rootMargin: "2500px 0px" },
-);
-
-async function renderPage(view) {
-  view.rendered = true;
-  view.task?.cancel();
-  const dpr = window.devicePixelRatio || 1;
-  view.ink.width = Math.floor(view.viewport.width * state.scale * dpr);
-  view.ink.height = Math.floor(view.viewport.height * state.scale * dpr);
-  renderInk(view);
-  const page = await view.file.pdf.getPage(view.num);
-  const viewport = page.getViewport({ scale: state.scale * dpr });
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.floor(viewport.width);
-  canvas.height = Math.floor(viewport.height);
-  const task = page.render({ canvasContext: canvas.getContext("2d"), viewport });
-  view.task = task;
-  try {
-    await task.promise;
-    if (view.rendered) {
-      view.canvas.replaceWith(canvas);
-      view.canvas = canvas;
-    }
-  } catch (err) {
-    if (err?.name !== "RenderingCancelledException") console.error(err);
-  } finally {
-    if (view.task === task) view.task = null;
-    page.cleanup();
-  }
-}
-
-function fitWidthScale() {
-  let maxWidth = 1;
-  for (const view of state.pages.values()) maxWidth = Math.max(maxWidth, view.viewport.width);
-  const available = els.viewer.clientWidth - 90; // viewer + page list side padding
-  return clampScale(Math.min(1.5, available / maxWidth));
-}
-
-function clampScale(s) {
-  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
-}
+  onRelease: (view) => (view.ink.width = view.ink.height = 0),
+  onScale: (view) => editor.updateSelbox(view),
+});
 
 function setScale(scale) {
   commitEditor();
-  const viewer = els.viewer;
-  const ratio = scale / state.scale;
-  const centerY = (viewer.scrollTop + viewer.clientHeight / 2) * ratio;
-  state.scale = scale;
-  els.zoomLabel.textContent = `${Math.round(scale * 100)}%`;
-  for (const view of state.pages.values()) {
-    view.el.style.width = `${view.viewport.width * scale}px`;
-    view.el.style.height = `${view.viewport.height * scale}px`;
-    view.rendered = false;
-    editor.updateSelbox(view);
-  }
-  viewer.scrollTop = centerY - viewer.clientHeight / 2;
-  // Re-render whatever is on screen now.
-  for (const view of state.pages.values()) {
-    observer.unobserve(view.el);
-    observer.observe(view.el);
-  }
+  viewer.setScale(scale);
 }
 
 /* ---------- editing ---------- */
@@ -753,6 +677,7 @@ function renderStampChoices() {
 async function buildPdf(file, progress) {
   const items = fileItems(file);
   if (!items.length) return { bytes: file.bytes, rebuilt: false }; // nothing written: hand back the original
+  const { PDFDocument, degrees, BlendMode } = await loadPdfLib();
   const original = await PDFDocument.load(file.bytes, { ignoreEncryption: true });
   const rebuilt = original.isEncrypted;
   const doc = rebuilt ? await rasterizePdf(file.pdf, { onPage: progress }) : original;
