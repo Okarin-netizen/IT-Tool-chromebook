@@ -31,28 +31,9 @@ GitHub Pages で公開して使います。
 
 一度開くとブラウザにキャッシュされ、トップページと開いたことのあるツールはオフラインでも動きます。
 
-## ツールの追加方法
+## 作る人へ
 
-1. ルートに新しいフォルダ（例: `timer/`）を作り、`index.html` を置く
-2. ルートの `index.html` で、合うグループ（「PDF」か「そのほかのツール」）の `<ul class="apps">` に `<li>` を1つ追加する
-3. この README の表に1行追加する
-
-ビルド作業は不要です。外部ライブラリは CDN を使わず、`shared/vendor/` に1つだけ同梱して全ツールで共有します（学校のネットワークで CDN がブロックされることがあるため）。版・入手元・ライセンスの一覧は [`shared/vendor/README.md`](shared/vendor/README.md) にあります。
-
-オフライン対応は、サイト全体で1つのサービスワーカー（ルートの `sw.js`）が受け持ちます。新しいツールでは、`app.js` の最後で `registerOffline([...])`（`shared/js/offline.js`）を呼び、そのツールのファイルの一覧を渡します。各ツールのフォルダにある `sw.js` は、古い版のサービスワーカーを外すためだけのもので、2027年2月以降に削除できます。
-
-どのツールでも使う部品は `shared/` にまとめています。新しいツールもこれを使ってください。
-
-- `shared/css/base.css`: 上のバー・ボタン・アイコン・メッセージなどの共通の見た目（各ツールの `style.css` より先に読み込む）
-- `shared/js/status.js`: 画面下のメッセージ（`showStatus` / `hideStatus`）
-- `shared/js/files.js`: ファイルの保存（`download`）とドラッグ&ドロップ（`onFileDrop`）
-- `shared/js/storage.js`: 設定の保存（`loadJson` / `saveJson` など。保存できない環境でも止まらない）
-- `shared/js/pdf.js`: pdf.js の準備（`openPdf`）と、保護されたPDFを画像にして作り直す処理（`rasterizePdf`）
-- `shared/js/font-jp.js`: PDFに書き込む日本語フォントの準備（`subsetFont`）
-- `shared/js/zip.js` / `unzip.js`: ZIPの作成と読み取り
-- `shared/js/ink.js` / `history.js`: ページへの手書き・ハンコ・選択と移動、「元に戻す」の記録（PDFに手書き・署名とPDF一括採点で使用）
-- `shared/js/pdf-lib.js`: pdf-lib と fontkit を、保存などで必要になったときに読み込む（`loadPdfLib` / `loadFontkit`）
-- `shared/js/lazy.js` / `page-viewer.js`: 画面の近くのページだけ描き、遠くのページの絵を手放す仕組みと、拡大・縮小できるページの列（PDF文字入れ・手書き・署名・一括採点で使用）
+ビルド作業はなく、ファイルを直して `main` に入れればそのまま公開されます。フォルダの構成、共通部品、新しいツールの足し方（ひな形は [`_template/`](_template/)）、ライブラリの更新、動作の確認のしかたは [開発の手引き](docs/開発の手引き.md) にまとめています。
 
 ## PDF文字入れ
 

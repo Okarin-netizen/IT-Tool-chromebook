@@ -277,6 +277,19 @@ const TOOLS = {
       t.expect(JSON.parse(file.bytes.toString("utf8")).tasks[0].title === "読書感想文", "バックアップに課題が入っていない");
     },
   },
+
+  // The starting point for new tools (not on the top page). Checked so it keeps working
+  // as the shared files change.
+  _template: {
+    portal: false,
+    async run(t) {
+      await t.setFiles("#file-input", [t.png("画面.png", 100, 80)]);
+      await t.until(() => !document.querySelector("#save-btn").disabled);
+      await t.page.click("#save-btn");
+      const [file] = await t.downloads(1);
+      t.expectName(file, "結果.txt");
+    },
+  },
 };
 
 // Empties page 1's text and reads it back from the page image.
@@ -502,7 +515,7 @@ async function testPortal(browser, server) {
   try {
     await page.goto(server.url);
     const links = await page.$$eval(".apps a", (as) => as.map((a) => a.getAttribute("href")));
-    for (const name of Object.keys(TOOLS)) {
+    for (const name of Object.keys(TOOLS).filter((n) => TOOLS[n].portal !== false)) {
       t.expect(links.some((href) => href.replace(/\/$/, "") === name), `トップページに ${name} へのリンクがない`);
     }
     await t.shot("start");
