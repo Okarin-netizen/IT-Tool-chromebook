@@ -2,6 +2,10 @@ import { openPdf, rasterizePdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
+import { History } from "../shared/js/history.js";
+import {
+  MARKER_FACTOR, SEAL_COLOR, TEXT_FONT, textWidth, drawStroke, drawStamp, hits, previewCanvas, renderInkImage, createInkEditor,
+} from "../shared/js/ink.js";
 import { makeZip } from "../shared/js/zip.js";
 import { readZip } from "../shared/js/unzip.js";
 import { registerOffline } from "../shared/js/offline.js";
@@ -10,13 +14,7 @@ const { PDFDocument, degrees, BlendMode } = window.PDFLib;
 
 const MIN_SCALE = 0.4;
 const MAX_SCALE = 4;
-const INK_SCALE = 4; // 288 dpi for the ink layer in the saved PDF
-const INK_MAX_PX = 4096; // longest side of a saved ink image
-const MARKER_FACTOR = 6; // highlighter width = pen width × this
 const SCORE_H = 34; // height of a new score, in page points
-const SEAL_COLOR = "#d7261e";
-const SEAL_FONT = '"Noto Serif CJK JP", "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif';
-const TEXT_FONT = 'system-ui, "Noto Sans JP", sans-serif';
 const OUT_SUFFIX = "_採点済";
 const STORE = { max: "pdf-grade-score-max" };
 const collator = new Intl.Collator("ja", { numeric: true, sensitivity: "base" });
@@ -62,15 +60,11 @@ const state = {
   files: [],
   // page view: { id, file, num, viewport (scale 1), el, canvas, ink, selbox, rendered, task }
   pages: new Map(),
-  // Everything is in page points with a top-left origin, as the page is shown (rotation applied).
-  // `page` is a page view id, unique across all files.
-  // stroke: { type, page, tool: "pen"|"marker", color, width, points: [[x, y], …] }
-  // stamp:  { type, page, kind, text, color, x, y, w, h }
+  // Strokes and stamps as described in shared/js/ink.js (`page` is a page view id, unique
+  // across all files), plus
   // text:   { type, page, text, color, x, y, w, h }
   // score:  { type, page, value, max, color, x, y, w, h }  (one per file)
   items: [],
-  history: [[]],
-  historyPos: 0,
   selected: null,
   drawing: null, // stroke being drawn
   editing: null, // { item, input, isNew } while a text or score is being typed
@@ -97,21 +91,14 @@ const STAMPS = [
   { id: "hanamaru", label: "花丸", shape: "hanamaru", w: 60, h: 60 },
   { id: "sumi", label: "済", seal: true, shape: "circle", w: 36, h: 36, text: "済" },
   { id: "kakunin", label: "確認", seal: true, shape: "circle", w: 40, h: 40, text: "確認" },
-  { id: "yoku", label: "よくできました", seal: true, shape: "rect", w: 104, h: 26, text: "よくできました" },
-  { id: "saiteishutsu", label: "再提出", seal: true, shape: "rect", w: 66, h: 26, text: "再提出" },
+  { id: "yoku", label: "よくできました", seal: true, shape: "rect", fit: 0.86, w: 104, h: 26, text: "よくできました" },
+  { id: "saiteishutsu", label: "再提出", seal: true, shape: "rect", fit: 0.86, w: 66, h: 26, text: "再提出" },
 ];
 const stampDef = (id) => STAMPS.find((s) => s.id === id);
 
-const sealFont = (size) => `bold ${size}px ${SEAL_FONT}`;
 const textFont = (h) => `${h * 0.85}px ${TEXT_FONT}`;
 const scoreFonts = (h) => [`bold ${h * 0.82}px ${TEXT_FONT}`, `bold ${h * 0.46}px ${TEXT_FONT}`];
 const scoreSuffix = (max) => (max ? ` / ${max}` : "点");
-
-const measureCtx = document.createElement("canvas").getContext("2d");
-function textWidth(text, font) {
-  measureCtx.font = font;
-  return measureCtx.measureText(text).width;
-}
 
 // Text and scores grow sideways with what is typed; their height sets the font size.
 function fitWidth(item) {
@@ -121,87 +108,6 @@ function fitWidth(item) {
     const [big, small] = scoreFonts(item.h);
     item.w = textWidth(item.value, big) + textWidth(scoreSuffix(item.max), small) + item.h * 0.3;
   }
-}
-
-function drawStamp(ctx, item) {
-  const def = stampDef(item.kind);
-  const { x, y, w, h, text } = item;
-  ctx.save();
-  ctx.strokeStyle = ctx.fillStyle = item.color;
-  ctx.lineCap = ctx.lineJoin = "round";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  const cx = x + w / 2;
-  const cy = y + h / 2;
-  const s = Math.min(w, h);
-  switch (def.shape) {
-    case "circle": {
-      const lw = s * 0.06;
-      ctx.lineWidth = lw;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, w / 2 - lw / 2, h / 2 - lw / 2, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      const inner = s - lw * 2;
-      const fs = Math.min(inner * 0.8 / [...text].length, inner * 0.6);
-      ctx.font = sealFont(fs);
-      ctx.fillText(text, cx, cy);
-      break;
-    }
-    case "rect": {
-      const lw = h * 0.07;
-      ctx.lineWidth = lw;
-      ctx.beginPath();
-      ctx.roundRect(x + lw / 2, y + lw / 2, w - lw, h - lw, h * 0.12);
-      ctx.stroke();
-      const fs = Math.min(h * 0.6, (w * 0.86) / [...text].length);
-      ctx.font = sealFont(fs);
-      ctx.fillText(text, cx, cy);
-      break;
-    }
-    default: {
-      ctx.translate(x, y);
-      ctx.scale(w, h);
-      ctx.lineWidth = def.shape === "hanamaru" ? 0.045 : 0.11;
-      ctx.beginPath();
-      if (def.shape === "check") {
-        ctx.moveTo(0.1, 0.55);
-        ctx.lineTo(0.4, 0.84);
-        ctx.lineTo(0.92, 0.14);
-      } else if (def.shape === "ring") {
-        ctx.arc(0.5, 0.5, 0.44, 0, Math.PI * 2);
-      } else if (def.shape === "cross") {
-        ctx.moveTo(0.12, 0.12);
-        ctx.lineTo(0.88, 0.88);
-        ctx.moveTo(0.88, 0.12);
-        ctx.lineTo(0.12, 0.88);
-      } else if (def.shape === "triangle") {
-        ctx.moveTo(0.5, 0.08);
-        ctx.lineTo(0.94, 0.9);
-        ctx.lineTo(0.06, 0.9);
-        ctx.closePath();
-      } else if (def.shape === "hanamaru") {
-        // A spiral in the middle, ringed with petals.
-        for (let t = 0; t <= 1; t += 0.01) {
-          const a = t * Math.PI * 4.6 - Math.PI / 2;
-          const r = 0.03 + t * 0.25;
-          const px = 0.5 + r * Math.cos(a);
-          const py = 0.5 + r * Math.sin(a);
-          if (t === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
-        }
-        const n = 9;
-        for (let i = 0; i < n; i++) {
-          const a = (i / n) * Math.PI * 2 - Math.PI / 2;
-          const px = 0.5 + 0.34 * Math.cos(a);
-          const py = 0.5 + 0.34 * Math.sin(a);
-          ctx.moveTo(px + 0.12 * Math.cos(a - 1.9), py + 0.12 * Math.sin(a - 1.9));
-          ctx.arc(px, py, 0.12, a - 1.9, a + 1.9);
-        }
-      }
-      ctx.stroke();
-    }
-  }
-  ctx.restore();
 }
 
 function drawText(ctx, item) {
@@ -249,89 +155,25 @@ function newStamp(id, page, cx, cy) {
 
 /* ---------- drawing items ---------- */
 
-function lighten(hex, amount = 0.5) {
-  const n = parseInt(hex.slice(1), 16);
-  const mix = (c) => Math.round(c + (255 - c) * amount);
-  return `rgb(${mix((n >> 16) & 255)}, ${mix((n >> 8) & 255)}, ${mix(n & 255)})`;
-}
-
-function tracePath(ctx, pts) {
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  if (pts.length === 1) {
-    ctx.lineTo(pts[0][0] + 0.01, pts[0][1]); // a dot
-    return;
-  }
-  for (let i = 1; i < pts.length - 1; i++) {
-    const mx = (pts[i][0] + pts[i + 1][0]) / 2;
-    const my = (pts[i][1] + pts[i + 1][1]) / 2;
-    ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
-  }
-  const last = pts[pts.length - 1];
-  ctx.lineTo(last[0], last[1]);
-}
-
-function drawStroke(ctx, item) {
-  ctx.save();
-  ctx.lineCap = ctx.lineJoin = "round";
-  ctx.strokeStyle = item.tool === "marker" ? lighten(item.color) : item.color;
-  ctx.lineWidth = item.width;
-  ctx.beginPath();
-  tracePath(ctx, item.points);
-  ctx.stroke();
-  ctx.restore();
-}
-
 function drawItem(ctx, item) {
   if (item.type === "stroke") drawStroke(ctx, item);
-  else if (item.type === "stamp") drawStamp(ctx, item);
+  else if (item.type === "stamp") drawStamp(ctx, item, stampDef(item.kind));
   else if (item.type === "text") drawText(ctx, item);
   else if (item.type === "score") drawScore(ctx, item);
 }
 
-// Highlighter goes underneath so it never covers pen ink (the layer is opaque within itself).
-function drawItems(ctx, items) {
-  const markers = items.filter((i) => i.type === "stroke" && i.tool === "marker");
-  for (const item of markers) drawItem(ctx, item);
-  for (const item of items) if (!markers.includes(item)) drawItem(ctx, item);
-}
-
-function bounds(item) {
-  if (item.type !== "stroke") return { x: item.x, y: item.y, w: item.w, h: item.h };
-  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
-  for (const [x, y] of item.points) {
-    x1 = Math.min(x1, x); y1 = Math.min(y1, y);
-    x2 = Math.max(x2, x); y2 = Math.max(y2, y);
-  }
-  const r = item.width / 2;
-  return { x: x1 - r, y: y1 - r, w: x2 - x1 + item.width, h: y2 - y1 + item.width };
-}
-
-function distToSegment(px, py, [ax, ay], [bx, by]) {
-  const dx = bx - ax, dy = by - ay;
-  const len = dx * dx + dy * dy;
-  const t = len ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len)) : 0;
-  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
-}
-
-function hits(item, x, y, tolerance) {
-  if (item.type === "stroke") {
-    const reach = item.width / 2 + tolerance;
-    const pts = item.points;
-    if (pts.length === 1) return Math.hypot(x - pts[0][0], y - pts[0][1]) <= reach;
-    for (let i = 1; i < pts.length; i++) if (distToSegment(x, y, pts[i - 1], pts[i]) <= reach) return true;
-    return false;
-  }
-  return x >= item.x - tolerance && x <= item.x + item.w + tolerance &&
-    y >= item.y - tolerance && y <= item.y + item.h + tolerance;
-}
-
-function itemAt(page, x, y, tolerance, types) {
-  for (let i = state.items.length - 1; i >= 0; i--) {
-    const item = state.items[i];
-    if (item.page === page && (!types || types.includes(item.type)) && hits(item, x, y, tolerance)) return item;
-  }
-  return null;
-}
+const history = new History(state);
+const editor = createInkEditor({
+  state,
+  history,
+  viewOf: (id) => state.pages.get(id),
+  allViews: () => state.pages,
+  drawItem,
+  updateUi,
+  onChange: () => refreshAllRows(),
+  beforeRestore: () => commitEditor(true),
+});
+const { renderInk, renderPageInk, select, commit, undo, redo } = editor;
 
 const fileItems = (file) => state.items.filter((i) => state.pages.get(i.page)?.file === file);
 const scoreOf = (file) => fileItems(file).find((i) => i.type === "score");
@@ -502,7 +344,7 @@ function createPageView(file, num, viewport) {
   view.el.style.height = `${viewport.height * state.scale}px`;
   ink.addEventListener("pointerdown", (e) => onPointerDown(e, view));
   ink.addEventListener("dblclick", (e) => onDoubleClick(e, view));
-  resize.addEventListener("pointerdown", (e) => onResizeDown(e, view));
+  resize.addEventListener("pointerdown", (e) => editor.onResizeDown(e, view));
   file.views.push(view);
   state.pages.set(view.id, view);
   viewByEl.set(el, view);
@@ -527,8 +369,7 @@ function removeFile(file) {
   state.files = state.files.filter((f) => f !== file);
   state.items = state.items.filter((i) => state.pages.has(i.page));
   // Undo steps could bring back ink for pages that are gone, so start the history over.
-  state.history = [structuredClone(state.items)];
-  state.historyPos = 0;
+  history.reset();
   if (state.selected && !state.pages.has(state.selected.page)) state.selected = null;
   els.welcome.hidden = state.files.length > 0;
   updateCurrent();
@@ -541,9 +382,7 @@ function scoreLabel(item) {
   return item.max ? `${item.value}/${item.max}` : `${item.value}点`;
 }
 
-function refreshRow(file) {
-  if (!file?.row) return;
-  const items = fileItems(file);
+function refreshRow(file, items) {
   const score = items.find((i) => i.type === "score");
   const parts = [`${file.views.length}ページ`];
   if (items.length) parts.push(`書き込み${items.length}`);
@@ -552,9 +391,16 @@ function refreshRow(file) {
   file.row.dataset.score = score ? scoreLabel(score) : "";
   file.headScore.textContent = score ? scoreLabel(score) : "";
 }
+
+// Sorts the items into students once, instead of searching all items for every student.
 function refreshAllRows() {
-  state.files.forEach(refreshRow);
-  const done = state.files.filter((f) => fileItems(f).length).length;
+  const byFile = new Map(state.files.map((file) => [file, []]));
+  for (const item of state.items) byFile.get(state.pages.get(item.page)?.file)?.push(item);
+  let done = 0;
+  for (const [file, items] of byFile) {
+    refreshRow(file, items);
+    if (items.length) done++;
+  }
   els.filesCount.textContent = state.files.length
     ? `提出物 ${state.files.length}人（書き込み済み ${done}人）`
     : "提出物";
@@ -654,44 +500,6 @@ async function renderPage(view) {
   }
 }
 
-function renderInk(view) {
-  const { ink } = view;
-  updateSelbox(view);
-  if (!ink.width) return;
-  const ctx = ink.getContext("2d");
-  const k = ink.width / view.viewport.width;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, ink.width, ink.height);
-  ctx.setTransform(k, 0, 0, k, 0, 0);
-  const items = state.items.filter((i) => i.page === view.id && i !== state.editing?.item);
-  if (state.drawing?.page === view.id) items.push(state.drawing);
-  drawItems(ctx, items);
-}
-
-function renderPageInk(id) {
-  const view = state.pages.get(id);
-  if (view) renderInk(view);
-}
-
-function updateSelbox(view) {
-  const item = state.selected;
-  if (!item || item.page !== view.id) {
-    view.selbox.hidden = true;
-    return;
-  }
-  const b = bounds(item);
-  const pad = 3;
-  const s = state.scale;
-  Object.assign(view.selbox.style, {
-    left: `${b.x * s - pad}px`,
-    top: `${b.y * s - pad}px`,
-    width: `${b.w * s + pad * 2}px`,
-    height: `${b.h * s + pad * 2}px`,
-  });
-  view.selbox.classList.toggle("no-resize", item.type === "stroke");
-  view.selbox.hidden = false;
-}
-
 function fitWidthScale() {
   let maxWidth = 1;
   for (const view of state.pages.values()) maxWidth = Math.max(maxWidth, view.viewport.width);
@@ -714,7 +522,7 @@ function setScale(scale) {
     view.el.style.width = `${view.viewport.width * scale}px`;
     view.el.style.height = `${view.viewport.height * scale}px`;
     view.rendered = false;
-    updateSelbox(view);
+    editor.updateSelbox(view);
   }
   viewer.scrollTop = centerY - viewer.clientHeight / 2;
   // Re-render whatever is on screen now.
@@ -726,105 +534,25 @@ function setScale(scale) {
 
 /* ---------- editing ---------- */
 
-function pagePoint(e, view) {
-  const rect = view.el.getBoundingClientRect();
-  return [(e.clientX - rect.left) / state.scale, (e.clientY - rect.top) / state.scale];
-}
-
-// Follows one pointer until it is released; calls back with page points.
-function track(e, view, onMove, onUp) {
-  const target = e.currentTarget;
-  target.setPointerCapture(e.pointerId);
-  const move = (ev) => {
-    if (ev.pointerId !== e.pointerId) return;
-    const events = ev.getCoalescedEvents?.() ?? [];
-    for (const ce of events.length ? events : [ev]) onMove(pagePoint(ce, view), ce);
-  };
-  const up = (ev) => {
-    if (ev.pointerId !== e.pointerId) return;
-    target.removeEventListener("pointermove", move);
-    target.removeEventListener("pointerup", up);
-    target.removeEventListener("pointercancel", up);
-    onUp?.(ev.type === "pointercancel");
-  };
-  target.addEventListener("pointermove", move);
-  target.addEventListener("pointerup", up);
-  target.addEventListener("pointercancel", up);
-}
-
 function onPointerDown(e, view) {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   closeMenus();
   commitEditor();
-  const [x, y] = pagePoint(e, view);
+  const point = editor.pagePoint(e, view);
+  const [x, y] = point;
   const tolerance = 4 / state.scale;
 
   if (state.tool === "pen" || state.tool === "marker") {
-    e.preventDefault();
-    select(null);
-    const width = state.tool === "marker" ? state.width * MARKER_FACTOR : state.width;
-    state.drawing = { type: "stroke", page: view.id, tool: state.tool, color: state.color, width, points: [[x, y]] };
-    renderInk(view);
-    const minStep = 0.6 / state.scale;
-    track(e, view, ([px, py]) => {
-      const pts = state.drawing.points;
-      const [lx, ly] = pts[pts.length - 1];
-      if (Math.hypot(px - lx, py - ly) < minStep) return;
-      pts.push([px, py]);
-      renderInk(view);
-    }, (cancelled) => {
-      const stroke = state.drawing;
-      state.drawing = null;
-      if (!cancelled) {
-        state.items.push(stroke);
-        commit();
-      }
-      renderInk(view);
-    });
+    editor.drawStrokeFrom(e, view, point);
   } else if (state.tool === "eraser") {
-    e.preventDefault();
-    select(null);
-    let erased = false;
-    const erase = ([px, py]) => {
-      const reach = 8 / state.scale;
-      const before = state.items.length;
-      state.items = state.items.filter((item) => item.page !== view.id || !hits(item, px, py, reach));
-      if (state.items.length !== before) {
-        erased = true;
-        renderInk(view);
-      }
-    };
-    erase([x, y]);
-    track(e, view, erase, () => erased && commit());
+    editor.eraseFrom(e, view, point);
   } else if (state.tool === "select") {
-    const item = itemAt(view.id, x, y, tolerance);
-    select(item);
-    if (!item) return; // let touch scrolling happen
-    e.preventDefault();
-    let last = [x, y];
-    let moved = false;
-    track(e, view, ([px, py]) => {
-      moveItem(item, px - last[0], py - last[1]);
-      last = [px, py];
-      moved = true;
-      renderInk(view);
-    }, () => moved && commit());
+    editor.selectFrom(e, view, point);
   } else if (state.tool === "stamp") {
-    e.preventDefault();
-    const item = newStamp(state.stamp, view.id, x, y);
-    state.items.push(item);
-    commit();
-    select(item);
-    // Keep dragging right away to fine-tune where it lands.
-    let last = [x, y];
-    track(e, view, ([px, py]) => {
-      moveItem(item, px - last[0], py - last[1]);
-      last = [px, py];
-      renderInk(view);
-    }, () => commit(true));
+    editor.placeFrom(e, view, newStamp(state.stamp, view.id, x, y), point);
   } else if (state.tool === "text") {
     e.preventDefault();
-    const hit = itemAt(view.id, x, y, tolerance, ["text"]);
+    const hit = editor.itemAt(view.id, x, y, tolerance, ["text"]);
     if (hit) {
       openEditor(hit);
     } else {
@@ -838,13 +566,13 @@ function onPointerDown(e, view) {
       openEditor(existing);
     } else if (existing) {
       // One score per student: clicking somewhere else moves it there.
-      const from = existing.page;
-      existing.page = view.id;
-      existing.x = x;
-      existing.y = y - existing.h / 2;
+      const score = history.edit(existing);
+      score.page = view.id;
+      score.x = x;
+      score.y = y - score.h / 2;
       commit();
-      renderPageInk(from);
-      openEditor(existing);
+      renderPageInk(existing.page);
+      openEditor(score);
     } else {
       openEditor({
         type: "score", page: view.id, value: "", max: state.scoreMax, color: state.color,
@@ -856,38 +584,9 @@ function onPointerDown(e, view) {
 
 function onDoubleClick(e, view) {
   if (state.tool !== "select") return;
-  const [x, y] = pagePoint(e, view);
-  const item = itemAt(view.id, x, y, 4 / state.scale, ["text", "score"]);
+  const [x, y] = editor.pagePoint(e, view);
+  const item = editor.itemAt(view.id, x, y, 4 / state.scale, ["text", "score"]);
   if (item) openEditor(item);
-}
-
-function moveItem(item, dx, dy) {
-  if (item.type === "stroke") {
-    for (const p of item.points) {
-      p[0] += dx;
-      p[1] += dy;
-    }
-  } else {
-    item.x += dx;
-    item.y += dy;
-  }
-}
-
-function onResizeDown(e, view) {
-  const item = state.selected;
-  if (!item || item.type === "stroke") return;
-  e.preventDefault();
-  e.stopPropagation();
-  const [sx, sy] = pagePoint(e, view);
-  const start = { w: item.w, h: item.h };
-  const aspect = item.h / item.w;
-  track(e, view, ([px, py]) => {
-    const grow = Math.max((px - sx) / start.w, (py - sy) / start.h);
-    const w = Math.max(8, start.w * (1 + grow));
-    item.w = w;
-    item.h = w * aspect;
-    renderInk(view);
-  }, () => commit());
 }
 
 /* ---------- typing text and scores ---------- */
@@ -943,7 +642,8 @@ function commitEditor(cancel = false) {
   const editing = state.editing;
   if (!editing) return;
   state.editing = null;
-  const { item, input, isNew } = editing;
+  let { item } = editing;
+  const { input, isNew } = editing;
   input.remove();
   const value = input.value.trim();
   const field = item.type === "score" ? "value" : "text";
@@ -954,6 +654,7 @@ function commitEditor(cancel = false) {
         commit();
       }
     } else if (isNew || value !== item[field]) {
+      if (!isNew) item = history.edit(item);
       item[field] = value;
       if (item.type === "score" && isNew) item.max = state.scoreMax;
       fitWidth(item);
@@ -964,51 +665,6 @@ function commitEditor(cancel = false) {
   renderPageInk(item.page);
   if (!cancel && value && state.items.includes(item)) select(item);
 }
-
-/* ---------- selection & history ---------- */
-
-function select(item) {
-  const prev = state.selected;
-  state.selected = item;
-  if (prev && prev !== item) renderPageInk(prev.page);
-  if (item) renderPageInk(item.page);
-  updateUi();
-}
-
-function deleteSelected() {
-  const item = state.selected;
-  if (!item) return;
-  state.items = state.items.filter((i) => i !== item);
-  state.selected = null;
-  commit();
-  renderPageInk(item.page);
-}
-
-// Records the current items as a new undo step. `replace` folds a follow-up drag into the last step.
-function commit(replace = false) {
-  if (!replace) {
-    state.history.length = state.historyPos + 1;
-    state.historyPos++;
-  }
-  state.history[state.historyPos] = structuredClone(state.items);
-  state.dirty = true;
-  refreshAllRows();
-  updateUi();
-}
-
-function restore(pos) {
-  commitEditor(true);
-  if (pos < 0 || pos >= state.history.length) return;
-  state.historyPos = pos;
-  state.items = structuredClone(state.history[pos]);
-  state.selected = null;
-  state.dirty = true;
-  state.pages.forEach(renderInk);
-  refreshAllRows();
-  updateUi();
-}
-const undo = () => restore(state.historyPos - 1);
-const redo = () => restore(state.historyPos + 1);
 
 /* ---------- toolbar state ---------- */
 
@@ -1037,12 +693,8 @@ function setTool(tool, { hint = true } = {}) {
 
 function setColor(color) {
   state.color = color;
-  const item = state.selected;
-  if (item && !(item.type === "stamp" && stampDef(item.kind).seal)) {
-    item.color = color;
-    commit();
-    renderPageInk(item.page);
-  }
+  const recolors = (item) => !(item.type === "stamp" && stampDef(item.kind).seal);
+  editor.changeSelected(recolors, (item) => (item.color = color));
   renderStampChoices();
   updateUi();
 }
@@ -1051,8 +703,8 @@ function updateUi() {
   const open = state.files.length > 0;
   for (const btn of els.tools) btn.classList.toggle("selected", btn.dataset.tool === state.tool);
   for (const sw of els.swatches) sw.classList.toggle("selected", sw.dataset.color === state.color);
-  els.undoBtn.disabled = !open || state.historyPos === 0;
-  els.redoBtn.disabled = !open || state.historyPos >= state.history.length - 1;
+  els.undoBtn.disabled = !open || !history.canUndo;
+  els.redoBtn.disabled = !open || !history.canRedo;
   els.deleteBtn.disabled = !state.selected;
   els.saveBtn.disabled = !open || saving;
   els.folderSaveBtn.disabled = !open || saving;
@@ -1071,20 +723,6 @@ function toggleMenu(menu) {
   menu.hidden = !show;
 }
 
-function previewCanvas(draw, w, h, box = 50) {
-  const dpr = window.devicePixelRatio || 1;
-  const k = Math.min(box / w, box / h, 2.2);
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.ceil(w * k * dpr);
-  canvas.height = Math.ceil(h * k * dpr);
-  canvas.style.width = `${w * k}px`;
-  canvas.style.height = `${h * k}px`;
-  const ctx = canvas.getContext("2d");
-  ctx.scale(k * dpr, k * dpr);
-  draw(ctx);
-  return canvas;
-}
-
 function renderStampChoices() {
   for (const [list, seal] of [[els.markList, false], [els.sealList, true]]) {
     list.replaceChildren(...STAMPS.filter((s) => !!s.seal === seal).map((def) => {
@@ -1097,7 +735,7 @@ function renderStampChoices() {
       btn.setAttribute("aria-label", def.label);
       btn.classList.toggle("selected", state.stamp === def.id);
       if (def.shape === "rect") btn.style.gridColumn = "span 2";
-      btn.append(previewCanvas((ctx) => drawStamp(ctx, item), item.w, item.h, def.shape === "rect" ? 110 : 46));
+      btn.append(previewCanvas((ctx) => drawStamp(ctx, item, def), item.w, item.h, def.shape === "rect" ? 110 : 46));
       btn.addEventListener("click", () => {
         state.stamp = def.id;
         closeMenus();
@@ -1111,33 +749,6 @@ function renderStampChoices() {
 
 /* ---------- saving ---------- */
 
-// Draws one page's ink onto a transparent PNG cropped to where the ink is.
-async function renderInkImage(view, items) {
-  const { width, height } = view.viewport;
-  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
-  for (const item of items) {
-    const b = bounds(item);
-    x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
-    x2 = Math.max(x2, b.x + b.w); y2 = Math.max(y2, b.y + b.h);
-  }
-  x1 = Math.max(0, Math.floor(x1 - 2));
-  y1 = Math.max(0, Math.floor(y1 - 2));
-  x2 = Math.min(width, Math.ceil(x2 + 2));
-  y2 = Math.min(height, Math.ceil(y2 + 2));
-  if (x2 <= x1 || y2 <= y1) return null;
-  const box = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
-  const k = Math.min(INK_SCALE, INK_MAX_PX / Math.max(box.w, box.h));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.ceil(box.w * k);
-  canvas.height = Math.ceil(box.h * k);
-  const ctx = canvas.getContext("2d");
-  ctx.setTransform(k, 0, 0, k, -box.x * k, -box.y * k);
-  drawItems(ctx, items);
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-  canvas.width = canvas.height = 0;
-  return { box, png: new Uint8Array(await blob.arrayBuffer()) };
-}
-
 // Returns { bytes, rebuilt } for one student's marked-up PDF.
 async function buildPdf(file, progress) {
   const items = fileItems(file);
@@ -1148,7 +759,7 @@ async function buildPdf(file, progress) {
   for (const view of file.views) {
     const pageItems = items.filter((i) => i.page === view.id);
     if (!pageItems.length) continue;
-    const ink = await renderInkImage(view, pageItems);
+    const ink = await renderInkImage(pageItems, view.viewport, drawItem);
     if (!ink) continue;
     const { box } = ink;
     const page = doc.getPage(view.num - 1);
@@ -1319,28 +930,22 @@ for (const sw of els.swatches) sw.addEventListener("click", () => setColor(sw.da
 
 els.width.addEventListener("change", () => {
   state.width = Number(els.width.value);
-  const item = state.selected;
-  if (item?.type === "stroke") {
+  editor.changeSelected((item) => item.type === "stroke", (item) => {
     item.width = item.tool === "marker" ? state.width * MARKER_FACTOR : state.width;
-    commit();
-    renderPageInk(item.page);
-  }
+  });
 });
 
 els.textSize.addEventListener("change", () => {
   state.textSize = Number(els.textSize.value);
-  const item = state.selected;
-  if (item?.type === "text") {
+  editor.changeSelected((item) => item.type === "text", (item) => {
     item.h = state.textSize;
     fitWidth(item);
-    commit();
-    renderPageInk(item.page);
-  }
+  });
 });
 
 els.undoBtn.addEventListener("click", undo);
 els.redoBtn.addEventListener("click", redo);
-els.deleteBtn.addEventListener("click", deleteSelected);
+els.deleteBtn.addEventListener("click", editor.deleteSelected);
 els.zoomIn.addEventListener("click", () => state.files.length && setScale(clampScale(state.scale * 1.2)));
 els.zoomOut.addEventListener("click", () => state.files.length && setScale(clampScale(state.scale / 1.2)));
 els.prevBtn.addEventListener("click", () => stepFile(-1));
@@ -1382,7 +987,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Delete" || e.key === "Backspace") {
     if (state.selected) {
       e.preventDefault();
-      deleteSelected();
+      editor.deleteSelected();
     }
   } else if (e.key === "Escape") {
     closeMenus();

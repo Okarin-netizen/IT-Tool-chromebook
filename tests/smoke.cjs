@@ -29,6 +29,7 @@ const only = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--sty
 /* ---------- per-tool checks ---------- */
 
 // Each tool: `run` works online after the page has loaded, `offline` runs after an offline reload.
+// `query` is added to the page address (`?debug` freezes recorded undo steps, see shared/js/history.js).
 const TOOLS = {
   "pdf-text": {
     async run(t) {
@@ -73,6 +74,7 @@ const TOOLS = {
   },
 
   "pdf-sign": {
+    query: "?debug",
     async run(t) {
       await t.setFiles("#file-input", [t.pdf("申込書.pdf", 3)]);
       await t.until(() => __pdfSign.state.pages.length === 3 && __pdfSign.state.pages[0].rendered);
@@ -89,6 +91,7 @@ const TOOLS = {
       t.expect(await t.page.evaluate(() => __pdfSign.state.items.length) === 1, "元に戻すでハンコが消えない");
       await t.page.evaluate(() => __pdfSign.redo());
       t.expect(await t.page.evaluate(() => __pdfSign.state.items.length) === 2, "やり直しでハンコが戻らない");
+      await editAndUndo(t, "__pdfSign", ink, [140, 90], "#1d4ed8");
       await t.page.click("#save-btn");
       const [file] = await t.downloads(1);
       t.expectName(file, "申込書_書き込み済み.pdf");
@@ -101,6 +104,7 @@ const TOOLS = {
   },
 
   "pdf-grade": {
+    query: "?debug",
     async run(t) {
       await t.setFiles("#file-input", [t.pdf("生徒A.pdf", 2), t.pdf("生徒B.pdf", 1)]);
       await t.until(() => __pdfGrade.state.files.length === 2);
@@ -114,6 +118,7 @@ const TOOLS = {
       await editor.fill("80");
       await editor.press("Enter");
       await t.until(() => __pdfGrade.state.items.some((i) => i.type === "score" && i.value === "80"));
+      await editAndUndo(t, "__pdfGrade", ink, [120, 120], "#1d4ed8");
       await t.page.click("#save-btn");
       const [file] = await t.downloads(1);
       t.expectName(file, /^採点済_\d{8}\.zip$/);
@@ -428,6 +433,32 @@ async function uncachedFiles(page) {
   }
 }
 
+// Moves the first item (a stroke through `on`), recolors it, then undoes and redoes both
+// steps, checking the item after each one.
+async function editAndUndo(t, hook, ink, on, color) {
+  const first = () => t.page.evaluate((h) => {
+    const item = window[h].state.items[0];
+    return { at: item.points[0].join(","), color: item.color, count: window[h].state.items.length };
+  }, hook);
+  await t.page.evaluate((h) => window[h].setTool("select", { hint: false }), hook);
+  const start = await first();
+  await t.drag(ink, [on, [on[0] + 30, on[1] + 20]]);
+  const moved = await first();
+  t.expect(moved.at !== start.at, "選んだ線をドラッグで動かせない");
+  await t.page.click(`.toolbar .swatch[data-color="${color}"]`);
+  const recolored = await first();
+  t.expect(recolored.color === color && recolored.at === moved.at, "選んだ線の色が変わらない");
+  const step = async (fn, want, message) => {
+    await t.page.evaluate(([h, f]) => window[h][f](), [hook, fn]);
+    const now = await first();
+    t.expect(now.at === want.at && now.color === want.color && now.count === start.count, message);
+  };
+  await step("undo", moved, "元に戻すで色が戻らない");
+  await step("undo", start, "元に戻すで位置が戻らない");
+  await step("redo", moved, "やり直しで位置が戻らない");
+  await step("redo", recolored, "やり直しで色が戻らない");
+}
+
 async function testTool(browser, server, name) {
   const tool = TOOLS[name];
   const context = await browser.newContext({ viewport: VIEWPORT, locale: "ja-JP" });
@@ -438,7 +469,7 @@ async function testTool(browser, server, name) {
     // A cache that belongs to another site on the same domain (okarin-netizen.github.io).
     await page.goto(`${server.url}tests/README.md`);
     await page.evaluate(() => caches.open("other-repo-v1"));
-    await page.goto(`${server.url}${name}/`);
+    await page.goto(`${server.url}${name}/${tool.query ?? ""}`);
     await page.evaluate(() => navigator.serviceWorker.ready);
     // The first visit is not yet controlled by the service worker, so everything it loaded
     // has to be kept by the precache list for the tool to open offline after one visit.
