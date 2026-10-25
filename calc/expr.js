@@ -168,7 +168,7 @@ function gamma(z) {
   const t = z + 7.5;
   return Math.sqrt(2 * Math.PI) * t ** (z + 0.5) * Math.exp(-t) * x;
 }
-export function factorial(n) {
+function factorial(n) {
   if (Number.isInteger(n)) {
     if (n < 0) return NaN;
     if (n > 170) return Infinity;

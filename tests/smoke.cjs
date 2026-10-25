@@ -387,11 +387,15 @@ async function testTool(browser, server, name) {
   const page = await context.newPage();
   const t = new ToolTest(name, page, server);
   try {
+    // A cache that belongs to another site on the same domain (okarin-netizen.github.io).
+    await page.goto(`${server.url}tests/README.md`);
+    await page.evaluate(() => caches.open("other-repo-v1"));
     await page.goto(`${server.url}${name}/`);
     // Second load is controlled by the service worker, like a returning user.
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload();
     t.expect(await page.evaluate(() => !!navigator.serviceWorker.controller), "サービスワーカーが有効になっていない");
+    t.expect(await page.evaluate(() => caches.has("other-repo-v1")), "ほかのサイトのキャッシュを消してしまった");
     await t.shot("start");
     await tool.run(t);
 

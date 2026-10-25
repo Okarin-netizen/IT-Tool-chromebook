@@ -368,7 +368,6 @@ function itemAt(page, x, y, tolerance, types) {
   return null;
 }
 
-const fileOf = (item) => state.pages.get(item.page)?.file;
 const fileItems = (file) => state.items.filter((i) => state.pages.get(i.page)?.file === file);
 const scoreOf = (file) => fileItems(file).find((i) => i.type === "score");
 const baseName = (name) => name.replace(/\.pdf$/i, "");

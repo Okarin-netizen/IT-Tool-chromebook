@@ -76,7 +76,6 @@ body {
 }
 .swatch.selected { outline: 3px solid var(--select); }
 
-.zoom-label { min-width: 48px; text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; }
 
 .viewer { flex: 1; overflow: auto; padding: 24px 16px 64px; }
 
