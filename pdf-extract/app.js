@@ -57,7 +57,8 @@ const fixRadicals = (s) => s.replace(/[⺀-⿟]/g, (c) => c.normalize("NFKC"));
 
 const CJK = "\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}ー々〆〇、。，．・「」『』（）【】〔〕〈〉《》！？：；…‥―～";
 const CJK_SPACES = new RegExp(`([${CJK}])[ \\u3000]+(?=[${CJK}])`, "gu");
-const isCjk = (c) => new RegExp(`[${CJK}]`, "u").test(c);
+const CJK_CHAR = new RegExp(`[${CJK}]`, "u");
+const isCjk = (c) => CJK_CHAR.test(c);
 
 function cleanLine(s) {
   return fixRadicals(s).replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").replace(/\s+$/, "");
