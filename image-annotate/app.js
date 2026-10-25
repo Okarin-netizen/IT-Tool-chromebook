@@ -891,9 +891,4 @@ window.addEventListener("beforeunload", (e) => {
   if (state.dirty) e.preventDefault();
 });
 
-// Offline support once the page has been opened online.
-if ("serviceWorker" in navigator && location.protocol === "https:") {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
-}
-
 els.stage.dataset.tool = state.tool;

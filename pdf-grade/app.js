@@ -1,11 +1,12 @@
-import * as pdfjsLib from "./lib/pdfjs/pdf.min.mjs";
+import * as pdfjsLib from "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs";
 import { makeZip } from "./zip.js";
 import { readZip } from "./unzip.js";
+import { registerOffline } from "../shared/js/offline.js";
 
 const { PDFDocument, degrees, BlendMode } = window.PDFLib;
 
 const asset = (path) => new URL(path, location.href).href;
-pdfjsLib.GlobalWorkerOptions.workerSrc = asset("lib/pdfjs/pdf.worker.min.mjs");
+pdfjsLib.GlobalWorkerOptions.workerSrc = asset("../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs");
 
 const MIN_SCALE = 0.4;
 const MAX_SCALE = 4;
@@ -425,9 +426,9 @@ async function addFiles(fileList) {
     try {
       const pdf = await pdfjsLib.getDocument({
         data: src.bytes.slice(),
-        cMapUrl: asset("lib/pdfjs/cmaps/"),
+        cMapUrl: asset("../shared/vendor/pdfjs-4.10.38/cmaps/"),
         cMapPacked: true,
-        standardFontDataUrl: asset("lib/pdfjs/standard_fonts/"),
+        standardFontDataUrl: asset("../shared/vendor/pdfjs-4.10.38/standard_fonts/"),
       }).promise;
       const file = { id: nextId++, name: src.name, size: src.size, bytes: src.bytes, pdf, views: [] };
       buildFileView(file);
@@ -1498,10 +1499,20 @@ window.addEventListener("drop", (e) => {
   addFiles(e.dataTransfer.files);
 });
 
-// Offline support once the page has been opened online.
-if ("serviceWorker" in navigator && location.protocol === "https:") {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
-}
+// Keeps this tool working without a network once it has been opened.
+registerOffline([
+  "./",
+  "index.html",
+  "style.css",
+  "app.js",
+  "zip.js",
+  "unzip.js",
+  "icon.svg",
+  "manifest.webmanifest",
+  "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
+  "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs",
+  "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
+]);
 
 if (window.matchMedia("(max-width: 760px)").matches) toggleFiles(false);
 state.scoreMax = load(STORE.max, "");

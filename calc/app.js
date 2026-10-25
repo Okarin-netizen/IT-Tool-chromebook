@@ -1,4 +1,5 @@
 import { compile, format, ExprError } from "./expr.js";
+import { registerOffline } from "../shared/js/offline.js";
 
 const STORE_KEY = "calc-tool-v1";
 const MAX_HISTORY = 50;
@@ -646,6 +647,13 @@ renderHistory();
 renderFuncs();
 showTab(location.hash === "#graph" ? "graph" : "calc");
 
-if ("serviceWorker" in navigator && location.protocol === "https:") {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
-}
+// Keeps this tool working without a network once it has been opened.
+registerOffline([
+  "./",
+  "index.html",
+  "style.css",
+  "app.js",
+  "expr.js",
+  "icon.svg",
+  "manifest.webmanifest",
+]);

@@ -1,9 +1,10 @@
-import * as pdfjsLib from "./lib/pdfjs/pdf.min.mjs";
+import * as pdfjsLib from "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs";
+import { registerOffline } from "../shared/js/offline.js";
 
 const { PDFDocument, PDFName, PDFDict, PDFArray, PDFRef, PDFRawStream, PDFStream, decodePDFRawStream } = window.PDFLib;
 
 const asset = (path) => new URL(path, location.href).href;
-pdfjsLib.GlobalWorkerOptions.workerSrc = asset("lib/pdfjs/pdf.worker.min.mjs");
+pdfjsLib.GlobalWorkerOptions.workerSrc = asset("../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs");
 
 // "画像だけ軽くする": embedded images are shrunk to maxPx on their longest side and re-saved as JPEG.
 const IMAGE_LEVELS = [
@@ -120,9 +121,9 @@ async function openFile(file) {
 function loadPdfJs(bytes) {
   return pdfjsLib.getDocument({
     data: bytes.slice(), // pdf.js detaches the buffer it is given
-    cMapUrl: asset("lib/pdfjs/cmaps/"),
+    cMapUrl: asset("../shared/vendor/pdfjs-4.10.38/cmaps/"),
     cMapPacked: true,
-    standardFontDataUrl: asset("lib/pdfjs/standard_fonts/"),
+    standardFontDataUrl: asset("../shared/vendor/pdfjs-4.10.38/standard_fonts/"),
   }).promise;
 }
 
@@ -529,10 +530,18 @@ window.addEventListener("drop", (e) => {
   openFile(e.dataTransfer.files[0]);
 });
 
-// Offline support once the page has been opened online.
-if ("serviceWorker" in navigator && location.protocol === "https:") {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
-}
+// Keeps this tool working without a network once it has been opened.
+registerOffline([
+  "./",
+  "index.html",
+  "style.css",
+  "app.js",
+  "icon.svg",
+  "manifest.webmanifest",
+  "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
+  "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs",
+  "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
+]);
 
 // Hook for automated tests.
 window.__pdfCompress = { state, openFile, compress, compressImages, rasterize };

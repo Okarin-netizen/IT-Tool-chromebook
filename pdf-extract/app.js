@@ -1,7 +1,8 @@
-import * as pdfjsLib from "./lib/pdfjs/pdf.min.mjs";
+import * as pdfjsLib from "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs";
+import { registerOffline } from "../shared/js/offline.js";
 
 const asset = (path) => new URL(path, location.href).href;
-pdfjsLib.GlobalWorkerOptions.workerSrc = asset("lib/pdfjs/pdf.worker.min.mjs");
+pdfjsLib.GlobalWorkerOptions.workerSrc = asset("../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs");
 
 const PREVIEW_PX = 280; // width of a page preview, in CSS pixels
 const OCR_PX = 3000; // longest side of the page image given to OCR (about 260 dpi for A4)
@@ -226,9 +227,9 @@ async function openFile(file) {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const pdf = await pdfjsLib.getDocument({
       data: bytes,
-      cMapUrl: asset("lib/pdfjs/cmaps/"),
+      cMapUrl: asset("../shared/vendor/pdfjs-4.10.38/cmaps/"),
       cMapPacked: true,
-      standardFontDataUrl: asset("lib/pdfjs/standard_fonts/"),
+      standardFontDataUrl: asset("../shared/vendor/pdfjs-4.10.38/standard_fonts/"),
     }).promise;
     closeCurrent();
     state.pdf = pdf;
@@ -388,7 +389,7 @@ let tesseractLoaded = null;
 function loadTesseract() {
   tesseractLoaded ??= new Promise((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = "lib/tesseract/tesseract.min.js";
+    s.src = "../shared/vendor/tesseract-7.0.0/tesseract.min.js";
     s.onload = resolve;
     s.onerror = () => {
       tesseractLoaded = null;
@@ -406,10 +407,10 @@ async function getOcrWorker(lang) {
   await loadTesseract();
   if (!ocr) {
     const worker = await window.Tesseract.createWorker(lang, 1, {
-      workerPath: asset("lib/tesseract/worker.min.js"),
+      workerPath: asset("../shared/vendor/tesseract-7.0.0/worker.min.js"),
       // Every Chrome on a Chromebook supports WebAssembly SIMD, so only this core is bundled.
-      corePath: asset("lib/tesseract/tesseract-core-simd-lstm.wasm.js"),
-      langPath: asset("lib/tesseract/lang"),
+      corePath: asset("../shared/vendor/tesseract-7.0.0/tesseract-core-simd-lstm.wasm.js"),
+      langPath: asset("../shared/vendor/tesseract-7.0.0/lang"),
       workerBlobURL: false,
       logger: (m) => ocrProgress(m),
       errorHandler: (err) => console.error(err),
@@ -612,10 +613,17 @@ window.addEventListener("drop", (e) => {
   openFile(e.dataTransfer.files[0]);
 });
 
-// Offline support once the page has been opened online.
-if ("serviceWorker" in navigator && location.protocol === "https:") {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
-}
+// Keeps this tool working without a network once it has been opened.
+registerOffline([
+  "./",
+  "index.html",
+  "style.css",
+  "app.js",
+  "icon.svg",
+  "manifest.webmanifest",
+  "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs",
+  "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
+]);
 
 updateUi();
 

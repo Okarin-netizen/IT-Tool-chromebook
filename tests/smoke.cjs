@@ -423,9 +423,17 @@ async function testPortal(browser, server) {
       t.expect(links.some((href) => href.replace(/\/$/, "") === name), `トップページに ${name} へのリンクがない`);
     }
     await t.shot("start");
+
+    // The top page (and the tool icons on it) also opens without a network.
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.reload();
+    server.setOffline(true);
+    await page.reload();
+    t.expect(await page.$$eval(".apps img", (imgs) => imgs.length > 0 && imgs.every((img) => img.naturalWidth > 0)), "オフラインでアイコンが表示されない");
   } catch (err) {
     t.problems.push(err.message.split("\n")[0]);
   } finally {
+    server.setOffline(false);
     await context.close();
   }
   return t.problems;

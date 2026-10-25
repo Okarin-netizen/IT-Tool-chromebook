@@ -105,5 +105,10 @@
   <div id="drop-overlay" class="drop-overlay" hidden>ここに画像をドロップ</div>
 
   <script src="app.js"></script>
+  <script type="module">
+    // Keeps this tool working without a network once it has been opened.
+    import { registerOffline } from "../shared/js/offline.js";
+    registerOffline(["./", "index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest"]);
+  </script>
 </body>
 </html>

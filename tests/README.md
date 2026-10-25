@@ -19,6 +19,13 @@ node tests/smoke.cjs --headed         # ブラウザの画面を表示して動�
 
 すべて通ると `すべて通りました` と表示されます。失敗したツールは `NG` と理由が表示されます。
 
+古い版を使っていたブラウザが新しい版に移れるか（古いサービスワーカーとキャッシュが片付くか）は、別に確かめます。
+
+```sh
+node tests/migration.cjs                # 古い版 = origin/main
+node tests/migration.cjs --from <ref>   # 古い版を git のコミットやブランチで指定
+```
+
 ## 確かめていること
 
 - ページを開いたときに、エラーや読み込みの失敗がないこと
@@ -30,6 +37,7 @@ node tests/smoke.cjs --headed         # ブラウザの画面を表示して動�
 ## ファイル
 
 - `smoke.cjs`: テスト本体。ツールごとの確認は `TOOLS` にまとまっています
+- `migration.cjs`: 古い版から新しい版への移行の確認
 - `lib/server.cjs`: テスト用のサーバー。本番と同じ `/IT-Tool-chromebook/` の下にリポジトリを配ります
 - `lib/fixtures.cjs`: テスト用のPDF・PNGの作成と、ZIPの中身の読み取り
 - `output/`: 実行したときの画面のスクリーンショット（Git には入れません）

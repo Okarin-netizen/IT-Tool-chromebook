@@ -1,6 +1,6 @@
 @font-face {
   font-family: "PdfTextJP";
-  src: url("fonts/NotoSansJP-Regular.ttf") format("truetype");
+  src: url("../shared/vendor/noto-sans-jp/NotoSansJP-Regular.ttf") format("truetype");
   font-display: block;
 }
 

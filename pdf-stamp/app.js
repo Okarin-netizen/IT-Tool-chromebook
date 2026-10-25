@@ -1,12 +1,13 @@
-import * as pdfjsLib from "./lib/pdfjs/pdf.min.mjs";
+import * as pdfjsLib from "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs";
+import { registerOffline } from "../shared/js/offline.js";
 
 const { PDFDocument, rgb, degrees } = window.PDFLib;
 
 const asset = (path) => new URL(path, location.href).href;
-pdfjsLib.GlobalWorkerOptions.workerSrc = asset("lib/pdfjs/pdf.worker.min.mjs");
+pdfjsLib.GlobalWorkerOptions.workerSrc = asset("../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs");
 
-const FONT_URL = asset("fonts/NotoSansJP-Regular.ttf");
-const SUBSET_WASM_URL = asset("lib/harfbuzz-subset.wasm");
+const FONT_URL = asset("../shared/vendor/noto-sans-jp/NotoSansJP-Regular.ttf");
+const SUBSET_WASM_URL = asset("../shared/vendor/harfbuzz-1.6.3/harfbuzz-subset.wasm");
 const FONT_FAMILY = "PdfStampJP";
 const PREVIEW_PX = 300; // preview page width, in CSS pixels
 const RASTER_SCALE = 2; // 144 dpi page images when a protected PDF has to be rebuilt
@@ -223,9 +224,9 @@ async function openFile(file) {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const pdf = await pdfjsLib.getDocument({
       data: bytes.slice(),
-      cMapUrl: asset("lib/pdfjs/cmaps/"),
+      cMapUrl: asset("../shared/vendor/pdfjs-4.10.38/cmaps/"),
       cMapPacked: true,
-      standardFontDataUrl: asset("lib/pdfjs/standard_fonts/"),
+      standardFontDataUrl: asset("../shared/vendor/pdfjs-4.10.38/standard_fonts/"),
     }).promise;
 
     resetDocument();
@@ -570,6 +571,18 @@ window.addEventListener("drop", (e) => {
 restoreSettings();
 syncControls();
 
-if ("serviceWorker" in navigator && location.protocol === "https:") {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
-}
+// Keeps this tool working without a network once it has been opened.
+registerOffline([
+  "./",
+  "index.html",
+  "style.css",
+  "app.js",
+  "icon.svg",
+  "manifest.webmanifest",
+  "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
+  "../shared/vendor/fontkit-1.1.1/fontkit.umd.min.js",
+  "../shared/vendor/harfbuzz-1.6.3/harfbuzz-subset.wasm",
+  "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs",
+  "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
+  "../shared/vendor/noto-sans-jp/NotoSansJP-Regular.ttf",
+]);
