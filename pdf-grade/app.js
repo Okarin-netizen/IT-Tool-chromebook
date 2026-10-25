@@ -1,16 +1,15 @@
-import * as pdfjsLib from "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs";
-import { makeZip } from "./zip.js";
-import { readZip } from "./unzip.js";
+import { openPdf, rasterizePdf } from "../shared/js/pdf.js";
+import { showStatus, hideStatus } from "../shared/js/status.js";
+import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
+import { loadJson, saveJson } from "../shared/js/storage.js";
+import { makeZip } from "../shared/js/zip.js";
+import { readZip } from "../shared/js/unzip.js";
 import { registerOffline } from "../shared/js/offline.js";
 
 const { PDFDocument, degrees, BlendMode } = window.PDFLib;
 
-const asset = (path) => new URL(path, location.href).href;
-pdfjsLib.GlobalWorkerOptions.workerSrc = asset("../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs");
-
 const MIN_SCALE = 0.4;
 const MAX_SCALE = 4;
-const RASTER_SCALE = 2; // 144 dpi page images when a protected PDF has to be rebuilt
 const INK_SCALE = 4; // 288 dpi for the ink layer in the saved PDF
 const INK_MAX_PX = 4096; // longest side of a saved ink image
 const MARKER_FACTOR = 6; // highlighter width = pen width × this
@@ -56,8 +55,6 @@ const els = {
   viewer: $("viewer"),
   welcome: $("welcome"),
   docs: $("docs"),
-  status: $("status"),
-  dropOverlay: $("drop-overlay"),
 };
 
 const state = {
@@ -88,39 +85,6 @@ const state = {
   dirty: false,
 };
 let nextId = 1;
-
-/* ---------- status messages ---------- */
-
-let statusTimer = 0;
-function showStatus(text, { error = false, sticky = false } = {}) {
-  clearTimeout(statusTimer);
-  els.status.textContent = text;
-  els.status.classList.toggle("error", error);
-  els.status.hidden = false;
-  if (!sticky) statusTimer = setTimeout(() => (els.status.hidden = true), error ? 6000 : 2500);
-}
-function hideStatus() {
-  clearTimeout(statusTimer);
-  els.status.hidden = true;
-}
-
-/* ---------- saved settings ---------- */
-
-function load(key, fallback) {
-  try {
-    const value = localStorage.getItem(key);
-    return value == null ? fallback : JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
-function store(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Private windows or blocked storage: the setting just isn't remembered.
-  }
-}
 
 /* ---------- stamps, text and scores ---------- */
 
@@ -371,11 +335,9 @@ function itemAt(page, x, y, tolerance, types) {
 
 const fileItems = (file) => state.items.filter((i) => state.pages.get(i.page)?.file === file);
 const scoreOf = (file) => fileItems(file).find((i) => i.type === "score");
-const baseName = (name) => name.replace(/\.pdf$/i, "");
 
 /* ---------- opening PDFs ---------- */
 
-const isPdf = (f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name);
 const isZip = (f) => /zip/.test(f.type) || /\.zip$/i.test(f.name);
 // Skips the hidden "._name.pdf" files macOS leaves in zips and folders.
 const isJunk = (name) => /(^|\/)(__MACOSX\/|\._)/.test(name);
@@ -424,12 +386,7 @@ async function addFiles(fileList) {
     }
     showStatus(`PDFを読み込み中… (${i + 1}/${pdfs.length})`, { sticky: true });
     try {
-      const pdf = await pdfjsLib.getDocument({
-        data: src.bytes.slice(),
-        cMapUrl: asset("../shared/vendor/pdfjs-4.10.38/cmaps/"),
-        cMapPacked: true,
-        standardFontDataUrl: asset("../shared/vendor/pdfjs-4.10.38/standard_fonts/"),
-      }).promise;
+      const pdf = await openPdf(src.bytes.slice()).promise;
       const file = { id: nextId++, name: src.name, size: src.size, bytes: src.bytes, pdf, views: [] };
       buildFileView(file);
       for (let num = 1; num <= pdf.numPages; num++) {
@@ -1154,31 +1111,6 @@ function renderStampChoices() {
 
 /* ---------- saving ---------- */
 
-// pdf-lib cannot decrypt, so a protected (encrypted) PDF is rebuilt from page
-// images rendered by pdf.js, the same as printing it, and written on top of that.
-async function rasterizeDocument(file, progress) {
-  const doc = await PDFDocument.create();
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  for (const view of file.views) {
-    progress?.(view.num);
-    const page = await file.pdf.getPage(view.num);
-    const viewport = page.getViewport({ scale: RASTER_SCALE });
-    canvas.width = Math.floor(viewport.width);
-    canvas.height = Math.floor(viewport.height);
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    await page.render({ canvasContext: ctx, viewport }).promise;
-    page.cleanup();
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
-    const image = await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
-    const { width, height } = view.viewport;
-    doc.addPage([width, height]).drawImage(image, { x: 0, y: 0, width, height });
-  }
-  canvas.width = canvas.height = 0;
-  return doc;
-}
-
 // Draws one page's ink onto a transparent PNG cropped to where the ink is.
 async function renderInkImage(view, items) {
   const { width, height } = view.viewport;
@@ -1212,7 +1144,7 @@ async function buildPdf(file, progress) {
   if (!items.length) return { bytes: file.bytes, rebuilt: false }; // nothing written: hand back the original
   const original = await PDFDocument.load(file.bytes, { ignoreEncryption: true });
   const rebuilt = original.isEncrypted;
-  const doc = rebuilt ? await rasterizeDocument(file, progress) : original;
+  const doc = rebuilt ? await rasterizePdf(file.pdf, { onPage: progress }) : original;
   for (const view of file.views) {
     const pageItems = items.filter((i) => i.page === view.id);
     if (!pageItems.length) continue;
@@ -1342,17 +1274,6 @@ const saveOne = (file) => guarded(async () => {
   showStatus(`「${outputName(file)}」を保存しました`);
 });
 
-function download(blob, name) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-}
-
 /* ---------- toolbar & global events ---------- */
 
 for (const input of [els.fileInput, els.folderInput]) {
@@ -1385,7 +1306,7 @@ document.addEventListener("pointerdown", (e) => {
 
 els.scoreMax.addEventListener("input", () => {
   state.scoreMax = els.scoreMax.value.trim();
-  store(STORE.max, state.scoreMax);
+  saveJson(STORE.max, state.scoreMax);
 });
 els.scoreMax.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
@@ -1478,27 +1399,7 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 // Drag & drop PDFs (or a zip of them) anywhere on the page.
-let dragDepth = 0;
-const isFileDrag = (e) => [...e.dataTransfer.types].includes("Files");
-window.addEventListener("dragenter", (e) => {
-  if (!isFileDrag(e)) return;
-  dragDepth++;
-  els.dropOverlay.hidden = false;
-});
-window.addEventListener("dragleave", (e) => {
-  if (!isFileDrag(e)) return;
-  if (--dragDepth <= 0) {
-    dragDepth = 0;
-    els.dropOverlay.hidden = true;
-  }
-});
-window.addEventListener("dragover", (e) => e.preventDefault());
-window.addEventListener("drop", (e) => {
-  e.preventDefault();
-  dragDepth = 0;
-  els.dropOverlay.hidden = true;
-  addFiles(e.dataTransfer.files);
-});
+onFileDrop(addFiles);
 
 // Keeps this tool working without a network once it has been opened.
 registerOffline([
@@ -1506,8 +1407,6 @@ registerOffline([
   "index.html",
   "style.css",
   "app.js",
-  "zip.js",
-  "unzip.js",
   "icon.svg",
   "manifest.webmanifest",
   "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
@@ -1516,7 +1415,7 @@ registerOffline([
 ]);
 
 if (window.matchMedia("(max-width: 760px)").matches) toggleFiles(false);
-state.scoreMax = load(STORE.max, "");
+state.scoreMax = loadJson(STORE.max, "");
 els.scoreMax.value = state.scoreMax;
 renderStampChoices();
 refreshAllRows();

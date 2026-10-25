@@ -1,4 +1,6 @@
-"use strict";
+import { showStatus } from "../shared/js/status.js";
+import { download, onFileDrop } from "../shared/js/files.js";
+import { registerOffline } from "../shared/js/offline.js";
 
 const MAX_IMAGE_PX = 4000; // longest side; larger photos are shrunk so the canvas stays responsive
 const BLANK_SIZE = [1600, 1000];
@@ -25,8 +27,6 @@ const els = {
   stage: $("stage"),
   canvas: $("canvas"),
   editor: $("text-editor"),
-  status: $("status"),
-  dropOverlay: $("drop-overlay"),
 };
 const ctx = els.canvas.getContext("2d");
 
@@ -50,17 +50,6 @@ const state = {
   editing: null, // text item open in the editor
   dirty: false,
 };
-
-/* ---------- status messages ---------- */
-
-let statusTimer = 0;
-function showStatus(text, { error = false } = {}) {
-  clearTimeout(statusTimer);
-  els.status.textContent = text;
-  els.status.classList.toggle("error", error);
-  els.status.hidden = false;
-  statusTimer = setTimeout(() => (els.status.hidden = true), error ? 6000 : 2500);
-}
 
 /* ---------- opening an image ---------- */
 
@@ -775,14 +764,7 @@ function exportBlob() {
 
 async function save() {
   if (!state.base) return;
-  const blob = await exportBlob();
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${state.fileName}_書き込み.png`;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  download(await exportBlob(), `${state.fileName}_書き込み.png`);
   state.dirty = false;
   showStatus("PNG画像を保存しました");
 }
@@ -820,24 +802,8 @@ document.addEventListener("paste", (e) => {
   openImage(file, "スクリーンショット");
 });
 
-let dragDepth = 0;
-window.addEventListener("dragenter", (e) => {
-  if (![...e.dataTransfer.types].includes("Files")) return;
-  dragDepth++;
-  els.dropOverlay.hidden = false;
-});
-window.addEventListener("dragleave", () => {
-  if (--dragDepth <= 0) {
-    dragDepth = 0;
-    els.dropOverlay.hidden = true;
-  }
-});
-window.addEventListener("dragover", (e) => e.preventDefault());
-window.addEventListener("drop", (e) => {
-  e.preventDefault();
-  dragDepth = 0;
-  els.dropOverlay.hidden = true;
-  const img = [...e.dataTransfer.files].find((f) => f.type.startsWith("image/"));
+onFileDrop((files) => {
+  const img = files.find((f) => f.type.startsWith("image/"));
   if (img) openImage(img, img.name);
   else showStatus("画像ファイルをドロップしてください", { error: true });
 });
@@ -892,3 +858,6 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 els.stage.dataset.tool = state.tool;
+
+// Keeps this tool working without a network once it has been opened.
+registerOffline(["./", "index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest"]);

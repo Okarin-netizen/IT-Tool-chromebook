@@ -1,3 +1,5 @@
+import { showStatus } from "../shared/js/status.js";
+import { download, onFileDrop } from "../shared/js/files.js";
 import { registerOffline } from "../shared/js/offline.js";
 
 const { PDFDocument } = window.PDFLib;
@@ -33,8 +35,6 @@ const els = {
   cameraShot: $("camera-shot"),
   cameraClose: $("camera-close"),
   cameraCount: $("camera-count"),
-  status: $("status"),
-  dropOverlay: $("drop-overlay"),
 };
 
 const state = {
@@ -43,17 +43,6 @@ const state = {
   dirty: false,
   busy: false,
 };
-
-/* ---------- status messages ---------- */
-
-let statusTimer = 0;
-function showStatus(text, { error = false, sticky = false } = {}) {
-  clearTimeout(statusTimer);
-  els.status.textContent = text;
-  els.status.classList.toggle("error", error);
-  els.status.hidden = false;
-  if (!sticky) statusTimer = setTimeout(() => (els.status.hidden = true), error ? 6000 : 2500);
-}
 
 /* ---------- loading images ---------- */
 
@@ -404,17 +393,6 @@ async function save() {
   }
 }
 
-function download(blob, name) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-}
-
 /* ---------- toolbar & global events ---------- */
 
 els.fileInput.addEventListener("change", async () => {
@@ -463,25 +441,7 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 // Drag & drop image files anywhere on the page.
-let dragDepth = 0;
-window.addEventListener("dragenter", (e) => {
-  if (![...e.dataTransfer.types].includes("Files")) return;
-  dragDepth++;
-  els.dropOverlay.hidden = false;
-});
-window.addEventListener("dragleave", () => {
-  if (--dragDepth <= 0) {
-    dragDepth = 0;
-    els.dropOverlay.hidden = true;
-  }
-});
-window.addEventListener("dragover", (e) => e.preventDefault());
-window.addEventListener("drop", (e) => {
-  e.preventDefault();
-  dragDepth = 0;
-  els.dropOverlay.hidden = true;
-  if (dragId) return;
-  const files = [...e.dataTransfer.files];
+onFileDrop((files) => {
   if (files.some((f) => f.type.startsWith("image/"))) addFiles(files);
   else if (files.length) showStatus("画像ファイルをドロップしてください", { error: true });
 });

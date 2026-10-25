@@ -1,8 +1,9 @@
-import * as pdfjsLib from "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs";
+import { openPdf } from "../shared/js/pdf.js";
+import { showStatus, hideStatus } from "../shared/js/status.js";
+import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { registerOffline } from "../shared/js/offline.js";
 
 const asset = (path) => new URL(path, location.href).href;
-pdfjsLib.GlobalWorkerOptions.workerSrc = asset("../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs");
 
 const PREVIEW_PX = 280; // width of a page preview, in CSS pixels
 const OCR_PX = 3000; // longest side of the page image given to OCR (about 260 dpi for A4)
@@ -21,8 +22,6 @@ const els = {
   viewer: $("viewer"),
   welcome: $("welcome"),
   pages: $("pages"),
-  status: $("status"),
-  dropOverlay: $("drop-overlay"),
 };
 
 const state = {
@@ -33,21 +32,6 @@ const state = {
   busy: false,
   preview: true,
 };
-
-/* ---------- status messages ---------- */
-
-let statusTimer = 0;
-function showStatus(text, { error = false, sticky = false, ms = error ? 6000 : 2500 } = {}) {
-  clearTimeout(statusTimer);
-  els.status.textContent = text;
-  els.status.classList.toggle("error", error);
-  els.status.hidden = false;
-  if (!sticky) statusTimer = setTimeout(() => (els.status.hidden = true), ms);
-}
-function hideStatus() {
-  clearTimeout(statusTimer);
-  els.status.hidden = true;
-}
 
 /* ---------- text clean-up ---------- */
 
@@ -214,7 +198,7 @@ function formatPage(view) {
 
 async function openFile(file) {
   if (!file) return;
-  if (!(file.type === "application/pdf" || /\.pdf$/i.test(file.name))) {
+  if (!isPdf(file)) {
     showStatus("PDFファイルを選んでください", { error: true });
     return;
   }
@@ -225,12 +209,7 @@ async function openFile(file) {
   showStatus("PDFを読み込み中…", { sticky: true });
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const pdf = await pdfjsLib.getDocument({
-      data: bytes,
-      cMapUrl: asset("../shared/vendor/pdfjs-4.10.38/cmaps/"),
-      cMapPacked: true,
-      standardFontDataUrl: asset("../shared/vendor/pdfjs-4.10.38/standard_fonts/"),
-    }).promise;
+    const pdf = await openPdf(bytes).promise;
     closeCurrent();
     state.pdf = pdf;
     state.name = file.name || "document.pdf";
@@ -539,16 +518,9 @@ async function copyText(text, message) {
 }
 
 function saveText() {
-  const blob = new Blob([allText()], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${state.name.replace(/\.pdf$/i, "") || "document"}.txt`;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  showStatus(`${a.download} を保存しました`);
+  const name = `${baseName(state.name) || "document"}.txt`;
+  download(new Blob([allText()], { type: "text/plain;charset=utf-8" }), name);
+  showStatus(`${name} を保存しました`);
 }
 
 /* ---------- UI state ---------- */
@@ -590,28 +562,7 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 // Drag & drop a PDF anywhere on the page.
-let dragDepth = 0;
-const isFileDrag = (e) => [...e.dataTransfer.types].includes("Files");
-window.addEventListener("dragenter", (e) => {
-  if (!isFileDrag(e)) return;
-  dragDepth++;
-  els.dropOverlay.hidden = false;
-});
-window.addEventListener("dragleave", (e) => {
-  if (!isFileDrag(e)) return;
-  if (--dragDepth <= 0) {
-    dragDepth = 0;
-    els.dropOverlay.hidden = true;
-  }
-});
-window.addEventListener("dragover", (e) => e.preventDefault());
-window.addEventListener("drop", (e) => {
-  e.preventDefault();
-  if (!isFileDrag(e)) return;
-  dragDepth = 0;
-  els.dropOverlay.hidden = true;
-  openFile(e.dataTransfer.files[0]);
-});
+onFileDrop((files) => openFile(files[0]));
 
 // Keeps this tool working without a network once it has been opened.
 registerOffline([

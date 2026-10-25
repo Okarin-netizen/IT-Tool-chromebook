@@ -1,10 +1,10 @@
-import * as pdfjsLib from "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs";
+import { openPdf } from "../shared/js/pdf.js";
+import { showStatus, hideStatus } from "../shared/js/status.js";
+import { isPdf, download, onFileDrop } from "../shared/js/files.js";
+import { loadText, saveText } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 
 const { PDFDocument, degrees } = window.PDFLib;
-
-const asset = (path) => new URL(path, location.href).href;
-pdfjsLib.GlobalWorkerOptions.workerSrc = asset("../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs");
 
 const THUMB_SIZES = { small: 110, medium: 150, large: 220 }; // longest side of a thumbnail, in CSS pixels
 const HISTORY_LIMIT = 50;
@@ -33,8 +33,6 @@ const els = {
   viewer: $("viewer"),
   welcome: $("welcome"),
   grid: $("grid"),
-  status: $("status"),
-  dropOverlay: $("drop-overlay"),
   preview: $("preview"),
   previewLabel: $("preview-label"),
   previewStage: $("preview-stage"),
@@ -58,25 +56,10 @@ const state = {
 };
 let nextId = 1;
 
-/* ---------- status messages ---------- */
-
-let statusTimer = 0;
-function showStatus(text, { error = false, sticky = false, ms = error ? 6000 : 2500 } = {}) {
-  clearTimeout(statusTimer);
-  els.status.textContent = text;
-  els.status.classList.toggle("error", error);
-  els.status.hidden = false;
-  if (!sticky) statusTimer = setTimeout(() => (els.status.hidden = true), ms);
-}
-function hideStatus() {
-  clearTimeout(statusTimer);
-  els.status.hidden = true;
-}
-
 /* ---------- adding PDFs ---------- */
 
 async function addFiles(fileList) {
-  const files = [...fileList].filter((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
+  const files = [...fileList].filter(isPdf);
   if (!files.length) {
     showStatus("PDFファイルを選んでください", { error: true });
     return;
@@ -117,12 +100,7 @@ function describeLoadError(err) {
 
 async function addFile(file) {
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const pdf = await pdfjsLib.getDocument({
-    data: bytes.slice(), // pdf.js detaches the buffer it is given
-    cMapUrl: asset("../shared/vendor/pdfjs-4.10.38/cmaps/"),
-    cMapPacked: true,
-    standardFontDataUrl: asset("../shared/vendor/pdfjs-4.10.38/standard_fonts/"),
-  }).promise;
+  const pdf = await openPdf(bytes.slice()).promise;
   // pdf-lib can't decrypt, so pages of a protected PDF are saved as images rendered by pdf.js.
   const loaded = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
   const doc = loaded.isEncrypted ? null : loaded;
@@ -506,7 +484,7 @@ function setThumbSize(name) {
   els.thumbSize.value = name;
   state.thumbPx = THUMB_SIZES[name];
   els.grid.style.setProperty("--thumb", `${state.thumbPx}px`);
-  try { localStorage.setItem("pdf-pages-thumb", name); } catch {}
+  saveText("pdf-pages-thumb", name);
   // Re-render as each card comes into view (observe() reports the current state right away).
   for (const view of state.pages) {
     view.rendered = false;
@@ -705,7 +683,7 @@ async function withBusy(message, fn) {
 function saveAll() {
   return withBusy("PDFを作成中…", async () => {
     const bytes = await buildPdf(state.pages);
-    download(bytes, outputName(fileCount() > 1 ? "結合" : "編集済み"));
+    download(new Blob([bytes], { type: "application/pdf" }), outputName(fileCount() > 1 ? "結合" : "編集済み"));
     state.dirty = false;
     showStatus("保存しました");
   });
@@ -716,7 +694,7 @@ function saveSelected() {
   if (!views.length) return;
   return withBusy("PDFを作成中…", async () => {
     const bytes = await buildPdf(views);
-    download(bytes, outputName("抜き出し"));
+    download(new Blob([bytes], { type: "application/pdf" }), outputName("抜き出し"));
     showStatus(`${views.length}ページを保存しました`);
   });
 }
@@ -730,24 +708,13 @@ function saveEachPage() {
       showStatus(`PDFを分割中…（${i + 1}/${views.length}）`, { sticky: true });
       const bytes = await buildPdf([view]);
       const n = String(i + 1).padStart(digits, "0");
-      download(bytes, `${baseName(view.file.name)}_${n}.pdf`);
+      download(new Blob([bytes], { type: "application/pdf" }), `${baseName(view.file.name)}_${n}.pdf`);
       // Chrome drops downloads fired too close together.
       await new Promise((r) => setTimeout(r, 250));
     }
     state.dirty = false;
     showStatus(`${views.length}個のPDFに分けて保存しました`);
   });
-}
-
-function download(bytes, name) {
-  const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 /* ---------- wiring ---------- */
@@ -823,28 +790,7 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 // Drag & drop PDFs anywhere on the page (page cards handle their own reordering drags).
-let dragDepth = 0;
-const isFileDrag = (e) => [...e.dataTransfer.types].includes("Files");
-window.addEventListener("dragenter", (e) => {
-  if (!isFileDrag(e)) return;
-  dragDepth++;
-  els.dropOverlay.hidden = false;
-});
-window.addEventListener("dragleave", (e) => {
-  if (!isFileDrag(e)) return;
-  if (--dragDepth <= 0) {
-    dragDepth = 0;
-    els.dropOverlay.hidden = true;
-  }
-});
-window.addEventListener("dragover", (e) => e.preventDefault());
-window.addEventListener("drop", (e) => {
-  e.preventDefault();
-  if (!isFileDrag(e)) return;
-  dragDepth = 0;
-  els.dropOverlay.hidden = true;
-  addFiles(e.dataTransfer.files);
-});
+onFileDrop(addFiles);
 
 // Keeps this tool working without a network once it has been opened.
 registerOffline([
@@ -859,9 +805,7 @@ registerOffline([
   "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
 ]);
 
-let savedSize = "medium";
-try { savedSize = localStorage.getItem("pdf-pages-thumb") || savedSize; } catch {}
-setThumbSize(savedSize);
+setThumbSize(loadText("pdf-pages-thumb") || "medium");
 updateUi();
 
 // Hook for automated tests.

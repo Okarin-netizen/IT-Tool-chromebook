@@ -1,9 +1,9 @@
-import * as pdfjsLib from "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs";
-import { makeZip } from "./zip.js";
+import { pdfjsLib, openPdf } from "../shared/js/pdf.js";
+import { showStatus, hideStatus } from "../shared/js/status.js";
+import { isPdf, download, onFileDrop } from "../shared/js/files.js";
+import { loadText, saveText } from "../shared/js/storage.js";
+import { makeZip } from "../shared/js/zip.js";
 import { registerOffline } from "../shared/js/offline.js";
-
-const asset = (path) => new URL(path, location.href).href;
-pdfjsLib.GlobalWorkerOptions.workerSrc = asset("../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs");
 
 const THUMB_PX = 150; // longest side of a thumbnail, in CSS pixels
 const MAX_PIXELS = 25_000_000; // keep huge pages from exhausting memory
@@ -21,8 +21,6 @@ const els = {
   viewer: $("viewer"),
   welcome: $("welcome"),
   grid: $("grid"),
-  status: $("status"),
-  dropOverlay: $("drop-overlay"),
 };
 
 const state = {
@@ -33,25 +31,10 @@ const state = {
   busy: false,
 };
 
-/* ---------- status messages ---------- */
-
-let statusTimer = 0;
-function showStatus(text, { error = false, sticky = false, ms = error ? 6000 : 2500 } = {}) {
-  clearTimeout(statusTimer);
-  els.status.textContent = text;
-  els.status.classList.toggle("error", error);
-  els.status.hidden = false;
-  if (!sticky) statusTimer = setTimeout(() => (els.status.hidden = true), ms);
-}
-function hideStatus() {
-  clearTimeout(statusTimer);
-  els.status.hidden = true;
-}
-
 /* ---------- opening a PDF ---------- */
 
 async function openFile(file) {
-  if (!file || !(file.type === "application/pdf" || /\.pdf$/i.test(file.name))) {
+  if (!file || !isPdf(file)) {
     showStatus("PDFファイルを選んでください", { error: true });
     return;
   }
@@ -59,12 +42,7 @@ async function openFile(file) {
   showStatus("PDFを読み込み中…", { sticky: true });
   let pdf;
   try {
-    const task = pdfjsLib.getDocument({
-      data: new Uint8Array(await file.arrayBuffer()),
-      cMapUrl: asset("../shared/vendor/pdfjs-4.10.38/cmaps/"),
-      cMapPacked: true,
-      standardFontDataUrl: asset("../shared/vendor/pdfjs-4.10.38/standard_fonts/"),
-    });
+    const task = openPdf(new Uint8Array(await file.arrayBuffer()));
     task.onPassword = (update, reason) => {
       const retry = reason === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD;
       const password = prompt(retry ? "パスワードがちがいます。もう一度入力してください" : "このPDFはパスワードで保護されています。パスワードを入力してください");
@@ -297,17 +275,6 @@ function copyPage(view) {
   });
 }
 
-function download(blob, name) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-}
-
 /* ---------- wiring ---------- */
 
 els.fileInput.addEventListener("change", () => {
@@ -321,13 +288,9 @@ els.saveBtn.addEventListener("click", saveSelectedOrAll);
 // Remember the chosen format and quality.
 for (const select of [els.format, els.dpi]) {
   const key = `pdf-image.${select.id}`;
-  try {
-    const saved = localStorage.getItem(key);
-    if (saved && [...select.options].some((o) => o.value === saved)) select.value = saved;
-  } catch {}
-  select.addEventListener("change", () => {
-    try { localStorage.setItem(key, select.value); } catch {}
-  });
+  const saved = loadText(key);
+  if (saved && [...select.options].some((o) => o.value === saved)) select.value = saved;
+  select.addEventListener("change", () => saveText(key, select.value));
 }
 
 window.addEventListener("keydown", (e) => {
@@ -340,28 +303,7 @@ window.addEventListener("keydown", (e) => {
 });
 
 // Drag & drop a PDF anywhere on the page.
-let dragDepth = 0;
-const isFileDrag = (e) => [...e.dataTransfer.types].includes("Files");
-window.addEventListener("dragenter", (e) => {
-  if (!isFileDrag(e)) return;
-  dragDepth++;
-  els.dropOverlay.hidden = false;
-});
-window.addEventListener("dragleave", (e) => {
-  if (!isFileDrag(e)) return;
-  if (--dragDepth <= 0) {
-    dragDepth = 0;
-    els.dropOverlay.hidden = true;
-  }
-});
-window.addEventListener("dragover", (e) => e.preventDefault());
-window.addEventListener("drop", (e) => {
-  e.preventDefault();
-  if (!isFileDrag(e)) return;
-  dragDepth = 0;
-  els.dropOverlay.hidden = true;
-  openFile(e.dataTransfer.files[0]);
-});
+onFileDrop((files) => openFile(files[0]));
 
 // Keeps this tool working without a network once it has been opened.
 registerOffline([
@@ -369,7 +311,6 @@ registerOffline([
   "index.html",
   "style.css",
   "app.js",
-  "zip.js",
   "icon.svg",
   "manifest.webmanifest",
   "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs",

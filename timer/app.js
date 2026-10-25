@@ -1,4 +1,6 @@
-"use strict";
+import { showStatus } from "../shared/js/status.js";
+import { loadJson, saveJson } from "../shared/js/storage.js";
+import { registerOffline } from "../shared/js/offline.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -25,8 +27,7 @@ let audio = null;
 // ---------- storage ----------
 
 function load() {
-  let saved = {};
-  try { saved = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { /* private window etc. */ }
+  const saved = loadJson(STORE_KEY) || {};
   const s = structuredClone(defaults);
   for (const key of Object.keys(s)) {
     if (saved[key] === undefined) continue;
@@ -36,7 +37,7 @@ function load() {
 }
 
 function save() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
+  saveJson(STORE_KEY, state);
 }
 
 function todayStr() {
@@ -149,15 +150,6 @@ async function keepAwake(on) {
   } catch { /* not allowed; fine */ }
 }
 
-let statusTimer = null;
-function showStatus(text) {
-  const el = $("status");
-  el.textContent = text;
-  el.hidden = false;
-  clearTimeout(statusTimer);
-  statusTimer = setTimeout(() => { el.hidden = true; }, 3000);
-}
-
 // ---------- actions ----------
 
 function scheduleFinish() {
@@ -262,7 +254,7 @@ function finish(kind) {
     Object.assign(state.timer, { remaining: 0, endAt: null });
     if (shown) document.body.classList.add("done");
     notify("時間になりました！");
-    showStatus("時間になりました");
+    showStatus("時間になりました", { ms: 3000 });
     keepAwake(false);
     afterChange();
     return;
@@ -273,7 +265,7 @@ function finish(kind) {
     ? `お疲れさまでした！${PHASE_LABEL[state.pomodoro.phase]}しましょう`
     : "休憩おわり。集中をはじめましょう";
   notify(msg);
-  showStatus(msg);
+  showStatus(msg, { ms: 3000 });
   if (state.settings.auto) {
     start("pomodoro");
   } else {
@@ -418,13 +410,13 @@ $("sound-btn").addEventListener("click", () => {
   save();
   render();
   if (state.sound) { unlockAudio(); beep(1); }
-  showStatus(state.sound ? "音をオンにしました" : "音をオフにしました");
+  showStatus(state.sound ? "音をオンにしました" : "音をオフにしました", { ms: 3000 });
 });
 
 $("custom-set").addEventListener("click", () => {
   const m = Math.max(0, Math.min(999, parseInt($("custom-min").value, 10) || 0));
   const s = Math.max(0, Math.min(59, parseInt($("custom-sec").value, 10) || 0));
-  if (m === 0 && s === 0) { showStatus("1秒以上の時間を入れてください"); return; }
+  if (m === 0 && s === 0) { showStatus("1秒以上の時間を入れてください", { ms: 3000 }); return; }
   setTimerTotal((m * 60 + s) * 1000);
 });
 
@@ -505,3 +497,5 @@ render();
 scheduleFinish();
 if (isRunning()) keepAwake(true);
 
+// Keeps this tool working without a network once it has been opened.
+registerOffline(["./", "index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest"]);
