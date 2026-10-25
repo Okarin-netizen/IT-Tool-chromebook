@@ -1,19 +1,16 @@
-import * as pdfjsLib from "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs";
+import { openPdf, rasterizePdf } from "../shared/js/pdf.js";
+import { showStatus, hideStatus } from "../shared/js/status.js";
+import { isPdf, download, onFileDrop } from "../shared/js/files.js";
+import { subsetFont, preloadFont } from "../shared/js/font-jp.js";
 import { registerOffline } from "../shared/js/offline.js";
 
 const { PDFDocument, rgb, degrees } = window.PDFLib;
 
-const asset = (path) => new URL(path, location.href).href;
-pdfjsLib.GlobalWorkerOptions.workerSrc = asset("../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs");
-
-const FONT_URL = asset("../shared/vendor/noto-sans-jp/NotoSansJP-Regular.ttf");
-const SUBSET_WASM_URL = asset("../shared/vendor/harfbuzz-1.6.3/harfbuzz-subset.wasm");
 const FONT_FAMILY = "PdfTextJP";
 const LINE_HEIGHT = 1.25; // must match .tbox line-height in style.css
 const MIN_SCALE = 0.4;
 const MAX_SCALE = 4;
 const MAX_IMAGE_PX = 2000; // longest side of a placed photo; keeps saved PDFs small
-const RASTER_SCALE = 2; // 144 dpi page images when a protected PDF has to be rebuilt
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -29,8 +26,6 @@ const els = {
   viewer: $("viewer"),
   welcome: $("welcome"),
   pages: $("pages"),
-  status: $("status"),
-  dropOverlay: $("drop-overlay"),
 };
 
 const state = {
@@ -46,21 +41,6 @@ const state = {
   baselineRatio: 1.0, // first-line baseline / font size, measured from the real font
   dirty: false,
 };
-
-/* ---------- status messages ---------- */
-
-let statusTimer = 0;
-function showStatus(text, { error = false, sticky = false } = {}) {
-  clearTimeout(statusTimer);
-  els.status.textContent = text;
-  els.status.classList.toggle("error", error);
-  els.status.hidden = false;
-  if (!sticky) statusTimer = setTimeout(() => (els.status.hidden = true), error ? 6000 : 2500);
-}
-function hideStatus() {
-  clearTimeout(statusTimer);
-  els.status.hidden = true;
-}
 
 /* ---------- font ---------- */
 
@@ -79,52 +59,6 @@ const fontReady = (async () => {
   probe.remove();
 })();
 
-let fontBytesPromise = null;
-function loadFontBytes() {
-  fontBytesPromise ??= fetch(FONT_URL).then((r) => {
-    if (!r.ok) throw new Error("フォントを読み込めませんでした");
-    return r.arrayBuffer();
-  });
-  return fontBytesPromise;
-}
-
-// pdf-lib's built-in subsetting drops glyphs from Noto Sans JP, so the font is
-// cut down to just the characters in use with HarfBuzz and embedded as-is.
-let subsetterPromise = null;
-function loadSubsetter() {
-  subsetterPromise ??= fetch(SUBSET_WASM_URL)
-    .then((r) => r.arrayBuffer())
-    .then((buf) => WebAssembly.instantiate(buf))
-    .then(({ instance }) => instance.exports);
-  return subsetterPromise;
-}
-
-async function subsetFont(text) {
-  const [hb, fontBytes] = await Promise.all([loadSubsetter(), loadFontBytes()]);
-  const ptr = hb.malloc(fontBytes.byteLength);
-  new Uint8Array(hb.memory.buffer).set(new Uint8Array(fontBytes), ptr);
-  const blob = hb.hb_blob_create(ptr, fontBytes.byteLength, 2 /* writable */, 0, 0);
-  const face = hb.hb_face_create(blob, 0);
-  hb.hb_blob_destroy(blob);
-  const input = hb.hb_subset_input_create_or_fail();
-  const unicodes = hb.hb_subset_input_unicode_set(input);
-  for (const ch of new Set(text)) hb.hb_set_add(unicodes, ch.codePointAt(0));
-  const sub = hb.hb_subset_or_fail(face, input);
-  hb.hb_subset_input_destroy(input);
-  try {
-    if (!sub) throw new Error("フォントの準備に失敗しました");
-    const out = hb.hb_face_reference_blob(sub);
-    const data = hb.hb_blob_get_data(out, 0);
-    const bytes = new Uint8Array(hb.memory.buffer).slice(data, data + hb.hb_blob_get_length(out));
-    hb.hb_blob_destroy(out);
-    return bytes;
-  } finally {
-    if (sub) hb.hb_face_destroy(sub);
-    hb.hb_face_destroy(face);
-    hb.free(ptr);
-  }
-}
-
 /* ---------- opening a PDF ---------- */
 
 async function openFile(file) {
@@ -133,12 +67,7 @@ async function openFile(file) {
   showStatus("PDFを読み込み中…", { sticky: true });
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const pdf = await pdfjsLib.getDocument({
-      data: bytes.slice(),
-      cMapUrl: asset("../shared/vendor/pdfjs-4.10.38/cmaps/"),
-      cMapPacked: true,
-      standardFontDataUrl: asset("../shared/vendor/pdfjs-4.10.38/standard_fonts/"),
-    }).promise;
+    const pdf = await openPdf(bytes.slice()).promise;
 
     resetDocument();
     state.bytes = bytes;
@@ -577,30 +506,6 @@ function outputName() {
   return `${base}_記入済み.pdf`;
 }
 
-// pdf-lib cannot decrypt, so a protected (encrypted) PDF is rebuilt from page
-// images rendered by pdf.js, the same as printing it, and written on top of that.
-async function rasterizeDocument() {
-  const doc = await PDFDocument.create();
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  for (const view of state.pages) {
-    showStatus(`保護されたPDFのため、ページを画像にしています… (${view.num}/${state.pages.length})`, { sticky: true });
-    const page = await state.pdf.getPage(view.num);
-    const viewport = page.getViewport({ scale: RASTER_SCALE });
-    canvas.width = Math.floor(viewport.width);
-    canvas.height = Math.floor(viewport.height);
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    await page.render({ canvasContext: ctx, viewport }).promise;
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
-    const image = await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
-    const { width, height } = view.viewport;
-    doc.addPage([width, height]).drawImage(image, { x: 0, y: 0, width, height });
-  }
-  canvas.width = canvas.height = 0;
-  return doc;
-}
-
 async function save() {
   if (!state.bytes) return;
   els.saveBtn.disabled = true;
@@ -609,7 +514,8 @@ async function save() {
     await fontReady;
     const original = await PDFDocument.load(state.bytes, { ignoreEncryption: true });
     const rebuilt = original.isEncrypted;
-    const doc = rebuilt ? await rasterizeDocument() : original;
+    const onPage = (num, count) => showStatus(`保護されたPDFのため、ページを画像にしています… (${num}/${count})`, { sticky: true });
+    const doc = rebuilt ? await rasterizePdf(state.pdf, { onPage }) : original;
     doc.registerFontkit(window.fontkit);
     // Maps screen coordinates (scale 1, top-left origin) onto a page of `doc`.
     // Rebuilt pages are already upright, so only the y axis flips.
@@ -659,17 +565,6 @@ async function save() {
   } finally {
     els.saveBtn.disabled = false;
   }
-}
-
-function download(blob, name) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 /* ---------- toolbar & global events ---------- */
@@ -727,25 +622,8 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 // Drag & drop a PDF (or, once one is open, photos) anywhere on the page.
-let dragDepth = 0;
-window.addEventListener("dragenter", (e) => {
-  if (![...e.dataTransfer.types].includes("Files")) return;
-  dragDepth++;
-  els.dropOverlay.hidden = false;
-});
-window.addEventListener("dragleave", () => {
-  if (--dragDepth <= 0) {
-    dragDepth = 0;
-    els.dropOverlay.hidden = true;
-  }
-});
-window.addEventListener("dragover", (e) => e.preventDefault());
-window.addEventListener("drop", (e) => {
-  e.preventDefault();
-  dragDepth = 0;
-  els.dropOverlay.hidden = true;
-  const files = [...e.dataTransfer.files];
-  const pdf = files.find((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
+onFileDrop((files) => {
+  const pdf = files.find(isPdf);
   const images = files.filter((f) => f.type.startsWith("image/"));
   if (pdf) openFile(pdf);
   else if (images.length && state.pdf) images.reduce((p, f) => p.then(() => addImageFile(f)), Promise.resolve());
@@ -769,8 +647,7 @@ registerOffline([
 ]);
 
 // Start downloading the font early so saving is quick.
-loadFontBytes().catch(() => {});
-loadSubsetter().catch(() => {});
+preloadFont();
 
 // Hook for automated tests.
 window.__pdfText = { state, openFile, addItem, addImageFile, save, setScale, fontReady };

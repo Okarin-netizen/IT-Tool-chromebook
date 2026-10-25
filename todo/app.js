@@ -1,4 +1,7 @@
-"use strict";
+import { showStatus } from "../shared/js/status.js";
+import { download } from "../shared/js/files.js";
+import { loadJson, saveJson } from "../shared/js/storage.js";
+import { registerOffline } from "../shared/js/offline.js";
 
 const STORAGE_KEY = "todo-tool-v1";
 const DAYS = ["月", "火", "水", "木", "金", "土"];
@@ -41,19 +44,11 @@ function normalize(data) {
 }
 
 function load() {
-  try {
-    return normalize(JSON.parse(localStorage.getItem(STORAGE_KEY)));
-  } catch {
-    return defaultState();
-  }
+  return normalize(loadJson(STORAGE_KEY));
 }
 
 function save() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    showStatus("保存できませんでした。「バックアップ」でファイルに保存してください。", true);
-  }
+  if (!saveJson(STORAGE_KEY, state)) showStatus("保存できませんでした。「バックアップ」でファイルに保存してください。", { error: true, ms: 5000 });
 }
 
 function newId() {
@@ -333,14 +328,7 @@ for (const chip of document.querySelectorAll(".chip")) {
 // ---- バックアップ ----
 
 $("export-btn").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `時間割と課題_${dateKey(new Date())}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  download(new Blob([JSON.stringify(state, null, 2)], { type: "application/json" }), `時間割と課題_${dateKey(new Date())}.json`);
   showStatus("バックアップを保存しました");
 });
 
@@ -357,21 +345,11 @@ $("import-input").addEventListener("change", async (e) => {
     renderAll();
     showStatus("読み込みました");
   } catch {
-    showStatus("このファイルは読み込めませんでした", true);
+    showStatus("このファイルは読み込めませんでした", { error: true, ms: 5000 });
   }
 });
 
 // ---- 共通 ----
-
-let statusTimer;
-function showStatus(msg, isError = false) {
-  const el = $("status");
-  el.textContent = msg;
-  el.classList.toggle("error", isError);
-  el.hidden = false;
-  clearTimeout(statusTimer);
-  statusTimer = setTimeout(() => { el.hidden = true; }, isError ? 5000 : 2500);
-}
 
 function renderAll() {
   renderTimetable();
@@ -397,3 +375,5 @@ setInterval(() => {
 
 renderAll();
 
+// Keeps this tool working without a network once it has been opened.
+registerOffline(["./", "index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest"]);

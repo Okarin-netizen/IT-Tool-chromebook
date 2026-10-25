@@ -1,14 +1,13 @@
-import * as pdfjsLib from "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs";
+import { openPdf, rasterizePdf } from "../shared/js/pdf.js";
+import { showStatus, hideStatus } from "../shared/js/status.js";
+import { isPdf, download, onFileDrop } from "../shared/js/files.js";
+import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 
 const { PDFDocument, degrees, BlendMode } = window.PDFLib;
 
-const asset = (path) => new URL(path, location.href).href;
-pdfjsLib.GlobalWorkerOptions.workerSrc = asset("../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs");
-
 const MIN_SCALE = 0.4;
 const MAX_SCALE = 4;
-const RASTER_SCALE = 2; // 144 dpi page images when a protected PDF has to be rebuilt
 const INK_SCALE = 4; // 288 dpi for the ink layer in the saved PDF
 const INK_MAX_PX = 4096; // longest side of a saved ink image
 const MARKER_FACTOR = 6; // highlighter width = pen width × this
@@ -49,8 +48,6 @@ const els = {
   padSwatches: document.querySelectorAll(".pad-swatch"),
   padClear: $("pad-clear"),
   padOk: $("pad-ok"),
-  status: $("status"),
-  dropOverlay: $("drop-overlay"),
 };
 
 const state = {
@@ -76,39 +73,6 @@ const state = {
   scale: 1,
   dirty: false,
 };
-
-/* ---------- status messages ---------- */
-
-let statusTimer = 0;
-function showStatus(text, { error = false, sticky = false } = {}) {
-  clearTimeout(statusTimer);
-  els.status.textContent = text;
-  els.status.classList.toggle("error", error);
-  els.status.hidden = false;
-  if (!sticky) statusTimer = setTimeout(() => (els.status.hidden = true), error ? 6000 : 2500);
-}
-function hideStatus() {
-  clearTimeout(statusTimer);
-  els.status.hidden = true;
-}
-
-/* ---------- saved settings ---------- */
-
-function load(key, fallback) {
-  try {
-    const value = localStorage.getItem(key);
-    return value == null ? fallback : JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
-function store(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Private windows or blocked storage: the setting just isn't remembered.
-  }
-}
 
 /* ---------- stamps ---------- */
 
@@ -349,12 +313,7 @@ async function openFile(file) {
   showStatus("PDFを読み込み中…", { sticky: true });
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const pdf = await pdfjsLib.getDocument({
-      data: bytes.slice(),
-      cMapUrl: asset("../shared/vendor/pdfjs-4.10.38/cmaps/"),
-      cMapPacked: true,
-      standardFontDataUrl: asset("../shared/vendor/pdfjs-4.10.38/standard_fonts/"),
-    }).promise;
+    const pdf = await openPdf(bytes.slice()).promise;
 
     resetDocument();
     state.bytes = bytes;
@@ -833,7 +792,7 @@ function renderSignChoices() {
       if (!confirm("この署名を消しますか？（PDFに入れた署名は消えません）")) return;
       state.signs.splice(i, 1);
       state.signIndex = 0;
-      store(STORE.signs, state.signs);
+      saveJson(STORE.signs, state.signs);
       renderSignChoices();
     });
     row.append(btn, del);
@@ -927,7 +886,7 @@ function finishSign() {
   state.signs.unshift(sig);
   state.signs.length = Math.min(state.signs.length, MAX_SIGNS);
   state.signIndex = 0;
-  store(STORE.signs, state.signs);
+  saveJson(STORE.signs, state.signs);
   renderSignChoices();
   els.signDialog.close();
   setTool("sign", { hint: false });
@@ -952,30 +911,6 @@ els.padOk.addEventListener("click", finishSign);
 function outputName() {
   const base = state.fileName.replace(/\.pdf$/i, "");
   return `${base}_書き込み済み.pdf`;
-}
-
-// pdf-lib cannot decrypt, so a protected (encrypted) PDF is rebuilt from page
-// images rendered by pdf.js, the same as printing it, and written on top of that.
-async function rasterizeDocument() {
-  const doc = await PDFDocument.create();
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  for (const view of state.pages) {
-    showStatus(`保護されたPDFのため、ページを画像にしています… (${view.num}/${state.pages.length})`, { sticky: true });
-    const page = await state.pdf.getPage(view.num);
-    const viewport = page.getViewport({ scale: RASTER_SCALE });
-    canvas.width = Math.floor(viewport.width);
-    canvas.height = Math.floor(viewport.height);
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    await page.render({ canvasContext: ctx, viewport }).promise;
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
-    const image = await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
-    const { width, height } = view.viewport;
-    doc.addPage([width, height]).drawImage(image, { x: 0, y: 0, width, height });
-  }
-  canvas.width = canvas.height = 0;
-  return doc;
 }
 
 // Draws one page's ink onto a transparent PNG cropped to where the ink is.
@@ -1016,7 +951,8 @@ async function save() {
     await document.fonts.ready;
     const original = await PDFDocument.load(state.bytes, { ignoreEncryption: true });
     const rebuilt = original.isEncrypted;
-    const doc = rebuilt ? await rasterizeDocument() : original;
+    const onPage = (num, count) => showStatus(`保護されたPDFのため、ページを画像にしています… (${num}/${count})`, { sticky: true });
+    const doc = rebuilt ? await rasterizePdf(state.pdf, { onPage }) : original;
 
     for (const view of state.pages) {
       const items = state.items.filter((i) => i.page === view.num);
@@ -1053,17 +989,6 @@ async function save() {
   }
 }
 
-function download(blob, name) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-}
-
 /* ---------- toolbar & global events ---------- */
 
 els.fileInput.addEventListener("change", () => {
@@ -1091,7 +1016,7 @@ document.addEventListener("pointerdown", (e) => {
 
 els.sealName.addEventListener("input", () => {
   state.sealName = els.sealName.value;
-  store(STORE.name, state.sealName);
+  saveJson(STORE.name, state.sealName);
   renderStampChoices();
 });
 els.sealName.addEventListener("keydown", (e) => {
@@ -1166,26 +1091,8 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 // Drag & drop a PDF anywhere on the page.
-let dragDepth = 0;
-const isFileDrag = (e) => [...e.dataTransfer.types].includes("Files");
-window.addEventListener("dragenter", (e) => {
-  if (!isFileDrag(e)) return;
-  dragDepth++;
-  els.dropOverlay.hidden = false;
-});
-window.addEventListener("dragleave", (e) => {
-  if (!isFileDrag(e)) return;
-  if (--dragDepth <= 0) {
-    dragDepth = 0;
-    els.dropOverlay.hidden = true;
-  }
-});
-window.addEventListener("dragover", (e) => e.preventDefault());
-window.addEventListener("drop", (e) => {
-  e.preventDefault();
-  dragDepth = 0;
-  els.dropOverlay.hidden = true;
-  const pdf = [...e.dataTransfer.files].find((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
+onFileDrop((files) => {
+  const pdf = files.find(isPdf);
   if (pdf) openFile(pdf);
   else showStatus("PDFファイルをドロップしてください", { error: true });
 });
@@ -1203,9 +1110,9 @@ registerOffline([
   "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
 ]);
 
-state.sealName = load(STORE.name, "");
+state.sealName = loadJson(STORE.name, "");
 els.sealName.value = state.sealName;
-state.signs = load(STORE.signs, []).filter((s) => s?.strokes?.length && s.w > 0 && s.h > 0);
+state.signs = loadJson(STORE.signs, []).filter((s) => s?.strokes?.length && s.w > 0 && s.h > 0);
 renderStampChoices();
 renderSignChoices();
 setTool("pen", { hint: false });

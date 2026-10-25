@@ -410,6 +410,24 @@ function captureDownloads() {
   };
 }
 
+// Same-site files the page has loaded that are not in the offline cache. The service worker
+// stores the precache list in the background, so this waits a little for it to finish.
+async function uncachedFiles(page) {
+  for (let i = 0; ; i++) {
+    const missing = await page.evaluate(async () => {
+      const cache = await caches.open("itc-v1");
+      const urls = [location.href, ...performance.getEntriesByType("resource").map((e) => e.name)];
+      const out = [];
+      for (const url of new Set(urls)) {
+        if (url.startsWith(location.origin) && !(await cache.match(url, { ignoreSearch: true }))) out.push(new URL(url).pathname);
+      }
+      return out;
+    });
+    if (!missing.length || i >= 20) return missing;
+    await page.waitForTimeout(250);
+  }
+}
+
 async function testTool(browser, server, name) {
   const tool = TOOLS[name];
   const context = await browser.newContext({ viewport: VIEWPORT, locale: "ja-JP" });
@@ -421,8 +439,12 @@ async function testTool(browser, server, name) {
     await page.goto(`${server.url}tests/README.md`);
     await page.evaluate(() => caches.open("other-repo-v1"));
     await page.goto(`${server.url}${name}/`);
-    // Second load is controlled by the service worker, like a returning user.
     await page.evaluate(() => navigator.serviceWorker.ready);
+    // The first visit is not yet controlled by the service worker, so everything it loaded
+    // has to be kept by the precache list for the tool to open offline after one visit.
+    const missing = await uncachedFiles(page);
+    t.expect(!missing.length, `オフライン用に保存されないファイルがある: ${missing.join(", ")}`);
+    // Second load is controlled by the service worker, like a returning user.
     await page.reload();
     t.expect(await page.evaluate(() => !!navigator.serviceWorker.controller), "サービスワーカーが有効になっていない");
     t.expect(await page.evaluate(() => caches.has("other-repo-v1")), "ほかのサイトのキャッシュを消してしまった");

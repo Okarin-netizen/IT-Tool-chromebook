@@ -1,10 +1,9 @@
-import * as pdfjsLib from "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs";
+import { pdfjsLib, openPdf } from "../shared/js/pdf.js";
+import { showStatus, hideStatus } from "../shared/js/status.js";
+import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { registerOffline } from "../shared/js/offline.js";
 
 const { PDFDocument, PDFName, PDFDict, PDFArray, PDFRef, PDFRawStream, PDFStream, decodePDFRawStream } = window.PDFLib;
-
-const asset = (path) => new URL(path, location.href).href;
-pdfjsLib.GlobalWorkerOptions.workerSrc = asset("../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs");
 
 // "画像だけ軽くする": embedded images are shrunk to maxPx on their longest side and re-saved as JPEG.
 const IMAGE_LEVELS = [
@@ -43,8 +42,6 @@ const els = {
   nextPage: $("next-page"),
   preview: $("preview"),
   saveBtn: $("save-btn"),
-  status: $("status"),
-  dropOverlay: $("drop-overlay"),
 };
 const methodInputs = [...document.querySelectorAll('input[name="method"]')];
 const levelInputs = [...document.querySelectorAll('input[name="level"]')];
@@ -56,33 +53,16 @@ const state = {
   busy: false,
 };
 
-/* ---------- status messages ---------- */
-
-let statusTimer = 0;
-function showStatus(text, { error = false, sticky = false, ms = error ? 6000 : 2500 } = {}) {
-  clearTimeout(statusTimer);
-  els.status.textContent = text;
-  els.status.classList.toggle("error", error);
-  els.status.hidden = false;
-  if (!sticky) statusTimer = setTimeout(() => (els.status.hidden = true), ms);
-}
-function hideStatus() {
-  clearTimeout(statusTimer);
-  els.status.hidden = true;
-}
-
 function formatSize(bytes) {
   if (bytes < MB) return `${Math.max(1, Math.round(bytes / 1000))} KB`;
   return `${(bytes / MB).toFixed(bytes < 10 * MB ? 2 : 1)} MB`;
 }
 
-const baseName = (name) => name.replace(/\.pdf$/i, "");
-
 /* ---------- opening a PDF ---------- */
 
 async function openFile(file) {
   if (!file) return;
-  if (!(file.type === "application/pdf" || /\.pdf$/i.test(file.name))) {
+  if (!isPdf(file)) {
     showStatus("PDFファイルを選んでください", { error: true });
     return;
   }
@@ -119,12 +99,7 @@ async function openFile(file) {
 }
 
 function loadPdfJs(bytes) {
-  return pdfjsLib.getDocument({
-    data: bytes.slice(), // pdf.js detaches the buffer it is given
-    cMapUrl: asset("../shared/vendor/pdfjs-4.10.38/cmaps/"),
-    cMapPacked: true,
-    standardFontDataUrl: asset("../shared/vendor/pdfjs-4.10.38/standard_fonts/"),
-  }).promise;
+  return openPdf(bytes.slice()).promise;
 }
 
 /* ---------- method 1: re-encode the embedded images ---------- */
@@ -471,14 +446,7 @@ function setBusy(busy) {
 
 function save() {
   if (!state.result?.smaller) return;
-  const url = URL.createObjectURL(new Blob([state.result.bytes], { type: "application/pdf" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${baseName(state.file.name)}_圧縮.pdf`;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  download(new Blob([state.result.bytes], { type: "application/pdf" }), `${baseName(state.file.name)}_圧縮.pdf`);
   showStatus("保存しました");
 }
 
@@ -507,28 +475,7 @@ for (const input of [...methodInputs, ...levelInputs]) {
 els.targetMb.addEventListener("input", () => !state.busy && clearResult());
 
 // Drag & drop a PDF anywhere on the page.
-let dragDepth = 0;
-const isFileDrag = (e) => [...e.dataTransfer.types].includes("Files");
-window.addEventListener("dragenter", (e) => {
-  if (!isFileDrag(e)) return;
-  dragDepth++;
-  els.dropOverlay.hidden = false;
-});
-window.addEventListener("dragleave", (e) => {
-  if (!isFileDrag(e)) return;
-  if (--dragDepth <= 0) {
-    dragDepth = 0;
-    els.dropOverlay.hidden = true;
-  }
-});
-window.addEventListener("dragover", (e) => e.preventDefault());
-window.addEventListener("drop", (e) => {
-  e.preventDefault();
-  if (!isFileDrag(e)) return;
-  dragDepth = 0;
-  els.dropOverlay.hidden = true;
-  openFile(e.dataTransfer.files[0]);
-});
+onFileDrop((files) => openFile(files[0]));
 
 // Keeps this tool working without a network once it has been opened.
 registerOffline([

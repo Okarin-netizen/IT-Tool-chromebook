@@ -1,13 +1,17 @@
 // Registers the site-wide service worker (../../sw.js) and asks it to keep this page's files
 // for offline use. `files` are paths relative to the page.
 const ROOT = new URL("../../", import.meta.url); // the repository root
+// Shared files are small, so every page keeps all of them. The first visit is not yet
+// controlled by the worker, so anything it loads has to be in the list to open offline later.
+const SHARED = ["css/base.css", "js/offline.js", "js/status.js", "js/files.js", "js/storage.js", "js/pdf.js", "js/font-jp.js", "js/zip.js", "js/unzip.js"]
+  .map((f) => new URL(`shared/${f}`, ROOT).href);
 
 export async function registerOffline(files = []) {
   if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
   try {
     const reg = await navigator.serviceWorker.register(new URL("sw.js", ROOT), { scope: ROOT.pathname });
     const worker = await activeWorker(reg);
-    worker.postMessage({ type: "precache", urls: files.map((f) => new URL(f, location.href).href) });
+    worker.postMessage({ type: "precache", urls: [...files.map((f) => new URL(f, location.href).href), ...SHARED] });
     // Old per-tool workers (…/pdf-text/ etc.) take priority over the root one, so remove them.
     // Only this site's folders are checked: other sites on the same domain are left alone.
     const old = (await navigator.serviceWorker.getRegistrations())

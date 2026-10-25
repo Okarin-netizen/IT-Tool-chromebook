@@ -1,4 +1,5 @@
 import { compile, format, ExprError } from "./expr.js";
+import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 
 const STORE_KEY = "calc-tool-v1";
@@ -36,27 +37,13 @@ const state = {
   funcs: [], // { src, color, on, fn, error }
 };
 
-// localStorage can throw or be empty (private window, blocked site data); the tool still works without it.
-function load() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
-    if (!saved) return null;
-    return saved;
-  } catch {
-    return null;
-  }
-}
 function save() {
-  try {
-    localStorage.setItem(STORE_KEY, JSON.stringify({
-      angle: state.angle,
-      ans: state.ans,
-      history: state.history,
-      funcs: state.funcs.map(({ src, color, on }) => ({ src, color, on })),
-    }));
-  } catch {
-    // Nothing to do: the page keeps working, it just won't remember.
-  }
+  saveJson(STORE_KEY, {
+    angle: state.angle,
+    ans: state.ans,
+    history: state.history,
+    funcs: state.funcs.map(({ src, color, on }) => ({ src, color, on })),
+  });
 }
 
 // ---------- タブ ----------
@@ -633,7 +620,7 @@ els.funcAdd.addEventListener("click", () => {
 
 // ---------- はじめに ----------
 
-const saved = load();
+const saved = loadJson(STORE_KEY);
 setAngle(saved?.angle === "rad" ? "rad" : "deg");
 if (typeof saved?.ans === "number") state.ans = saved.ans;
 if (Array.isArray(saved?.history)) state.history = saved.history.filter((h) => h && typeof h.expr === "string").slice(0, MAX_HISTORY);
