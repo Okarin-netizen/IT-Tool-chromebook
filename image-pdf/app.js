@@ -1,8 +1,7 @@
 import { showStatus } from "../shared/js/status.js";
 import { download, onFileDrop } from "../shared/js/files.js";
 import { registerOffline } from "../shared/js/offline.js";
-
-const { PDFDocument } = window.PDFLib;
+import { loadPdfLib } from "../shared/js/pdf-lib.js";
 
 const MAX_IMAGE_PX = 2400; // longest side kept per photo; enough to read handwriting, keeps PDFs small
 const JPEG_QUALITY = 0.88;
@@ -369,6 +368,7 @@ async function save() {
   els.saveBtn.disabled = true;
   const opts = settings();
   try {
+    const { PDFDocument } = await loadPdfLib();
     const doc = await PDFDocument.create();
     doc.setTitle(outputName().replace(/\.pdf$/, ""));
     doc.setCreator("Chromebook便利ツール 画像→PDF");

@@ -51,6 +51,8 @@ GitHub Pages で公開して使います。
 - `shared/js/font-jp.js`: PDFに書き込む日本語フォントの準備（`subsetFont`）
 - `shared/js/zip.js` / `unzip.js`: ZIPの作成と読み取り
 - `shared/js/ink.js` / `history.js`: ページへの手書き・ハンコ・選択と移動、「元に戻す」の記録（PDFに手書き・署名とPDF一括採点で使用）
+- `shared/js/pdf-lib.js`: pdf-lib と fontkit を、保存などで必要になったときに読み込む（`loadPdfLib` / `loadFontkit`）
+- `shared/js/lazy.js` / `page-viewer.js`: 画面の近くのページだけ描き、遠くのページの絵を手放す仕組みと、拡大・縮小できるページの列（PDF文字入れ・手書き・署名・一括採点で使用）
 
 ## PDF文字入れ
 

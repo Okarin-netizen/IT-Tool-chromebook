@@ -149,6 +149,15 @@ function render() {
   draw(ctx, true);
 }
 
+// Pointer moves can arrive faster than the screen refreshes, so dragging draws once per frame.
+let frame = 0;
+function renderSoon() {
+  frame ||= requestAnimationFrame(() => {
+    frame = 0;
+    render();
+  });
+}
+
 function draw(c, overlay) {
   c.clearRect(0, 0, state.W, state.H);
   c.drawImage(state.base, 0, 0);
@@ -555,7 +564,7 @@ els.canvas.addEventListener("pointermove", (e) => {
       for (const ev of events.length ? events : [e]) it.points.push(toImage(ev));
     }
   }
-  render();
+  renderSoon();
 });
 
 function endDrag() {

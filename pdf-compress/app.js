@@ -2,8 +2,10 @@ import { pdfjsLib, openPdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { loadPdfLib } from "../shared/js/pdf-lib.js";
 
-const { PDFDocument, PDFName, PDFDict, PDFArray, PDFRef, PDFRawStream, PDFStream, decodePDFRawStream } = window.PDFLib;
+// pdf-lib is loaded when the first PDF is opened (compressing needs an open PDF).
+let PDFDocument, PDFName, PDFDict, PDFArray, PDFRef, PDFRawStream, PDFStream, decodePDFRawStream;
 
 // "画像だけ軽くする": embedded images are shrunk to maxPx on their longest side and re-saved as JPEG.
 const IMAGE_LEVELS = [
@@ -69,6 +71,7 @@ async function openFile(file) {
   if (state.busy) return;
   showStatus("PDFを読み込み中…", { sticky: true });
   try {
+    ({ PDFDocument, PDFName, PDFDict, PDFArray, PDFRef, PDFRawStream, PDFStream, decodePDFRawStream } = await loadPdfLib());
     const bytes = new Uint8Array(await file.arrayBuffer());
     const pdf = await loadPdfJs(bytes);
     // pdf-lib can't decrypt, so a protected PDF can only be shrunk by rendering its pages.

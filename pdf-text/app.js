@@ -1,15 +1,13 @@
 import { openPdf, rasterizePdf } from "../shared/js/pdf.js";
+import { createPageViewer, clampScale } from "../shared/js/page-viewer.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, download, onFileDrop } from "../shared/js/files.js";
 import { subsetFont, preloadFont } from "../shared/js/font-jp.js";
 import { registerOffline } from "../shared/js/offline.js";
-
-const { PDFDocument, rgb, degrees } = window.PDFLib;
+import { loadPdfLib, loadFontkit } from "../shared/js/pdf-lib.js";
 
 const FONT_FAMILY = "PdfTextJP";
 const LINE_HEIGHT = 1.25; // must match .tbox line-height in style.css
-const MIN_SCALE = 0.4;
-const MAX_SCALE = 4;
 const MAX_IMAGE_PX = 2000; // longest side of a placed photo; keeps saved PDFs small
 
 const $ = (id) => document.getElementById(id);
@@ -59,6 +57,19 @@ const fontReady = (async () => {
   probe.remove();
 })();
 
+// Saving needs the Japanese font and pdf-lib. They are fetched once the first PDF is open and
+// the Chromebook is idle, so opening the tool stays quick and saving does not wait for them.
+let preloaded = false;
+function preloadForSaving() {
+  if (preloaded) return;
+  preloaded = true;
+  requestIdleCallback(() => {
+    preloadFont();
+    loadPdfLib().catch(() => {});
+    loadFontkit().catch(() => {});
+  }, { timeout: 3000 });
+}
+
 /* ---------- opening a PDF ---------- */
 
 async function openFile(file) {
@@ -82,10 +93,11 @@ async function openFile(file) {
     els.welcome.hidden = true;
     els.saveBtn.disabled = false;
     els.imageBtn.disabled = false;
-    setScale(fitWidthScale());
+    setScale(viewer.fitWidthScale());
     els.viewer.scrollTop = 0;
     hideStatus();
     showStatus("文字を入れたい場所をクリックしてください");
+    preloadForSaving();
   } catch (err) {
     console.error(err);
     const msg = err?.name === "PasswordException"
@@ -96,8 +108,7 @@ async function openFile(file) {
 }
 
 function resetDocument() {
-  observer.disconnect();
-  state.pages.forEach((p) => p.task?.cancel());
+  viewer.clear();
   state.pdf?.destroy();
   state.pages = [];
   state.items.forEach((item) => item.url && URL.revokeObjectURL(item.url));
@@ -130,73 +141,23 @@ function createPageView(num, viewport) {
     const y = (e.clientY - rect.top) / state.scale - (state.size * LINE_HEIGHT) / 2;
     addItem(view, x, Math.max(0, y));
   });
-  observer.observe(el);
+  viewer.add(view);
   return view;
 }
 
 /* ---------- rendering ---------- */
 
-const observer = new IntersectionObserver(
-  (entries) => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-      const view = state.pages.find((p) => p.el === entry.target);
-      if (view && !view.rendered) renderPage(view);
-    }
-  },
-  { root: els.viewer, rootMargin: "600px 0px" },
-);
-
-async function renderPage(view) {
-  view.rendered = true;
-  view.task?.cancel();
-  const page = await state.pdf.getPage(view.num);
-  const dpr = window.devicePixelRatio || 1;
-  const viewport = page.getViewport({ scale: state.scale * dpr });
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.floor(viewport.width);
-  canvas.height = Math.floor(viewport.height);
-  const task = page.render({ canvasContext: canvas.getContext("2d"), viewport });
-  view.task = task;
-  try {
-    await task.promise;
-    view.canvas.replaceWith(canvas);
-    view.canvas = canvas;
-  } catch (err) {
-    if (err?.name !== "RenderingCancelledException") console.error(err);
-  } finally {
-    if (view.task === task) view.task = null;
-  }
-}
-
-function fitWidthScale() {
-  const maxWidth = Math.max(...state.pages.map((p) => p.viewport.width));
-  const available = els.viewer.clientWidth - 90; // viewer + page list side padding
-  return clampScale(Math.min(1.5, available / maxWidth));
-}
-
-function clampScale(s) {
-  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
-}
+const viewer = createPageViewer({
+  state,
+  viewer: els.viewer,
+  zoomLabel: els.zoomLabel,
+  views: () => state.pages,
+  pdfOf: () => state.pdf,
+});
 
 function setScale(scale) {
-  const viewer = els.viewer;
-  const ratio = scale / state.scale;
-  const centerY = (viewer.scrollTop + viewer.clientHeight / 2) * ratio;
-  state.scale = scale;
-  els.zoomLabel.textContent = `${Math.round(scale * 100)}%`;
-  for (const view of state.pages) {
-    view.el.style.width = `${view.viewport.width * scale}px`;
-    view.el.style.height = `${view.viewport.height * scale}px`;
-    view.rendered = false;
-  }
+  viewer.setScale(scale);
   state.items.forEach(layoutItem);
-  viewer.scrollTop = centerY - viewer.clientHeight / 2;
-  // Re-render whatever is on screen now.
-  for (const view of state.pages) {
-    observer.unobserve(view.el);
-    observer.observe(view.el);
-  }
 }
 
 /* ---------- text items ---------- */
@@ -496,7 +457,7 @@ function enableResize(item, handle) {
 
 /* ---------- saving ---------- */
 
-function hexToRgb(hex) {
+function hexToRgb(hex, rgb) {
   const n = parseInt(hex.slice(1), 16);
   return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
 }
@@ -512,11 +473,12 @@ async function save() {
   showStatus("PDFを作成中…", { sticky: true });
   try {
     await fontReady;
+    const [{ PDFDocument, rgb, degrees }, fontkit] = await Promise.all([loadPdfLib(), loadFontkit()]);
     const original = await PDFDocument.load(state.bytes, { ignoreEncryption: true });
     const rebuilt = original.isEncrypted;
     const onPage = (num, count) => showStatus(`保護されたPDFのため、ページを画像にしています… (${num}/${count})`, { sticky: true });
     const doc = rebuilt ? await rasterizePdf(state.pdf, { onPage }) : original;
-    doc.registerFontkit(window.fontkit);
+    doc.registerFontkit(fontkit);
     // Maps screen coordinates (scale 1, top-left origin) onto a page of `doc`.
     // Rebuilt pages are already upright, so only the y axis flips.
     const placement = (pageNum) => {
@@ -544,7 +506,7 @@ async function save() {
     for (const item of items) {
       const page = doc.getPage(item.page - 1);
       const { toPdf, rotate } = placement(item.page);
-      const color = hexToRgb(item.color);
+      const color = hexToRgb(item.color, rgb);
       item.text.split("\n").forEach((line, i) => {
         if (!line) return;
         const baseline = item.y + item.size * (state.baselineRatio + i * LINE_HEIGHT);
@@ -645,9 +607,6 @@ registerOffline([
   "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
   "../shared/vendor/noto-sans-jp/NotoSansJP-Regular.ttf",
 ]);
-
-// Start downloading the font early so saving is quick.
-preloadFont();
 
 // Hook for automated tests.
 window.__pdfText = { state, openFile, addItem, addImageFile, save, setScale, fontReady };

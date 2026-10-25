@@ -3,6 +3,7 @@ import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, download, onFileDrop } from "../shared/js/files.js";
 import { loadText, saveText } from "../shared/js/storage.js";
 import { makeZip } from "../shared/js/zip.js";
+import { createLazyRenderer, freeCanvas } from "../shared/js/lazy.js";
 import { registerOffline } from "../shared/js/offline.js";
 
 const THUMB_PX = 150; // longest side of a thumbnail, in CSS pixels
@@ -71,7 +72,7 @@ async function openFile(file) {
 }
 
 function closePdf() {
-  for (const view of state.pages) thumbObserver.unobserve(view.el);
+  thumbs.clear();
   els.grid.replaceChildren();
   state.pages = [];
   state.lastClicked = null;
@@ -81,13 +82,17 @@ function closePdf() {
 
 /* ---------- page cards ---------- */
 
-const thumbObserver = new IntersectionObserver((entries) => {
-  for (const entry of entries) {
-    if (!entry.isIntersecting) continue;
-    const view = state.pages.find((p) => p.el === entry.target);
-    if (view && !view.rendered) renderThumb(view);
-  }
-}, { root: els.viewer, rootMargin: "400px" });
+// Thumbnails far off screen are freed, so a long PDF does not fill up memory.
+const thumbs = createLazyRenderer({
+  root: els.viewer,
+  renderMargin: "400px",
+  releaseMargin: "2500px",
+  render: renderThumb,
+  release: (view) => {
+    const canvas = view.el.querySelector(".thumb canvas");
+    if (canvas) freeCanvas(canvas);
+  },
+});
 
 function createCard(view) {
   const li = document.createElement("li");
@@ -116,7 +121,7 @@ function createCard(view) {
       toggleSelect(view, e.shiftKey);
     }
   });
-  thumbObserver.observe(li);
+  thumbs.add(view);
 }
 
 async function renderThumb(view) {
@@ -131,7 +136,7 @@ async function renderThumb(view) {
     canvas.width = Math.ceil(viewport.width);
     canvas.height = Math.ceil(viewport.height);
     await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
-    if (pdf !== state.pdf) return; // another PDF was opened meanwhile
+    if (pdf !== state.pdf || !view.rendered) return; // another PDF was opened, or scrolled far away
     view.el.querySelector(".thumb").replaceChildren(canvas);
   } catch (err) {
     console.error(err);

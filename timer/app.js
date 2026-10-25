@@ -486,7 +486,9 @@ window.addEventListener("storage", (e) => {
   render();
 });
 
-setInterval(tick, 100);
+// The clock is redrawn 10 times a second only while the one on screen runs; when it is stopped,
+// render() draws it once after each change. A countdown in another mode ends via scheduleFinish().
+setInterval(() => { if (isRunning()) tick(); }, 100);
 
 // Picks up where it left off after a reload; a countdown that ran out while closed just ends quietly.
 for (const c of [state.pomodoro, state.timer]) {

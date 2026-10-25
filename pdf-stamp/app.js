@@ -3,9 +3,9 @@ import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, download, onFileDrop } from "../shared/js/files.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { subsetFont } from "../shared/js/font-jp.js";
+import { createLazyRenderer } from "../shared/js/lazy.js";
 import { registerOffline } from "../shared/js/offline.js";
-
-const { PDFDocument, rgb, degrees } = window.PDFLib;
+import { loadPdfLib, loadFontkit } from "../shared/js/pdf-lib.js";
 
 const FONT_FAMILY = "PdfStampJP";
 const PREVIEW_PX = 300; // preview page width, in CSS pixels
@@ -221,7 +221,7 @@ async function openFile(file) {
 }
 
 function resetDocument() {
-  observer.disconnect();
+  previews.clear();
   state.pdf?.destroy();
   state.pdf = null;
   state.pages = [];
@@ -231,43 +231,47 @@ function resetDocument() {
 function createPageView(num, viewport) {
   const el = document.createElement("li");
   el.className = "page";
+  // The canvas gets its pixels when it comes near the screen; its size on the page is fixed now.
   const canvas = document.createElement("canvas");
   const dpr = window.devicePixelRatio || 1;
   const scale = PREVIEW_PX / viewport.width;
-  canvas.width = Math.round(viewport.width * scale * dpr);
-  canvas.height = Math.round(viewport.height * scale * dpr);
+  const px = { w: Math.round(viewport.width * scale * dpr), h: Math.round(viewport.height * scale * dpr) };
+  canvas.width = canvas.height = 0;
   canvas.style.width = `${PREVIEW_PX}px`;
+  canvas.style.height = `${(px.h / px.w) * PREVIEW_PX}px`;
   const label = document.createElement("div");
   label.className = "label";
   label.textContent = `${num} / ${state.pdf.numPages}`;
   el.append(canvas, label);
   els.pages.append(el);
 
-  const view = { num, viewport, el, canvas, base: null, rendered: false };
-  observer.observe(el);
+  const view = { num, viewport, el, canvas, px, base: null, rendered: false, stale: false };
+  previews.add(view);
   return view;
 }
 
 /* ---------- preview ---------- */
 
-const observer = new IntersectionObserver(
-  (entries) => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-      const view = state.pages.find((p) => p.el === entry.target);
-      if (view && !view.rendered) renderPage(view);
-    }
+// Pages far off screen are freed; a page that comes back is drawn with the current settings.
+const previews = createLazyRenderer({
+  root: els.viewer,
+  renderMargin: "800px 0px",
+  releaseMargin: "2500px 0px",
+  render: renderPage,
+  release: (view) => {
+    view.base = null;
+    view.canvas.width = view.canvas.height = 0;
   },
-  { root: els.viewer, rootMargin: "800px 0px" },
-);
+  show: (view) => view.stale && drawPreview(view),
+});
 
 async function renderPage(view) {
   view.rendered = true;
   const pdf = state.pdf;
   const page = await pdf.getPage(view.num);
   const base = document.createElement("canvas");
-  base.width = view.canvas.width;
-  base.height = view.canvas.height;
+  base.width = view.px.w;
+  base.height = view.px.h;
   const ctx = base.getContext("2d");
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, base.width, base.height);
@@ -276,8 +280,10 @@ async function renderPage(view) {
   } catch (err) {
     console.error(err);
   }
-  if (state.pdf !== pdf) return; // another PDF was opened meanwhile
+  if (state.pdf !== pdf || !view.rendered) return; // another PDF was opened, or scrolled far away
   view.base = base;
+  view.canvas.width = base.width;
+  view.canvas.height = base.height;
   drawPreview(view);
 }
 
@@ -289,6 +295,7 @@ function measureOnScreen(text, size) {
 
 function drawPreview(view, settings = readSettings()) {
   if (!view.base) return;
+  view.stale = false;
   const ctx = view.canvas.getContext("2d");
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;
@@ -309,16 +316,23 @@ function drawPreview(view, settings = readSettings()) {
   ctx.globalAlpha = 1;
 }
 
+// Typing in a setting redraws only the pages near the screen; the others are redrawn when they
+// come back into view. The settings are stored once typing pauses.
 let redrawQueued = false;
+let storeTimer = 0;
 function update() {
   syncControls();
-  storeSettings();
+  clearTimeout(storeTimer);
+  storeTimer = setTimeout(storeSettings, 300);
   if (redrawQueued) return;
   redrawQueued = true;
   requestAnimationFrame(() => {
     redrawQueued = false;
     const settings = readSettings();
-    state.pages.forEach((view) => drawPreview(view, settings));
+    for (const view of state.pages) {
+      if (previews.isNear(view)) drawPreview(view, settings);
+      else view.stale = true;
+    }
   });
 }
 
@@ -327,7 +341,7 @@ document.fonts.load(`100px ${FONT_FAMILY}`, "あ1").then(() => update());
 
 /* ---------- saving ---------- */
 
-function hexToRgb(hex) {
+function hexToRgb(hex, rgb) {
   const n = parseInt(hex.slice(1), 16);
   return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
 }
@@ -346,11 +360,12 @@ async function save() {
   syncControls();
   showStatus("PDFを作成中…", { sticky: true });
   try {
+    const [{ PDFDocument, rgb, degrees }, fontkit] = await Promise.all([loadPdfLib(), loadFontkit()]);
     const original = await PDFDocument.load(state.bytes, { ignoreEncryption: true });
     const rebuilt = original.isEncrypted;
     const onPage = (num, count) => showStatus(`保護されたPDFのため、ページを画像にしています… (${num}/${count})`, { sticky: true });
     const doc = rebuilt ? await rasterizePdf(state.pdf, { onPage }) : original;
-    doc.registerFontkit(window.fontkit);
+    doc.registerFontkit(fontkit);
     showStatus("PDFを作成中…", { sticky: true });
 
     // The font only needs the characters that actually get drawn, so lay out
@@ -374,7 +389,7 @@ async function save() {
         const [x, y] = toPdf(d.x, d.y);
         page.drawText(d.text, {
           x, y, size: d.size, font,
-          color: hexToRgb(d.color),
+          color: hexToRgb(d.color, rgb),
           opacity: d.opacity,
           rotate: degrees(d.angle + rotation),
         });
