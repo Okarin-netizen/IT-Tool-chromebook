@@ -50,6 +50,7 @@ GitHub Pages で公開して使います。
 - `shared/js/pdf.js`: pdf.js の準備（`openPdf`）と、保護されたPDFを画像にして作り直す処理（`rasterizePdf`）
 - `shared/js/font-jp.js`: PDFに書き込む日本語フォントの準備（`subsetFont`）
 - `shared/js/zip.js` / `unzip.js`: ZIPの作成と読み取り
+- `shared/js/ink.js` / `history.js`: ページへの手書き・ハンコ・選択と移動、「元に戻す」の記録（PDFに手書き・署名とPDF一括採点で使用）
 
 ## PDF文字入れ
 

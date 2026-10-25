@@ -3,8 +3,11 @@
 const ROOT = new URL("../../", import.meta.url); // the repository root
 // Shared files are small, so every page keeps all of them. The first visit is not yet
 // controlled by the worker, so anything it loads has to be in the list to open offline later.
-const SHARED = ["css/base.css", "js/offline.js", "js/status.js", "js/files.js", "js/storage.js", "js/pdf.js", "js/font-jp.js", "js/zip.js", "js/unzip.js"]
-  .map((f) => new URL(`shared/${f}`, ROOT).href);
+const SHARED = [
+  "css/base.css",
+  "js/offline.js", "js/status.js", "js/files.js", "js/storage.js", "js/pdf.js", "js/font-jp.js",
+  "js/zip.js", "js/unzip.js", "js/ink.js", "js/history.js",
+].map((f) => new URL(`shared/${f}`, ROOT).href);
 
 export async function registerOffline(files = []) {
   if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
