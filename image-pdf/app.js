@@ -1,3 +1,5 @@
+import { registerOffline } from "../shared/js/offline.js";
+
 const { PDFDocument } = window.PDFLib;
 
 const MAX_IMAGE_PX = 2400; // longest side kept per photo; enough to read handwriting, keeps PDFs small
@@ -484,10 +486,16 @@ window.addEventListener("drop", (e) => {
   else if (files.length) showStatus("画像ファイルをドロップしてください", { error: true });
 });
 
-// Offline support once the page has been opened online.
-if ("serviceWorker" in navigator && location.protocol === "https:") {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
-}
+// Keeps this tool working without a network once it has been opened.
+registerOffline([
+  "./",
+  "index.html",
+  "style.css",
+  "app.js",
+  "icon.svg",
+  "manifest.webmanifest",
+  "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
+]);
 
 render();
 

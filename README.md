@@ -29,7 +29,7 @@ GitHub Pages で公開して使います。
 2. **Source** を「Deploy from a branch」、ブランチを `main`、フォルダを `/ (root)` にして保存
 3. 数分後に `https://okarin-netizen.github.io/IT-Tool-chromebook/` で開けます
 
-一度開くとブラウザにキャッシュされ、各ツールはオフラインでも動きます。
+一度開くとブラウザにキャッシュされ、トップページと開いたことのあるツールはオフラインでも動きます。
 
 ## ツールの追加方法
 
@@ -37,7 +37,9 @@ GitHub Pages で公開して使います。
 2. ルートの `index.html` で、合うグループ（「PDF」か「そのほかのツール」）の `<ul class="apps">` に `<li>` を1つ追加する
 3. この README の表に1行追加する
 
-ビルド作業は不要です。外部ライブラリは CDN を使わずフォルダ内に同梱します（学校のネットワークで CDN がブロックされることがあるため）。
+ビルド作業は不要です。外部ライブラリは CDN を使わず、`shared/vendor/` に1つだけ同梱して全ツールで共有します（学校のネットワークで CDN がブロックされることがあるため）。版・入手元・ライセンスの一覧は [`shared/vendor/README.md`](shared/vendor/README.md) にあります。
+
+オフライン対応は、サイト全体で1つのサービスワーカー（ルートの `sw.js`）が受け持ちます。新しいツールでは、`app.js` の最後で `registerOffline([...])`（`shared/js/offline.js`）を呼び、そのツールのファイルの一覧を渡します。各ツールのフォルダにある `sw.js` は、古い版のサービスワーカーを外すためだけのもので、2027年2月以降に削除できます。
 
 ## PDF文字入れ
 
@@ -49,16 +51,6 @@ GitHub Pages で公開して使います。
 - 編集が制限された（保護付き）PDFも保存可能。この場合は元のページを画像にしてから書き込むため、元の文字は選択・検索できなくなります
 - PDFはどこにも送信されず、ブラウザ内で処理されます
 
-### 同梱ライブラリ（PDF文字入れ）
-
-| ライブラリ | 用途 | ライセンス |
-| --- | --- | --- |
-| [pdf.js](https://github.com/mozilla/pdf.js) 4.10.38 | PDFの表示 | Apache-2.0 |
-| [pdf-lib](https://github.com/Hopding/pdf-lib) 1.17.1 | PDFへの書き込み | MIT |
-| [@pdf-lib/fontkit](https://github.com/Hopding/fontkit) 1.1.1 | フォント読み込み | MIT |
-| [harfbuzzjs](https://github.com/harfbuzz/harfbuzzjs) 1.6.3 | 使う文字だけにフォントを縮小 | MIT |
-| [Noto Sans JP](https://fonts.google.com/noto/specimen/Noto+Sans+JP) | 日本語フォント | SIL OFL 1.1 |
-
 ## 画像→PDF
 
 - 「画像を追加」またはドラッグ＆ドロップで写真・画像を何枚でも追加（Ctrl+V でスクリーンショットの貼り付けもOK）
@@ -68,12 +60,6 @@ GitHub Pages で公開して使います。
 - 「PDFを保存」で1枚1ページのPDFをダウンロード。大きな写真は自動で縮小されます
 - iPhoneのHEIC形式はブラウザが読めないため、JPEGで撮影・保存したものを使ってください
 - 画像はどこにも送信されず、ブラウザ内で処理されます
-
-### 同梱ライブラリ（画像→PDF）
-
-| ライブラリ | 用途 | ライセンス |
-| --- | --- | --- |
-| [pdf-lib](https://github.com/Hopding/pdf-lib) 1.17.1 | PDFの作成 | MIT |
 
 ## 関数電卓・グラフ
 
@@ -167,14 +153,6 @@ GitHub Pages で公開して使います。
 - スキャンしたPDFや写真のPDFは文字が入っていないので、「画像から読み取る（OCR）」または「文字のないページを読み取る」で画像から読み取ります。文字の種類は 日本語（横書き）/ 日本語（縦書き）/ 英語 から選びます。OCRは読みまちがいがあるので、確かめてから使ってください
 - OCRのデータ（約11MB）は初めて使うときに読み込み、2回目からはオフラインでも使えます
 - 開くのにパスワードが必要なPDFは使えません。PDFはどこにも送信されず、ブラウザ内で処理されます
-
-### 同梱ライブラリ（PDF文字取り出し）
-
-| ライブラリ | 用途 | ライセンス |
-| --- | --- | --- |
-| [pdf.js](https://github.com/mozilla/pdf.js) 4.10.38 | PDFの表示・文字の取り出し（PDF文字入れと同じもの） | Apache-2.0 |
-| [tesseract.js](https://github.com/naptha/tesseract.js) 7.0.0 / tesseract.js-core 7.0.0 | OCR（SIMD版のみ同梱） | Apache-2.0 |
-| [tessdata_best](https://github.com/tesseract-ocr/tessdata_best)（`@tesseract.js-data` 1.0.0 の jpn / jpn_vert / eng、best_int） | OCRの学習データ | Apache-2.0 |
 
 ## PDFに手書き・署名
 

@@ -1,8 +1,9 @@
-import * as pdfjsLib from "./lib/pdfjs/pdf.min.mjs";
+import * as pdfjsLib from "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs";
 import { makeZip } from "./zip.js";
+import { registerOffline } from "../shared/js/offline.js";
 
 const asset = (path) => new URL(path, location.href).href;
-pdfjsLib.GlobalWorkerOptions.workerSrc = asset("lib/pdfjs/pdf.worker.min.mjs");
+pdfjsLib.GlobalWorkerOptions.workerSrc = asset("../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs");
 
 const THUMB_PX = 150; // longest side of a thumbnail, in CSS pixels
 const MAX_PIXELS = 25_000_000; // keep huge pages from exhausting memory
@@ -60,9 +61,9 @@ async function openFile(file) {
   try {
     const task = pdfjsLib.getDocument({
       data: new Uint8Array(await file.arrayBuffer()),
-      cMapUrl: asset("lib/pdfjs/cmaps/"),
+      cMapUrl: asset("../shared/vendor/pdfjs-4.10.38/cmaps/"),
       cMapPacked: true,
-      standardFontDataUrl: asset("lib/pdfjs/standard_fonts/"),
+      standardFontDataUrl: asset("../shared/vendor/pdfjs-4.10.38/standard_fonts/"),
     });
     task.onPassword = (update, reason) => {
       const retry = reason === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD;
@@ -362,10 +363,18 @@ window.addEventListener("drop", (e) => {
   openFile(e.dataTransfer.files[0]);
 });
 
-// Offline support once the page has been opened online.
-if ("serviceWorker" in navigator && location.protocol === "https:") {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
-}
+// Keeps this tool working without a network once it has been opened.
+registerOffline([
+  "./",
+  "index.html",
+  "style.css",
+  "app.js",
+  "zip.js",
+  "icon.svg",
+  "manifest.webmanifest",
+  "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs",
+  "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
+]);
 
 updateUi();
 

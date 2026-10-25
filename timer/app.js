@@ -505,6 +505,3 @@ render();
 scheduleFinish();
 if (isRunning()) keepAwake(true);
 
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
-}

@@ -261,5 +261,10 @@
       if (e.key === "Escape") { q.value = ""; q.dispatchEvent(new Event("input")); }
     });
   </script>
+  <script type="module">
+    // Keeps the top page (and its tool icons) available without a network.
+    import { registerOffline } from "./shared/js/offline.js";
+    registerOffline(["./", "index.html", ...[...document.querySelectorAll(".apps img")].map((img) => img.getAttribute("src"))]);
+  </script>
 </body>
 </html>

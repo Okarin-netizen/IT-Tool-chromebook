@@ -1,9 +1,10 @@
-import * as pdfjsLib from "./lib/pdfjs/pdf.min.mjs";
+import * as pdfjsLib from "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs";
+import { registerOffline } from "../shared/js/offline.js";
 
 const { PDFDocument, degrees } = window.PDFLib;
 
 const asset = (path) => new URL(path, location.href).href;
-pdfjsLib.GlobalWorkerOptions.workerSrc = asset("lib/pdfjs/pdf.worker.min.mjs");
+pdfjsLib.GlobalWorkerOptions.workerSrc = asset("../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs");
 
 const THUMB_SIZES = { small: 110, medium: 150, large: 220 }; // longest side of a thumbnail, in CSS pixels
 const HISTORY_LIMIT = 50;
@@ -118,9 +119,9 @@ async function addFile(file) {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const pdf = await pdfjsLib.getDocument({
     data: bytes.slice(), // pdf.js detaches the buffer it is given
-    cMapUrl: asset("lib/pdfjs/cmaps/"),
+    cMapUrl: asset("../shared/vendor/pdfjs-4.10.38/cmaps/"),
     cMapPacked: true,
-    standardFontDataUrl: asset("lib/pdfjs/standard_fonts/"),
+    standardFontDataUrl: asset("../shared/vendor/pdfjs-4.10.38/standard_fonts/"),
   }).promise;
   // pdf-lib can't decrypt, so pages of a protected PDF are saved as images rendered by pdf.js.
   const loaded = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
@@ -845,10 +846,18 @@ window.addEventListener("drop", (e) => {
   addFiles(e.dataTransfer.files);
 });
 
-// Offline support once the page has been opened online.
-if ("serviceWorker" in navigator && location.protocol === "https:") {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
-}
+// Keeps this tool working without a network once it has been opened.
+registerOffline([
+  "./",
+  "index.html",
+  "style.css",
+  "app.js",
+  "icon.svg",
+  "manifest.webmanifest",
+  "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
+  "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs",
+  "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
+]);
 
 let savedSize = "medium";
 try { savedSize = localStorage.getItem("pdf-pages-thumb") || savedSize; } catch {}
