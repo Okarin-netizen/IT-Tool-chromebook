@@ -506,8 +506,9 @@ function buildFileView(file) {
   const dl = document.createElement("button");
   dl.type = "button";
   dl.className = "btn row-btn";
-  dl.textContent = "⬇";
+  dl.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-save"/></svg>';
   dl.title = "この人のPDFだけ保存";
+  dl.setAttribute("aria-label", dl.title);
   dl.addEventListener("click", () => saveOne(file));
   const del = document.createElement("button");
   del.type = "button";

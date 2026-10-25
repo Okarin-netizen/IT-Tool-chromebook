@@ -6,6 +6,9 @@
 //   node tests/smoke.cjs pdf-text calc   only these tools
 //   node tests/smoke.cjs --ocr           also run OCR in pdf-extract (slow)
 //   node tests/smoke.cjs --headed        show the browser
+//   node tests/smoke.cjs --narrow        use a narrow 600px window (phone-sized layout)
+//   node tests/smoke.cjs --styles <dir>  also save every element's computed style (compare with
+//                                        tests/compare-styles.cjs before and after a CSS change)
 //
 // Screenshots go to tests/output/ (not committed). Needs Node 22+ and Playwright.
 "use strict";
@@ -19,7 +22,9 @@ const fixtures = require("./lib/fixtures.cjs");
 const OUT_DIR = path.join(__dirname, "output");
 const args = process.argv.slice(2);
 const flags = new Set(args.filter((a) => a.startsWith("--")));
-const only = args.filter((a) => !a.startsWith("--"));
+const VIEWPORT = flags.has("--narrow") ? { width: 600, height: 900 } : { width: 1280, height: 800 };
+const STYLE_DIR = args.includes("--styles") ? path.resolve(args[args.indexOf("--styles") + 1]) : null;
+const only = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--styles");
 
 /* ---------- per-tool checks ---------- */
 
@@ -365,7 +370,32 @@ class ToolTest {
       caret: "hide",
       style: "#status { visibility: hidden !important; }",
     });
+    if (STYLE_DIR) {
+      fs.writeFileSync(path.join(STYLE_DIR, `${this.name}-${label}.json`), JSON.stringify(await this.page.evaluate(dumpStyles)));
+    }
   }
+}
+
+// Computed style of every element (and its ::before/::after), keyed by its place in the page.
+// Used with --styles to check that a CSS cleanup changes nothing on screen.
+function dumpStyles() {
+  const where = (el) => {
+    const parts = [];
+    for (; el && el.parentElement; el = el.parentElement) {
+      parts.unshift(`${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}:${[...el.parentElement.children].indexOf(el)}`);
+    }
+    return parts.join(">");
+  };
+  const read = (cs) => Object.fromEntries([...cs].map((p) => [p, cs.getPropertyValue(p)]));
+  const out = {};
+  for (const el of document.querySelectorAll("body, body *")) {
+    out[where(el)] = read(getComputedStyle(el));
+    for (const pseudo of ["::before", "::after"]) {
+      const cs = getComputedStyle(el, pseudo);
+      if (cs.content !== "none" && cs.content !== "normal") out[where(el) + pseudo] = read(cs);
+    }
+  }
+  return out;
 }
 
 function captureDownloads() {
@@ -382,7 +412,7 @@ function captureDownloads() {
 
 async function testTool(browser, server, name) {
   const tool = TOOLS[name];
-  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: "ja-JP" });
+  const context = await browser.newContext({ viewport: VIEWPORT, locale: "ja-JP" });
   await context.addInitScript(captureDownloads);
   const page = await context.newPage();
   const t = new ToolTest(name, page, server);
@@ -413,7 +443,7 @@ async function testTool(browser, server, name) {
 }
 
 async function testPortal(browser, server) {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: "ja-JP" });
+  const context = await browser.newContext({ viewport: VIEWPORT, locale: "ja-JP" });
   const page = await context.newPage();
   const t = new ToolTest("portal", page, server);
   try {
@@ -446,6 +476,7 @@ async function main() {
     process.exit(2);
   }
   fs.mkdirSync(OUT_DIR, { recursive: true });
+  if (STYLE_DIR) fs.mkdirSync(STYLE_DIR, { recursive: true });
   await fixtures.prepare();
   const server = await startServer(path.resolve(__dirname, ".."));
   const browser = await chromium.launch({ headless: !flags.has("--headed") });

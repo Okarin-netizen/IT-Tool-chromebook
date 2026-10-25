@@ -26,6 +26,16 @@ node tests/migration.cjs                # 古い版 = origin/main
 node tests/migration.cjs --from <ref>   # 古い版を git のコミットやブランチで指定
 ```
 
+見た目を変えずにCSSを整理したいときは、直す前と後で各要素の計算後のスタイルを書き出して比べます。
+
+```sh
+node tests/smoke.cjs --styles /tmp/before            # 直す前（幅1280px）
+node tests/smoke.cjs --styles /tmp/before-n --narrow # 直す前（幅600px）
+# CSS を直す
+node tests/smoke.cjs --styles /tmp/after
+node tests/compare-styles.cjs /tmp/before /tmp/after # 違いがあれば一覧を出して失敗
+```
+
 ## 確かめていること
 
 - ページを開いたときに、エラーや読み込みの失敗がないこと
@@ -37,6 +47,7 @@ node tests/migration.cjs --from <ref>   # 古い版を git のコミットやブ
 ## ファイル
 
 - `smoke.cjs`: テスト本体。ツールごとの確認は `TOOLS` にまとまっています
+- `compare-styles.cjs`: `--styles` で書き出したスタイルの比較
 - `migration.cjs`: 古い版から新しい版への移行の確認
 - `lib/server.cjs`: テスト用のサーバー。本番と同じ `/IT-Tool-chromebook/` の下にリポジトリを配ります
 - `lib/fixtures.cjs`: テスト用のPDF・PNGの作成と、ZIPの中身の読み取り
