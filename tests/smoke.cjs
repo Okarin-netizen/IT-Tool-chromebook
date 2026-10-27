@@ -149,6 +149,25 @@ const TOOLS = {
       const [file] = await t.downloads(1);
       t.expectName(file, "申込書_書き込み済み.pdf");
       await t.expectPdfPages(file, 3);
+      // 墨消し: the page with a black box becomes a picture, so its words are really gone.
+      await t.page.evaluate(() => __pdfSign.setTool("redact"));
+      await t.drag(ink, [[30, 30], [330, 70]]);
+      await t.until(() => __pdfSign.state.items.some((i) => i.type === "redact"));
+      await t.page.click("#save-btn");
+      const [redacted] = await t.downloads(1);
+      const doc = await t.expectPdfPages(redacted, 3);
+      const words = (i) => {
+        const { PDFRawStream, decodePDFRawStream } = fixtures.PDFLib;
+        const contents = doc.getPage(i).node.normalizedEntries().Contents;
+        const streams = contents.asArray ? contents.asArray() : [contents];
+        return streams.map((ref) => {
+          const stream = doc.context.lookup(ref);
+          const bytes = stream instanceof PDFRawStream ? decodePDFRawStream(stream).decode() : stream.getContents();
+          return Buffer.from(bytes).toString("latin1");
+        }).join("").includes("536D6F6B65"); // "Smoke" as pdf-lib writes it
+      };
+      t.expect(!words(0), "墨消ししたページに元の文字が残っている");
+      t.expect(words(1), "墨消ししていないページまで画像になった");
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.pdf("申込書.pdf", 3)]);

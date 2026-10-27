@@ -18,6 +18,7 @@
     <symbol id="i-marker" viewBox="0 0 24 24"><path d="M14 4l6 6-8 8H6v-6z"/><path d="M4 21h9"/></symbol>
     <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 19V6a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v2"/><path d="M4 19l3-8h14l-3 8z"/></symbol>
     <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/></symbol>
+    <symbol id="i-redact" viewBox="0 0 24 24"><path d="M4 7h7M4 12h16M4 17h10"/><rect x="12" y="4.5" width="9" height="5" rx="1" fill="currentColor"/><rect x="15" y="14.5" width="6" height="5" rx="1" fill="currentColor"/></symbol>
     <symbol id="i-pointer" viewBox="0 0 24 24"><path d="M6 3l12 8-5.5 1.2L10 18z"/></symbol>
     <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></symbol>
     <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
@@ -39,6 +40,7 @@
       <button class="btn tool selected" data-tool="pen" title="ペンで書く (P)"><svg class="i" aria-hidden="true"><use href="#i-pen"/></svg>ペン</button>
       <button class="btn tool" data-tool="marker" title="蛍光ペンで線を引く (M)"><svg class="i" aria-hidden="true"><use href="#i-marker"/></svg>蛍光ペン</button>
       <button class="btn tool" data-tool="eraser" title="書いたものをなぞって消す (E)"><svg class="i" aria-hidden="true"><use href="#i-eraser"/></svg>消しゴム</button>
+      <button class="btn tool" data-tool="redact" title="名前や番号などを黒く塗りつぶして、下の文字も消す (R)"><svg class="i" aria-hidden="true"><use href="#i-redact"/></svg>墨消し</button>
       <div class="menu-wrap">
         <button id="stamp-btn" class="btn tool" data-tool="stamp" aria-haspopup="true" title="ハンコ・記号を押す (H)"><svg class="i" aria-hidden="true"><use href="#i-stamp"/></svg>ハンコ ▾</button>
         <div id="stamp-menu" class="menu" hidden>

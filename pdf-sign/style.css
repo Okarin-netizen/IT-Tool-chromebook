@@ -148,7 +148,8 @@ body {
 .page canvas.ink { mix-blend-mode: multiply; touch-action: none; }
 body[data-tool="select"] .page canvas.ink { touch-action: pan-x pan-y pinch-zoom; cursor: default; }
 body[data-tool="pen"] .page canvas.ink,
-body[data-tool="marker"] .page canvas.ink { cursor: crosshair; }
+body[data-tool="marker"] .page canvas.ink,
+body[data-tool="redact"] .page canvas.ink { cursor: crosshair; }
 body[data-tool="eraser"] .page canvas.ink { cursor: cell; }
 body[data-tool="stamp"] .page canvas.ink,
 body[data-tool="sign"] .page canvas.ink { cursor: copy; }

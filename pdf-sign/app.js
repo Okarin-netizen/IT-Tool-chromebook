@@ -121,6 +121,10 @@ function drawItem(ctx, item) {
   if (item.type === "stroke") drawStroke(ctx, item);
   else if (item.type === "stamp") drawStamp(ctx, item, stampDef(item.kind));
   else if (item.type === "sign") drawSign(ctx, item);
+  else if (item.type === "redact") {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(item.x, item.y, item.w, item.h);
+  }
 }
 
 const history = new History(state);
@@ -238,6 +242,8 @@ function onPointerDown(e, view) {
     editor.drawStrokeFrom(e, view, point);
   } else if (state.tool === "eraser") {
     editor.eraseFrom(e, view, point);
+  } else if (state.tool === "redact") {
+    editor.drawBoxFrom(e, view, point, (bx, by, w, h) => ({ type: "redact", page: view.id, x: bx, y: by, w, h }));
   } else if (state.tool === "select") {
     editor.selectFrom(e, view, point);
   } else if (state.tool === "stamp") {
@@ -267,6 +273,7 @@ function hintForTool() {
     case "eraser": return "消したい線やハンコをなぞってください";
     case "stamp": return `押したい場所をクリックしてください（${stampDef(state.stamp).label}）`;
     case "sign": return "署名を入れたい場所をクリックしてください";
+    case "redact": return "隠したい所をドラッグで囲んでください。保存すると、そのページは画像になり、黒い所の下の文字は消えます";
     default: return "ハンコや線をドラッグして動かせます";
   }
 }
@@ -498,8 +505,20 @@ async function save() {
     const onPage = (num, count) => showStatus(`保護されたPDFのため、ページを画像にしています… (${num}/${count})`, { sticky: true });
     const doc = rebuilt ? await rasterizePdf(state.pdf, { onPage }) : original;
 
+    let redacted = 0;
     for (const view of state.pages) {
-      const items = state.items.filter((i) => i.page === view.num);
+      const all = state.items.filter((i) => i.page === view.num);
+      // A black box drawn over a page hides nothing: the words are still in the PDF and can be
+      // copied. Pages with 墨消し are replaced by a picture of the page with the boxes burnt in,
+      // the way BentoPDF's and Stirling-PDF's "convert to image" redaction removes the text.
+      const boxes = all.filter((i) => i.type === "redact");
+      const flat = boxes.length > 0;
+      if (flat) {
+        showStatus(`墨消ししたページを画像にしています…（${view.num}ページ目）`, { sticky: true });
+        await flattenPage(doc, view, boxes);
+        redacted++;
+      }
+      const items = all.filter((i) => i.type !== "redact");
       if (!items.length) continue;
       const ink = await renderInkImage(items, view.viewport, drawItem);
       if (!ink) continue;
@@ -507,13 +526,14 @@ async function save() {
       const page = doc.getPage(view.num - 1);
       const image = await doc.embedPng(ink.png);
       // The image's bottom-left corner on screen is its origin in the PDF.
-      // Rebuilt pages are already upright, so only the y axis flips.
-      const [x, y] = rebuilt
+      // Rebuilt (and flattened) pages are already upright, so only the y axis flips.
+      const upright = rebuilt || flat;
+      const [x, y] = upright
         ? [box.x, view.viewport.height - (box.y + box.h)]
         : view.viewport.convertToPdfPoint(box.x, box.y + box.h);
       page.drawImage(image, {
         x, y, width: box.w, height: box.h,
-        rotate: degrees(rebuilt ? 0 : view.viewport.rotation),
+        rotate: degrees(upright ? 0 : view.viewport.rotation),
         blendMode: BlendMode.Multiply,
       });
     }
@@ -523,7 +543,9 @@ async function save() {
     state.dirty = false;
     showStatus(rebuilt
       ? "保存しました（保護されたPDFのため、元のページは画像として保存しています）"
-      : "保存しました（ダウンロードフォルダを確認してください）");
+      : redacted
+        ? `保存しました（墨消しした${redacted}ページは、下の文字が残らないように画像にしています）`
+        : "保存しました（ダウンロードフォルダを確認してください）");
   } catch (err) {
     console.error(err);
     showStatus("保存できませんでした。PDFが壊れているか、対応していない形式の可能性があります", { error: true });
@@ -531,6 +553,30 @@ async function save() {
     saving = false;
     updateUi();
   }
+}
+
+// Swaps page `view.num` of `doc` for a picture of it (as shown, turned upright) with the
+// black boxes painted into the picture itself.
+const REDACT_SCALE = 3; // 216 dpi, sharp enough to read and print the rest of the page
+async function flattenPage(doc, view, boxes) {
+  const page = await state.pdf.getPage(view.num);
+  const viewport = page.getViewport({ scale: REDACT_SCALE });
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.floor(viewport.width);
+  canvas.height = Math.floor(viewport.height);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  ctx.fillStyle = "#000";
+  for (const b of boxes) ctx.fillRect(b.x * REDACT_SCALE, b.y * REDACT_SCALE, b.w * REDACT_SCALE, b.h * REDACT_SCALE);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+  canvas.width = canvas.height = 0;
+  page.cleanup();
+  const image = await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
+  const { width, height } = view.viewport;
+  doc.removePage(view.num - 1);
+  doc.insertPage(view.num - 1, [width, height]).drawImage(image, { x: 0, y: 0, width, height });
 }
 
 /* ---------- toolbar & global events ---------- */
@@ -588,7 +634,7 @@ els.zoomIn.addEventListener("click", () => state.pdf && setScale(clampScale(stat
 els.zoomOut.addEventListener("click", () => state.pdf && setScale(clampScale(state.scale / 1.2)));
 els.saveBtn.addEventListener("click", save);
 
-const SHORTCUTS = { v: "select", p: "pen", m: "marker", e: "eraser" };
+const SHORTCUTS = { v: "select", p: "pen", m: "marker", e: "eraser", r: "redact" };
 document.addEventListener("keydown", (e) => {
   if (els.signDialog.open) return;
   const typing = e.target.closest("input, textarea, select");
