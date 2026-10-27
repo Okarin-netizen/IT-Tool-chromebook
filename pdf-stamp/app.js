@@ -1,6 +1,7 @@
 import { openPdf, rasterizePdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
+import { addNextTool } from "../shared/js/handoff.js";
 import { makeZip } from "../shared/js/zip.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { subsetFont, EMBED_OPTIONS } from "../shared/js/font-jp.js";
@@ -563,6 +564,7 @@ els.wmImageInput.addEventListener("change", () => {
   els.wmImageInput.value = "";
 });
 els.saveBtn.addEventListener("click", save);
+addNextTool({ saveBtn: els.saveBtn, save: save, kind: "pdf" });
 
 for (const el of document.querySelectorAll(".panel input, .panel select")) {
   el.addEventListener("input", update);

@@ -1,5 +1,6 @@
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { download, onFileDrop } from "../shared/js/files.js";
+import { addNextTool } from "../shared/js/handoff.js";
 import { isImage, readableImage } from "../shared/js/heic.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { makeZip } from "../shared/js/zip.js";
@@ -353,6 +354,7 @@ for (const el of [els.maxSide, els.format, els.mode]) el.addEventListener("chang
 els.targetKb.addEventListener("change", settingsChanged);
 els.clearBtn.addEventListener("click", clearAll);
 els.saveBtn.addEventListener("click", save);
+addNextTool({ saveBtn: els.saveBtn, save: save, kind: "image" });
 window.addEventListener("paste", (e) => {
   const files = [...(e.clipboardData?.files ?? [])];
   if (files.length) addFiles(files);

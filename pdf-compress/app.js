@@ -1,6 +1,7 @@
 import { pdfjsLib, openPdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
+import { addNextTool } from "../shared/js/handoff.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 
@@ -461,6 +462,7 @@ els.fileInput.addEventListener("change", () => {
 });
 els.compressBtn.addEventListener("click", compress);
 els.saveBtn.addEventListener("click", save);
+addNextTool({ saveBtn: els.saveBtn, save: save, kind: "pdf" });
 els.prevPage.addEventListener("click", () => {
   state.previewPage--;
   renderPreview();

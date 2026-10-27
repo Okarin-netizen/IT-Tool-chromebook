@@ -2,6 +2,7 @@ import { openPdf, rasterizePdf } from "../shared/js/pdf.js";
 import { createPageViewer, clampScale } from "../shared/js/page-viewer.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, download, onFileDrop } from "../shared/js/files.js";
+import { addNextTool } from "../shared/js/handoff.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { History } from "../shared/js/history.js";
 import {
@@ -633,6 +634,7 @@ els.deleteBtn.addEventListener("click", editor.deleteSelected);
 els.zoomIn.addEventListener("click", () => state.pdf && setScale(clampScale(state.scale * 1.2)));
 els.zoomOut.addEventListener("click", () => state.pdf && setScale(clampScale(state.scale / 1.2)));
 els.saveBtn.addEventListener("click", save);
+addNextTool({ saveBtn: els.saveBtn, save: save, kind: "pdf" });
 
 const SHORTCUTS = { v: "select", p: "pen", m: "marker", e: "eraser", r: "redact" };
 document.addEventListener("keydown", (e) => {

@@ -391,6 +391,19 @@ const TOOLS = {
       t.expect(names.join(",") === "写真1_小.jpg,写真2_小.jpg", `ZIPの中身が違う: ${names.join(", ")}`);
       await t.setFiles("#file-input", [t.heic("iPhone.heic")]);
       await t.until(() => __imageResize.state.items.length === 3 && __imageResize.state.items[2].result, 30000);
+
+      // "次のツールで開く" hands the result to the next tool without saving: the ZIP's images
+      // become pages in 画像→PDF, and that PDF opens in PDF結合・分割・回転.
+      await t.page.click(".next-btn");
+      await t.page.click(".next-item[data-tool='image-pdf']");
+      await t.page.waitForURL(/\/image-pdf\/$/);
+      await t.until(() => window.__imagePdf?.state.images.length === 3, 30000);
+      t.expect(await t.page.evaluate(() => __imagePdf.state.images.map((i) => i.name).join(",")) === "写真1_小.jpg,写真2_小.jpg,iPhone_小.jpg", "渡した画像の名前が違う");
+      await t.page.click(".next-btn");
+      await t.page.click(".next-item[data-tool='pdf-pages']");
+      await t.page.waitForURL(/\/pdf-pages\/$/);
+      await t.until(() => window.__pdfPages?.state.pages.length === 3, 30000);
+      await t.page.goto(new URL("../image-resize/", t.page.url()).href);
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.png("写真1.png", 640, 480)]);

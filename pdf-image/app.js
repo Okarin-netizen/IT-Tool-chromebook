@@ -1,6 +1,7 @@
 import { openPdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, download, onFileDrop } from "../shared/js/files.js";
+import { addNextTool } from "../shared/js/handoff.js";
 import { loadText, saveText } from "../shared/js/storage.js";
 import { makeZip } from "../shared/js/zip.js";
 import { createLazyRenderer, freeCanvas } from "../shared/js/lazy.js";
@@ -255,7 +256,7 @@ function saveViews(views) {
 
 function saveSelectedOrAll() {
   const chosen = state.pages.filter((p) => p.selected);
-  saveViews(chosen.length ? chosen : state.pages);
+  return saveViews(chosen.length ? chosen : state.pages);
 }
 
 function copyPage(view) {
@@ -282,6 +283,7 @@ els.fileInput.addEventListener("change", () => {
 els.selectAll.addEventListener("click", () => setAllSelected(true));
 els.selectNone.addEventListener("click", () => setAllSelected(false));
 els.saveBtn.addEventListener("click", saveSelectedOrAll);
+addNextTool({ saveBtn: els.saveBtn, save: saveSelectedOrAll, kind: "image" });
 
 // Remember the chosen format and quality.
 for (const select of [els.format, els.dpi]) {

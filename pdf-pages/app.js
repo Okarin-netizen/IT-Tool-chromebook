@@ -1,6 +1,7 @@
 import { openPdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, download, onFileDrop } from "../shared/js/files.js";
+import { addNextTool } from "../shared/js/handoff.js";
 import { loadText, saveText } from "../shared/js/storage.js";
 import { createLazyRenderer, freeCanvas } from "../shared/js/lazy.js";
 import { registerOffline } from "../shared/js/offline.js";
@@ -960,6 +961,7 @@ els.preview.addEventListener("click", (e) => {
   if (e.target === els.preview || e.target.classList.contains("preview-body")) closePreview();
 });
 els.saveBtn.addEventListener("click", saveAll);
+addNextTool({ saveBtn: els.saveBtn, save: saveAll, kind: "pdf" });
 els.extractBtn.addEventListener("click", saveSelected);
 els.splitBtn.addEventListener("click", saveEachPage);
 els.moreBtn.addEventListener("click", () => {

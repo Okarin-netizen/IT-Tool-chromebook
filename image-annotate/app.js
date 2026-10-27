@@ -1,5 +1,6 @@
 import { hideStatus, showStatus } from "../shared/js/status.js";
 import { download, onFileDrop } from "../shared/js/files.js";
+import { addNextTool } from "../shared/js/handoff.js";
 import { isImage, isHeic, readableImage } from "../shared/js/heic.js";
 import { registerOffline } from "../shared/js/offline.js";
 
@@ -793,6 +794,7 @@ async function copyImage() {
 }
 
 els.saveBtn.addEventListener("click", save);
+addNextTool({ saveBtn: els.saveBtn, save: save, kind: "image" });
 els.copyBtn.addEventListener("click", copyImage);
 
 /* ---------- opening files ---------- */
