@@ -18,7 +18,12 @@ export function download(blob, name) {
 
 // Shows the drop overlay (#drop-overlay) while files are dragged over the page and passes
 // dropped files to `onFiles`. Drags that carry no files (moving a page card) are left alone.
+// Files opened with the installed tool from the Chromebook Files app ("Open with", set up by
+// file_handlers in manifest.webmanifest) arrive the same way.
 export function onFileDrop(onFiles) {
+  window.launchQueue?.setConsumer(async ({ files }) => {
+    if (files?.length) onFiles(await Promise.all(files.map((handle) => handle.getFile())));
+  });
   const overlay = document.getElementById("drop-overlay");
   const isFileDrag = (e) => [...e.dataTransfer.types].includes("Files");
   let depth = 0;
