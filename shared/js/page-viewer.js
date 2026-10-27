@@ -6,6 +6,9 @@
 //   views()            every page view, in order
 //   pdfOf(view)        the pdf.js document the view's page belongs to
 //   onRender(view)     optional: just before the page is drawn (sign and grade size their ink here)
+//   onRendered(view, page)  optional: after the page is drawn (PDF文字入れ adds form fields here)
+//   annotationMode()   optional: pdf.js AnnotationMode for drawing (forms are left out of the
+//                      picture when they are shown as real input boxes instead)
 //   onRelease(view)    optional: when the page's pictures are freed
 //   onScale(view)      optional: for each page after the zoom changed
 import { createLazyRenderer } from "./lazy.js";
@@ -15,7 +18,7 @@ const MAX_SCALE = 4;
 
 export const clampScale = (s) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
 
-export function createPageViewer({ state, viewer, zoomLabel, views, pdfOf, onRender, onRelease, onScale }) {
+export function createPageViewer({ state, viewer, zoomLabel, views, pdfOf, onRender, onRendered, onRelease, onScale, annotationMode }) {
   async function render(view) {
     view.rendered = true;
     view.task?.cancel();
@@ -26,13 +29,16 @@ export function createPageViewer({ state, viewer, zoomLabel, views, pdfOf, onRen
     const canvas = document.createElement("canvas");
     canvas.width = Math.floor(viewport.width);
     canvas.height = Math.floor(viewport.height);
-    const task = page.render({ canvasContext: canvas.getContext("2d"), viewport });
+    const params = { canvasContext: canvas.getContext("2d"), viewport };
+    if (annotationMode) params.annotationMode = annotationMode();
+    const task = page.render(params);
     view.task = task;
     try {
       await task.promise;
       if (view.rendered) {
         view.canvas.replaceWith(canvas);
         view.canvas = canvas;
+        await onRendered?.(view, page);
       }
     } catch (err) {
       if (err?.name !== "RenderingCancelledException") console.error(err);

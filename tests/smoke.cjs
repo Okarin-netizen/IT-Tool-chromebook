@@ -43,6 +43,18 @@ const TOOLS = {
       const [file] = await t.downloads(1);
       t.expectName(file, "テスト資料_記入済み.pdf");
       await t.expectPdfPages(file, 3);
+      // A PDF with fill-in fields shows them as input boxes; what is typed is saved in them.
+      await t.setFiles("#file-input", [{ name: "申込書.pdf", mimeType: "application/pdf", buffer: fixtures.formPdf() }]);
+      await t.page.locator(".form-layer input[type=text]").waitFor();
+      await t.shot("form");
+      await t.page.fill(".form-layer input[type=text]", "山田 花子");
+      await t.page.check(".form-layer input[type=checkbox]");
+      await t.page.click("#save-btn");
+      const [filled] = await t.downloads(1);
+      t.expectName(filled, "申込書_記入済み.pdf");
+      const form = (await fixtures.PDFLib.PDFDocument.load(filled.bytes)).getForm();
+      t.expect(form.getTextField("name").getText() === "山田 花子", `入力欄の文字が保存されない: ${form.getTextField("name").getText()}`);
+      t.expect(form.getCheckBox("agree").isChecked(), "チェックボックスが保存されない");
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.pdf("テスト資料.pdf", 3)]);

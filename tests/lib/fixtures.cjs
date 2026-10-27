@@ -77,11 +77,26 @@ async function makePdf(pages, { image = false } = {}) {
   return Buffer.from(await doc.save({ useObjectStreams: false }));
 }
 
+// A one-page form with a text field "name" and a check box "agree" (an AcroForm).
+async function makeFormPdf() {
+  const { PDFDocument, StandardFonts } = PDFLib;
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const page = doc.addPage([595, 842]);
+  page.drawText("Name:", { x: 60, y: 742, size: 14, font });
+  page.drawText("Agree:", { x: 60, y: 682, size: 14, font });
+  const form = doc.getForm();
+  form.createTextField("name").addToPage(page, { x: 130, y: 735, width: 240, height: 24 });
+  form.createCheckBox("agree").addToPage(page, { x: 130, y: 675, width: 18, height: 18 });
+  return Buffer.from(await doc.save());
+}
+
 // PDFs are built once up front because building is async and the tests ask for them often.
 async function prepare() {
   for (const [pages, image] of [[1, false], [2, false], [3, false], [2, true]]) {
     pdfCache.set(pdfKey(pages, image), await makePdf(pages, { image }));
   }
+  pdfCache.set("form", await makeFormPdf());
 }
 
 function pdf(pages, { image = false } = {}) {
@@ -111,4 +126,6 @@ function zipNames(buf) {
   return names;
 }
 
-module.exports = { PDFLib, prepare, pdf, png, zipNames };
+const formPdf = () => pdfCache.get("form");
+
+module.exports = { PDFLib, prepare, pdf, formPdf, png, zipNames };

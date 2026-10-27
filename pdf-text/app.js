@@ -1,4 +1,4 @@
-import { openPdf, rasterizePdf } from "../shared/js/pdf.js";
+import { pdfjsLib, openPdf, rasterizePdf } from "../shared/js/pdf.js";
 import { createPageViewer, clampScale } from "../shared/js/page-viewer.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, download, onFileDrop } from "../shared/js/files.js";
@@ -30,7 +30,8 @@ const state = {
   fileName: "document.pdf",
   bytes: null, // original PDF bytes (never handed to pdf.js, which detaches buffers)
   pdf: null, // pdf.js document
-  pages: [], // { num, viewport (scale 1), el, canvas, layer, rendered, task }
+  pages: [], // { num, viewport (scale 1), el, canvas, layer, formLayer, rendered, task }
+  hasForm: false, // the PDF has fill-in fields (AcroForm), shown as real input boxes
   items: [], // text: { type, page, x, y, size, color, text, el, box }  image: { type, page, x, y, w, h, bytes, format, url, el, box }
   active: null,
   scale: 1,
@@ -83,6 +84,7 @@ async function openFile(file) {
     resetDocument();
     state.bytes = bytes;
     state.pdf = pdf;
+    state.hasForm = !!(await pdf.getFieldObjects().catch(() => null));
     state.fileName = file.name || "document.pdf";
     document.title = `${state.fileName} - PDF文字入れ`;
 
@@ -96,7 +98,9 @@ async function openFile(file) {
     setScale(viewer.fitWidthScale());
     els.viewer.scrollTop = 0;
     hideStatus();
-    showStatus("文字を入れたい場所をクリックしてください");
+    showStatus(state.hasForm
+      ? "このPDFには入力欄があります。青い枠の中にそのまま入力できます。ほかの場所はクリックで文字を入れられます"
+      : "文字を入れたい場所をクリックしてください", { ms: state.hasForm ? 7000 : undefined });
     preloadForSaving();
   } catch (err) {
     console.error(err);
@@ -111,6 +115,7 @@ function resetDocument() {
   viewer.clear();
   state.pdf?.destroy();
   state.pages = [];
+  state.hasForm = false;
   state.items.forEach((item) => item.url && URL.revokeObjectURL(item.url));
   state.items = [];
   state.active = null;
@@ -153,7 +158,88 @@ const viewer = createPageViewer({
   zoomLabel: els.zoomLabel,
   views: () => state.pages,
   pdfOf: () => state.pdf,
+  annotationMode: () => (state.hasForm ? pdfjsLib.AnnotationMode.ENABLE_FORMS : pdfjsLib.AnnotationMode.ENABLE),
+  onRendered: (view, page) => state.hasForm && renderFormLayer(view, page),
+  onRelease: (view) => {
+    view.formLayer?.remove();
+    view.formLayer = null;
+  },
 });
+
+/* ---------- fill-in fields (AcroForm) ---------- */
+
+// Fields are drawn by pdf.js's own AnnotationLayer as real <input>s, the way Mozilla's PDF
+// viewer (and BentoPDF's form filler, which embeds it) does. What is typed is kept in the
+// document's annotationStorage, so a page that is freed and drawn again keeps its values.
+const WIDGET = 20; // pdf.js AnnotationType.WIDGET (not exported by the library build)
+const linkService = {
+  externalLinkEnabled: false,
+  getDestinationHash: () => "#",
+  getAnchorUrl: () => "#",
+  addLinkAttributes() {},
+  isInPresentationMode: false,
+};
+
+async function renderFormLayer(view, page) {
+  const annotations = (await page.getAnnotations({ intent: "display" }))
+    .filter((a) => a.annotationType === WIDGET);
+  view.formLayer?.remove();
+  view.formLayer = null;
+  if (!annotations.length || !view.rendered) return;
+  const div = document.createElement("div");
+  div.className = "annotationLayer form-layer";
+  view.el.style.setProperty("--scale-factor", state.scale);
+  view.el.style.setProperty("--total-scale-factor", state.scale);
+  view.el.append(div);
+  view.formLayer = div;
+  const viewport = page.getViewport({ scale: state.scale }).clone({ dontFlip: true });
+  const layer = new pdfjsLib.AnnotationLayer({ div, page, viewport, accessibilityManager: null, annotationCanvasMap: null, annotationEditorUIManager: null, structTreeLayer: null });
+  await layer.render({
+    viewport,
+    div,
+    annotations,
+    page,
+    linkService,
+    renderForms: true,
+    annotationStorage: state.pdf.annotationStorage,
+    imageResourcesPath: "",
+    enableScripting: false,
+    hasJSActions: false,
+  });
+  div.addEventListener("input", () => (state.dirty = true));
+  div.addEventListener("change", () => (state.dirty = true));
+}
+
+// Copies what was typed into the fields over to the pdf-lib document, and redraws the
+// fields with the Japanese font so the answers show in every viewer.
+async function fillForm(doc) {
+  const storage = state.pdf.annotationStorage;
+  if (!storage.size) return;
+  const { PDFTextField, PDFCheckBox, PDFRadioGroup, PDFDropdown, PDFOptionList } = await loadPdfLib();
+  const form = doc.getForm();
+  for (let num = 1; num <= state.pdf.numPages; num++) {
+    const page = await state.pdf.getPage(num);
+    for (const a of await page.getAnnotations({ intent: "display" })) {
+      if (a.annotationType !== WIDGET || !a.fieldName) continue;
+      const stored = storage.getRawValue(a.id);
+      if (stored === undefined || !("value" in stored)) continue;
+      const field = form.getFieldMaybe(a.fieldName);
+      const { value } = stored;
+      if (field instanceof PDFTextField) field.setText(String(value ?? ""));
+      else if (field instanceof PDFCheckBox) value ? field.check() : field.uncheck();
+      else if (field instanceof PDFRadioGroup && value) field.select(a.buttonValue);
+      else if (field instanceof PDFDropdown || field instanceof PDFOptionList) {
+        const picked = [value].flat().filter((v) => v !== "" && v != null);
+        if (picked.length) field.select(picked.length > 1 ? picked : picked[0]);
+      }
+    }
+  }
+  const texts = form.getFields().filter((f) => f instanceof PDFTextField).map((f) => f.getText() ?? "").join("");
+  if (texts.trim()) {
+    const font = await doc.embedFont(await subsetFont(texts + "0123456789"), { subset: false });
+    form.updateFieldAppearances(font);
+  }
+}
 
 function setScale(scale) {
   viewer.setScale(scale);
@@ -479,6 +565,7 @@ async function save() {
     const onPage = (num, count) => showStatus(`保護されたPDFのため、ページを画像にしています… (${num}/${count})`, { sticky: true });
     const doc = rebuilt ? await rasterizePdf(state.pdf, { onPage }) : original;
     doc.registerFontkit(fontkit);
+    if (state.hasForm && !rebuilt) await fillForm(doc);
     // Maps screen coordinates (scale 1, top-left origin) onto a page of `doc`.
     // Rebuilt pages are already upright, so only the y axis flips.
     const placement = (pageNum) => {
