@@ -22,6 +22,11 @@ function loadSubsetter() {
   return subsetterPromise;
 }
 
+// Options for pdf-lib's embedFont with a font from subsetFont(). pdf-lib only writes widths for
+// the glyphs the font maps characters to, but in a Latin run fontkit's "locl" swaps the digits
+// for other glyphs, which then got the default width: "2026" came out as "2 0 2 6".
+export const EMBED_OPTIONS = { subset: false, features: { locl: false } };
+
 // Starts downloading the font early so saving is quick.
 export function preloadFont() {
   loadFontBytes().catch(() => {});

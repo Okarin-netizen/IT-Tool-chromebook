@@ -11,5 +11,34 @@
       "sizes": "any",
       "type": "image/svg+xml"
     }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "image/png": [
+          ".png"
+        ],
+        "image/jpeg": [
+          ".jpg",
+          ".jpeg"
+        ],
+        "image/webp": [
+          ".webp"
+        ],
+        "image/gif": [
+          ".gif"
+        ],
+        "image/bmp": [
+          ".bmp"
+        ],
+        "image/heic": [
+          ".heic"
+        ],
+        "image/heif": [
+          ".heif"
+        ]
+      }
+    }
   ]
 }

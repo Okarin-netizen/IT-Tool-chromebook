@@ -34,7 +34,7 @@ body {
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-weight: 500;
@@ -53,7 +53,7 @@ body {
 .panel {
   max-width: 640px;
   margin: 24px auto;
-  background: #fff;
+  background: var(--surface);
   border-radius: 12px;
   padding: 24px 28px;
   line-height: 1.7;
@@ -124,7 +124,7 @@ body {
 .result-note { text-align: center; font-size: 14px; color: var(--muted); margin: 8px 0 16px; }
 .result-note.warn { color: #b45309; }
 
-.preview-wrap { background: #eef0f3; border-radius: 10px; padding: 10px; margin-bottom: 12px; }
+.preview-wrap { background: var(--soft); border-radius: 10px; padding: 10px; margin-bottom: 12px; }
 .preview-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; margin-bottom: 8px; }
 .pager { display: flex; gap: 4px; }
 .preview { display: block; max-width: 100%; margin: 0 auto; background: #fff; box-shadow: 0 0 0 1px var(--line); }
@@ -135,13 +135,13 @@ body {
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-size: 15px;
   cursor: pointer;
 }
-.mini:hover:not(:disabled) { background: #eef0f3; }
+.mini:hover:not(:disabled) { background: var(--soft); }
 .mini:disabled { opacity: .35; cursor: default; }
 
 @media (max-width: 640px) {

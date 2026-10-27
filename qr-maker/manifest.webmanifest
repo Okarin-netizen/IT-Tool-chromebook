@@ -1,0 +1,15 @@
+{
+  "name": "QRコード作成",
+  "short_name": "QRコード",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f1f3f6",
+  "theme_color": "#475569",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

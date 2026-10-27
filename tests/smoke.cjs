@@ -43,6 +43,18 @@ const TOOLS = {
       const [file] = await t.downloads(1);
       t.expectName(file, "テスト資料_記入済み.pdf");
       await t.expectPdfPages(file, 3);
+      // A PDF with fill-in fields shows them as input boxes; what is typed is saved in them.
+      await t.setFiles("#file-input", [{ name: "申込書.pdf", mimeType: "application/pdf", buffer: fixtures.formPdf() }]);
+      await t.page.locator(".form-layer input[type=text]").waitFor();
+      await t.shot("form");
+      await t.page.fill(".form-layer input[type=text]", "山田 花子");
+      await t.page.check(".form-layer input[type=checkbox]");
+      await t.page.click("#save-btn");
+      const [filled] = await t.downloads(1);
+      t.expectName(filled, "申込書_記入済み.pdf");
+      const form = (await fixtures.PDFLib.PDFDocument.load(filled.bytes)).getForm();
+      t.expect(form.getTextField("name").getText() === "山田 花子", `入力欄の文字が保存されない: ${form.getTextField("name").getText()}`);
+      t.expect(form.getCheckBox("agree").isChecked(), "チェックボックスが保存されない");
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.pdf("テスト資料.pdf", 3)]);
@@ -66,6 +78,47 @@ const TOOLS = {
       t.expectName(file, "資料_編集済み.pdf");
       const doc = await t.expectPdfPages(file, 2);
       t.expect(doc.getPage(0).getRotation().angle === 90, "1ページ目が90°回転していない");
+
+      // Page tools: number ranges, blank page, duplicate, reverse, front/back interleave, 2-in-1.
+      const range = await t.page.evaluate(() => JSON.stringify(__pdfPages.parseRange("１－３、5, 9-", 10)));
+      t.expect(range === "[0,1,2,4,8,9]", `番号で選ぶの読み取りが違う: ${range}`);
+      await t.page.evaluate(async () => {
+        const { state, toggleSelect, insertBlank, duplicatePages, reversePages } = __pdfPages;
+        toggleSelect(state.pages[0]);
+        await insertBlank(); // after page 1 → 3 pages
+        duplicatePages(); // page 1 again → 4 pages
+        state.pages.forEach((p) => (p.selected = false));
+        reversePages();
+      });
+      const order = await t.page.evaluate(() => __pdfPages.state.pages.map((p) => (p.file.blank ? "白" : p.index + 1)).join(","));
+      t.expect(order === "3,白,2,2", `白紙・複製・逆順のあとの並びが違う: ${order}`);
+      await t.page.selectOption("#nup", "2");
+      await t.page.click("#save-btn");
+      const [sheets] = await t.downloads(1);
+      t.expectName(sheets, "資料_編集済み_2in1.pdf");
+      const sheetDoc = await t.expectPdfPages(sheets, 2);
+      const { width, height } = sheetDoc.getPage(0).getSize();
+      t.expect(width > height, "2in1の紙が横向きになっていない");
+      await t.page.selectOption("#nup", "1");
+      await t.page.evaluate(() => __pdfPages.removePages(__pdfPages.state.pages.slice()));
+      await t.setFiles("#file-input", [t.pdf("表.pdf", 3), t.pdf("裏.pdf", 2)]);
+      await t.until(() => __pdfPages.state.pages.length === 5);
+      await t.page.evaluate(() => {
+        const [front, back] = __pdfPages.state.pages.map((p) => p.file).filter((f, i, a) => a.indexOf(f) === i);
+        __pdfPages.interleave(front, back, true);
+      });
+      const mixed = await t.page.evaluate(() => __pdfPages.state.pages.map((p) => `${p.file.name[0]}${p.index + 1}`).join(","));
+      t.expect(mixed === "表1,裏2,表2,裏1,表3", `表裏の交互の並びが違う: ${mixed}`);
+      await t.page.evaluate(() => __pdfPages.removePages(__pdfPages.state.pages.slice()));
+
+      // A PDF locked with a password asks for it; a wrong one asks again.
+      await t.setFiles("#file-input", [t.locked("鍵つき.pdf")]);
+      await t.enterPassword("0000");
+      await t.page.locator(".password-dialog .error").waitFor();
+      await t.enterPassword("1234");
+      await t.until(() => __pdfPages.state.pages.length === 2 && __pdfPages.state.pages.every((p) => p.rendered));
+      await t.page.click("#save-btn");
+      await t.expectPdfPages((await t.downloads(1))[0], 2);
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.pdf("資料.pdf", 3)]);
@@ -96,6 +149,25 @@ const TOOLS = {
       const [file] = await t.downloads(1);
       t.expectName(file, "申込書_書き込み済み.pdf");
       await t.expectPdfPages(file, 3);
+      // 墨消し: the page with a black box becomes a picture, so its words are really gone.
+      await t.page.evaluate(() => __pdfSign.setTool("redact"));
+      await t.drag(ink, [[30, 30], [330, 70]]);
+      await t.until(() => __pdfSign.state.items.some((i) => i.type === "redact"));
+      await t.page.click("#save-btn");
+      const [redacted] = await t.downloads(1);
+      const doc = await t.expectPdfPages(redacted, 3);
+      const words = (i) => {
+        const { PDFRawStream, decodePDFRawStream } = fixtures.PDFLib;
+        const contents = doc.getPage(i).node.normalizedEntries().Contents;
+        const streams = contents.asArray ? contents.asArray() : [contents];
+        return streams.map((ref) => {
+          const stream = doc.context.lookup(ref);
+          const bytes = stream instanceof PDFRawStream ? decodePDFRawStream(stream).decode() : stream.getContents();
+          return Buffer.from(bytes).toString("latin1");
+        }).join("").includes("536D6F6B65"); // "Smoke" as pdf-lib writes it
+      };
+      t.expect(!words(0), "墨消ししたページに元の文字が残っている");
+      t.expect(words(1), "墨消ししていないページまで画像になった");
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.pdf("申込書.pdf", 3)]);
@@ -125,6 +197,24 @@ const TOOLS = {
       const names = fixtures.zipNames(file.bytes);
       t.expect(names.includes("生徒A_採点済.pdf") && names.includes("生徒B_採点済.pdf"), `ZIPの中身が違う: ${names.join(", ")}`);
       t.expect(names.some((n) => n.endsWith(".csv")), `ZIPに点数一覧がない: ${names.join(", ")}`);
+
+      // Work in progress survives closing the tab: reload and carry on.
+      const before = await t.page.evaluate(async () => {
+        await __pdfGrade.autosave();
+        return __pdfGrade.state.items.length;
+      });
+      await t.page.reload();
+      await t.page.locator("#resume:not([hidden])").waitFor();
+      await t.page.click("#resume-btn");
+      await t.until(() => __pdfGrade.state.files.length === 2 && __pdfGrade.state.items.length > 0);
+      const after = await t.page.evaluate(() => __pdfGrade.state.items.length);
+      t.expect(after === before, `続きから始めたときの書き込みの数が違う: ${after}（期待: ${before}）`);
+
+      // Two PDFs locked with the same password ask for it only once.
+      await t.setFiles("#file-input", [t.locked("生徒C.pdf"), t.locked("生徒D.pdf")]);
+      await t.enterPassword("1234");
+      await t.until(() => __pdfGrade.state.files.length === 4);
+      t.expect(!(await t.page.locator(".password-dialog").evaluate((d) => d.open)), "同じパスワードを2回聞かれた");
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.pdf("生徒A.pdf", 2)]);
@@ -178,6 +268,21 @@ const TOOLS = {
       const [file] = await t.downloads(1);
       t.expectName(file, "プリント_番号入り.pdf");
       await t.expectPdfPages(file, 3);
+      // Several PDFs: numbers run on across them, plus a footer and an image watermark.
+      await t.setFiles("#file-input", [t.pdf("1組.pdf", 2), t.pdf("2組.pdf", 3)]);
+      await t.until(() => document.querySelectorAll(".page").length === 5);
+      await t.page.check("#hf-on");
+      await t.page.fill("#hf-bl", "{file}　{date}");
+      await t.page.selectOption("#wm-type", "image");
+      await t.setFiles("#wm-image-input", [t.png("校章.png", 200, 200)]);
+      await t.until(() => document.querySelector("#wm-image-name").textContent === "校章.png");
+      await t.page.locator(".page canvas").first().scrollIntoViewIfNeeded();
+      await t.shot("several");
+      await t.page.click("#save-btn");
+      const [zip] = await t.downloads(1);
+      t.expectName(zip, "番号・ヘッダー・透かし入り_2件.zip");
+      const names = fixtures.zipNames(zip.bytes);
+      t.expect(names.join(",") === "1組_番号・ヘッダー・透かし入り.pdf,2組_番号・ヘッダー・透かし入り.pdf", `ZIPの中身が違う: ${names.join(", ")}`);
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.pdf("プリント.pdf", 3)]);
@@ -217,10 +322,92 @@ const TOOLS = {
       const [file] = await t.downloads(1);
       t.expectName(file, "アルバム.pdf");
       await t.expectPdfPages(file, 2);
+      // iPhone photos (HEIC) are turned into JPEG before they are added.
+      await t.setFiles("#file-input", [t.heic("iPhone.heic")]);
+      await t.until(() => __imagePdf.state.images.length === 3, 30000);
+
+      // A photo of a print taken at an angle: the corners are found and stretched back to a rectangle.
+      const paper = [[150, 90], [610, 140], [580, 560], [110, 500]];
+      await t.page.evaluate(async (paper) => {
+        const c = Object.assign(document.createElement("canvas"), { width: 720, height: 640 });
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#3b3530";
+        ctx.fillRect(0, 0, 720, 640);
+        ctx.fillStyle = "#f4f1ea";
+        ctx.beginPath();
+        paper.forEach(([x, y]) => ctx.lineTo(x, y));
+        ctx.fill();
+        ctx.fillStyle = "#222";
+        ctx.font = "28px sans-serif";
+        for (let i = 0; i < 6; i++) ctx.fillText("プリントの文字 " + i, 190, 190 + i * 55);
+        const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.9));
+        await __imagePdf.addFiles([new File([blob], "プリント.jpg", { type: "image/jpeg" })]);
+      }, paper);
+      await t.until(() => __imagePdf.state.images.length === 4);
+      await t.page.locator(".card").nth(3).locator("button[title^='まっすぐ']").click();
+      await t.page.locator("#straighten[open] .corner").first().waitFor();
+      await t.shot("straighten");
+      const found = await t.page.evaluate(() => __imagePdf.straight.corners);
+      const off = Math.max(...found.map(([x, y], i) => Math.hypot(x - paper[i][0], y - paper[i][1])));
+      t.expect(off < 20, `角の位置がずれている（${Math.round(off)}px）: ${JSON.stringify(found)}`);
+      // Drag the top-left corner a little, then apply.
+      await t.drag(t.page.locator("#straighten .corner").first(), [[14, 14], [6, 6]]);
+      const moved = await t.page.evaluate(() => __imagePdf.straight.corners[0]);
+      t.expect(moved[0] < found[0][0] - 2, "角をドラッグで動かせない");
+      await t.page.click("#straighten-ok");
+      await t.until(() => __imagePdf.state.images[3].corners);
+      const size = await t.page.evaluate(() => [__imagePdf.state.images[3].width, __imagePdf.state.images[3].height]);
+      t.expect(size[0] / size[1] > 1 && size[0] / size[1] < 1.25, `まっすぐにした大きさがおかしい: ${size}`);
+      await t.page.selectOption("#color-mode", "scan");
+      await t.shot("scan");
+      await t.page.click("#save-btn");
+      const [scanned] = await t.downloads(1);
+      await t.expectPdfPages(scanned, 4);
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.png("写真1.png", 640, 480)]);
       await t.until(() => __imagePdf.state.images.length === 1);
+    },
+  },
+
+  "image-resize": {
+    async run(t) {
+      await t.setFiles("#file-input", [t.png("写真1.png", 1600, 1200), t.png("写真2.png", 1200, 1600)]);
+      await t.until(() => __imageResize.state.items.length === 2 && __imageResize.state.items.every((i) => i.result));
+      await t.shot("open");
+      const small = await t.page.evaluate(() => __imageResize.state.items.map((i) => Math.max(i.result.width, i.result.height)));
+      t.expect(small.every((n) => n === 1600), `長い辺1600にならない: ${small}`);
+      // "60 KB以下" lowers the quality, then the size, until it fits.
+      await t.page.selectOption("#mode", "target");
+      await t.page.fill("#target-kb", "60");
+      await t.page.dispatchEvent("#target-kb", "change");
+      await t.until(() => __imageResize.state.items.every((i) => i.result), 60000);
+      const sizes = await t.page.evaluate(() => __imageResize.state.items.map((i) => i.result.blob.size));
+      t.expect(sizes.every((n) => n <= 60 * 1024), `60KB以下にならない: ${sizes}`);
+      await t.page.click("#save-btn");
+      const [file] = await t.downloads(1);
+      t.expectName(file, "画像_小.zip");
+      const names = fixtures.zipNames(file.bytes);
+      t.expect(names.join(",") === "写真1_小.jpg,写真2_小.jpg", `ZIPの中身が違う: ${names.join(", ")}`);
+      await t.setFiles("#file-input", [t.heic("iPhone.heic")]);
+      await t.until(() => __imageResize.state.items.length === 3 && __imageResize.state.items[2].result, 30000);
+
+      // "次のツールで開く" hands the result to the next tool without saving: the ZIP's images
+      // become pages in 画像→PDF, and that PDF opens in PDF結合・分割・回転.
+      await t.page.click(".next-btn");
+      await t.page.click(".next-item[data-tool='image-pdf']");
+      await t.page.waitForURL(/\/image-pdf\/$/);
+      await t.until(() => window.__imagePdf?.state.images.length === 3, 30000);
+      t.expect(await t.page.evaluate(() => __imagePdf.state.images.map((i) => i.name).join(",")) === "写真1_小.jpg,写真2_小.jpg,iPhone_小.jpg", "渡した画像の名前が違う");
+      await t.page.click(".next-btn");
+      await t.page.click(".next-item[data-tool='pdf-pages']");
+      await t.page.waitForURL(/\/pdf-pages\/$/);
+      await t.until(() => window.__pdfPages?.state.pages.length === 3, 30000);
+      await t.page.goto(new URL("../image-resize/", t.page.url()).href);
+    },
+    async offline(t) {
+      await t.setFiles("#file-input", [t.png("写真1.png", 640, 480)]);
+      await t.until(() => __imageResize.state.items[0]?.result);
     },
   },
 
@@ -235,10 +422,95 @@ const TOOLS = {
       const [file] = await t.downloads(1);
       t.expectName(file, "画面_書き込み.png");
       t.expect(file.bytes.subarray(1, 4).toString() === "PNG", "PNG画像になっていない");
+      t.page.once("dialog", (d) => d.accept());
+      await t.setFiles("#file-input", [t.heic("iPhone.heic")]);
+      await t.until(() => document.querySelector("#canvas").width === 400, 30000);
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.png("画面.png", 800, 500)]);
       await t.page.locator("#stage").waitFor();
+    },
+  },
+
+  "class-picker": {
+    async run(t) {
+      await t.page.fill("#names", ["青木", "井上", "上田", "江藤", "大野", "加藤", "木村"].join("\n"));
+      await t.until(() => document.querySelector("#count").textContent === "7人");
+      // With "一度当たった人は外す", seven spins pick everyone once.
+      for (let i = 0; i < 7; i++) {
+        if (i === 1) await t.page.emulateMedia({ reducedMotion: "reduce" }); // only the first one flicks through names
+        await t.page.click("#spin-btn");
+        await t.page.waitForFunction((n) => __classPicker.store.lists[0].picked.length === n && !__classPicker.state.spinning, i + 1, { timeout: 10000 });
+      }
+      const picked = await t.page.evaluate(() => __classPicker.store.lists[0].picked.slice().sort().join());
+      t.expect(picked === "上田,井上,加藤,大野,木村,江藤,青木", `全員が1回ずつ選ばれていない: ${picked}`);
+      await t.shot("pick");
+      await t.page.click(".tab[data-mode='groups']");
+      await t.page.fill("#group-n", "3");
+      await t.page.click("#group-btn");
+      const sizes = await t.page.$$eval(".group-card ul", (uls) => uls.map((u) => u.children.length).join());
+      t.expect(sizes === "3,2,2", `班の人数が違う: ${sizes}`);
+      await t.shot("groups");
+      // The roster is kept for the next lesson.
+      await t.page.reload();
+      t.expect((await t.page.inputValue("#names")).split("\n").length === 7, "名簿が保存されていない");
+    },
+    async offline(t) {
+      await t.page.locator("#spin-btn").waitFor();
+    },
+  },
+
+  "qr-maker": {
+    async run(t) {
+      await t.page.fill("#text", "https://example.com/アンケート");
+      await t.page.fill("#caption", "アンケート");
+      await t.until(() => !document.querySelector("#save-btn").disabled);
+      const n = await t.page.evaluate(() => __qrMaker.current.getModuleCount());
+      t.expect(n >= 25, `QRコードの大きさがおかしい: ${n}`);
+      await t.shot("qr");
+      await t.page.click("#save-btn");
+      const [file] = await t.downloads(1);
+      t.expectName(file, "アンケート.png");
+      t.expect(file.bytes.subarray(1, 4).toString() === "PNG", "PNG画像になっていない");
+      // Too long for any QR code: says so instead of failing silently.
+      await t.page.fill("#text", "あ".repeat(3000));
+      await t.until(() => document.querySelector("#info").classList.contains("error"));
+    },
+    async offline(t) {
+      await t.page.fill("#text", "offline");
+      await t.until(() => !document.querySelector("#save-btn").disabled);
+    },
+  },
+
+  typing: {
+    async run(t) {
+      await t.page.selectOption("#duration", "30");
+      await t.page.keyboard.press(" ");
+      await t.until(() => __typing.game.playing);
+      // Type each word with the guide's spelling, plus one wrong key.
+      await t.page.keyboard.press("q");
+      for (let i = 0; i < 3; i++) {
+        const rest = await t.page.evaluate(() => __typing.game.matcher.rest);
+        await t.page.keyboard.type(rest);
+      }
+      await t.shot("play");
+      const { wordsDone, misses } = await t.page.evaluate(() => __typing.game);
+      t.expect(wordsDone === 3, `ことばが打ち終わらない: ${wordsDone}`);
+      t.expect(misses === 1, `ミスの数が違う: ${misses}`);
+      await t.page.evaluate(() => __typing.finish());
+      await t.page.locator("#result:not([hidden])").waitFor();
+      t.expect(await t.page.textContent("#r-words") === "3", "結果のことばの数が違う");
+      await t.shot("result");
+      // English: capitals and punctuation as shown.
+      await t.page.click(".tab[data-lang='en']");
+      await t.page.click("#start-btn");
+      const text = await t.page.evaluate(() => __typing.game.item.reading);
+      await t.page.keyboard.type(text);
+      t.expect(await t.page.evaluate(() => __typing.game.wordsDone) === 1, "英語のことばを打ち終わらない");
+      await t.page.keyboard.press("Escape");
+    },
+    async offline(t) {
+      await t.page.locator("#start-btn").waitFor();
     },
   },
 
@@ -341,6 +613,23 @@ class ToolTest {
 
   pdf(name, pages, opts) {
     return { name, mimeType: "application/pdf", buffer: fixtures.pdf(pages, opts) };
+  }
+
+  // A 2-page PDF that needs the password "1234" to open.
+  locked(name) {
+    return { name, mimeType: "application/pdf", buffer: fs.readFileSync(path.join(__dirname, "fixtures", "locked-1234.pdf")) };
+  }
+
+  // A 400x300 iPhone-style photo (HEIC).
+  heic(name) {
+    return { name, mimeType: "image/heic", buffer: fs.readFileSync(path.join(__dirname, "fixtures", "photo.heic")) };
+  }
+
+  async enterPassword(password) {
+    const dialog = this.page.locator(".password-dialog[open]");
+    await dialog.waitFor();
+    await dialog.locator("input[name=password]").fill(password);
+    await dialog.locator("button[value=ok]").click();
   }
 
   png(name, width, height) {
@@ -519,6 +808,21 @@ async function testPortal(browser, server) {
       t.expect(links.some((href) => href.replace(/\/$/, "") === name), `トップページに ${name} へのリンクがない`);
     }
     await t.shot("start");
+
+    // A star puts a tool in "お気に入り"; tools opened lately show in "最近使ったもの".
+    await page.hover("section:not(.quick) a[href='pdf-text/']");
+    await page.click("section:not(.quick) a[href='pdf-text/'] ~ .star");
+    t.expect(await page.$$eval("#quick-fav li .name", (els) => els.map((e) => e.textContent).join()) === "PDF文字入れ", "お気に入りに入らない");
+    await page.goto(`${server.url}calc/`);
+    await page.goto(`${server.url}timer/`);
+    await page.goto(server.url);
+    const recent = await page.$$eval("#quick-recent li .name", (els) => els.map((e) => e.textContent).join());
+    t.expect(recent === "タイマー・ポモドーロ,関数電卓・グラフ", `最近使ったものが違う: ${recent}`);
+    t.expect(await page.$$eval("#quick-fav li", (els) => els.length) === 1, "お気に入りが残らない");
+    await t.shot("quick");
+    await page.fill("#q", "PDF文字");
+    t.expect(await page.isHidden("#quick-fav"), "さがしている間もお気に入りが出ている");
+    await page.fill("#q", "");
 
     // The top page (and the tool icons on it) also opens without a network.
     await page.evaluate(() => navigator.serviceWorker.ready);

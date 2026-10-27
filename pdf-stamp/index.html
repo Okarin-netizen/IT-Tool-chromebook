@@ -22,7 +22,7 @@
       <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
       <span class="app-title">ページ番号・透かし入れ</span>
       <label class="btn" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg>PDFを開く</label>
-      <input id="file-input" type="file" accept="application/pdf,.pdf" hidden>
+      <input id="file-input" type="file" accept="application/pdf,.pdf" multiple hidden>
       <span id="file-name" class="file-name"></span>
     </div>
     <div class="group end">
@@ -90,21 +90,88 @@
             <input id="num-start" type="number" value="1" min="0" max="9999" step="1">
           </label>
           <label class="check-row"><input id="num-skip-first" type="checkbox"> 1ページ目（表紙）には入れない</label>
+          <label id="num-scope-row" class="row" hidden title="いくつものPDFを開いたときの番号のつけ方">複数のPDF
+            <select id="num-scope">
+              <option value="all">通し番号</option>
+              <option value="file">PDFごとに1から</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="box">
+        <label class="switch"><input id="hf-on" type="checkbox"> <b>ヘッダー・フッター</b></label>
+        <div id="hf-opts" class="opts">
+          <div class="hf-grid">
+            <span>上</span>
+            <input id="hf-tl" type="text" placeholder="左" maxlength="80" aria-label="上の左">
+            <input id="hf-tc" type="text" placeholder="中央" maxlength="80" aria-label="上の中央">
+            <input id="hf-tr" type="text" placeholder="右" maxlength="80" aria-label="上の右">
+            <span>下</span>
+            <input id="hf-bl" type="text" placeholder="左" maxlength="80" aria-label="下の左">
+            <input id="hf-bc" type="text" placeholder="中央" maxlength="80" aria-label="下の中央">
+            <input id="hf-br" type="text" placeholder="右" maxlength="80" aria-label="下の右">
+          </div>
+          <p class="help">{n} がページ番号、{total} が全体のページ数、{date} が今日の日付、{file} がファイル名になります。例: <code>{file}</code>、<code>{date} 配布</code>、<code>2年1組</code></p>
+          <label class="row">大きさ
+            <select id="hf-size">
+              <option value="9">9</option>
+              <option value="10" selected>10</option>
+              <option value="11">11</option>
+              <option value="12">12</option>
+              <option value="14">14</option>
+            </select>
+          </label>
+          <label class="row">色
+            <select id="hf-color">
+              <option value="#000000">黒</option>
+              <option value="#6b7280">灰色</option>
+              <option value="#dc2626">赤</option>
+              <option value="#2563eb">青</option>
+            </select>
+          </label>
+          <label class="row">端からの距離
+            <select id="hf-margin">
+              <option value="14">0.5 cm</option>
+              <option value="28" selected>1 cm</option>
+              <option value="43">1.5 cm</option>
+            </select>
+          </label>
+          <label class="check-row"><input id="hf-skip-first" type="checkbox"> 1ページ目（表紙）には入れない</label>
         </div>
       </section>
 
       <section class="box">
         <label class="switch"><input id="wm-on" type="checkbox"> <b>透かし</b></label>
         <div id="wm-opts" class="opts">
-          <label class="row">文字
-            <input id="wm-text" type="text" value="下書き" maxlength="40">
+          <label class="row">種類
+            <select id="wm-type">
+              <option value="text">文字</option>
+              <option value="image">画像（学校のマークなど）</option>
+            </select>
           </label>
-          <div class="chips" id="wm-chips">
-            <button type="button" class="chip">下書き</button>
-            <button type="button" class="chip">見本</button>
-            <button type="button" class="chip">コピー</button>
-            <button type="button" class="chip">提出用</button>
-            <button type="button" class="chip">控え</button>
+          <div id="wm-text-opts" class="opts">
+            <label class="row">文字
+              <input id="wm-text" type="text" value="下書き" maxlength="40">
+            </label>
+            <div class="chips" id="wm-chips">
+              <button type="button" class="chip">下書き</button>
+              <button type="button" class="chip">見本</button>
+              <button type="button" class="chip">コピー</button>
+              <button type="button" class="chip">提出用</button>
+              <button type="button" class="chip">控え</button>
+            </div>
+          </div>
+          <div id="wm-image-opts" class="opts" hidden>
+            <div class="row">
+              <label class="btn" for="wm-image-input">画像を選ぶ</label>
+              <input id="wm-image-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+              <span id="wm-image-name" class="image-name">まだ選んでいません</span>
+            </div>
+            <label class="row">画像の幅
+              <input id="wm-image-size" type="range" min="10" max="100" step="5" value="50">
+              <output id="wm-image-size-out" class="out">50%</output>
+            </label>
           </div>
           <label class="row">向き
             <select id="wm-angle">
@@ -118,11 +185,11 @@
               <option value="tile">ページ全体に並べる</option>
             </select>
           </label>
-          <label class="row">大きさ
+          <label id="wm-size-row" class="row">大きさ
             <input id="wm-size" type="range" min="20" max="200" step="2" value="96">
             <output id="wm-size-out" class="out">96</output>
           </label>
-          <label class="row">色
+          <label id="wm-color-row" class="row">色
             <select id="wm-color">
               <option value="#6b7280">灰色</option>
               <option value="#dc2626">赤</option>
@@ -144,9 +211,9 @@
         <h1>ページ番号・透かし入れ</h1>
         <p>PDFの全ページに、ページ番号や「下書き」「見本」などの透かしをまとめて入れます。</p>
         <ol>
-          <li>「PDFを開く」を押すか、PDFをここにドラッグします。</li>
-          <li>左の設定で、ページ番号の形式・位置や、透かしの文字・向き・濃さを選びます。右に仕上がりが表示されます。</li>
-          <li>「PDFを保存」で、番号や透かしの入ったPDFをダウンロードします。</li>
+          <li>「PDFを開く」を押すか、PDFをここにドラッグします。いくつものPDFをまとめて開くと、通し番号を振れます。</li>
+          <li>左の設定で、ページ番号の形式・位置、ヘッダー・フッターの文字、透かしの文字や画像・向き・濃さを選びます。右に仕上がりが表示されます。</li>
+          <li>「PDFを保存」で、番号や透かしの入ったPDFをダウンロードします（いくつものPDFはZIPにまとめます）。</li>
         </ol>
         <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。</p>
       </section>

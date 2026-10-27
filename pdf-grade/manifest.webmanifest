@@ -11,5 +11,18 @@
       "sizes": "any",
       "type": "image/svg+xml"
     }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "application/pdf": [
+          ".pdf"
+        ],
+        "application/zip": [
+          ".zip"
+        ]
+      }
+    }
   ]
 }

@@ -1,21 +1,58 @@
 // pdf.js set up for this site: worker, character maps and fonts from shared/vendor.
 import * as pdfjsLib from "../vendor/pdfjs-4.10.38/pdf.min.mjs";
 import { loadPdfLib } from "./pdf-lib.js";
+import { askPassword } from "./password.js";
 
 const PDFJS = new URL("../vendor/pdfjs-4.10.38/", import.meta.url).href;
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.mjs";
 
 export { pdfjsLib };
 
-// Starts opening a PDF and returns pdf.js's loading task (`.promise` gives the document).
+// The last password that worked is tried first on the next PDF, so a class set of files
+// locked with the same password asks only once. It is kept in memory only.
+let lastPassword = null;
+
+// Starts opening a PDF and returns { promise, destroy } like pdf.js's loading task.
 // pdf.js detaches the buffer it is given, so pass a copy when the bytes are used again.
-export function openPdf(data) {
-  return pdfjsLib.getDocument({
+// A PDF that needs a password to open asks for it (`name` is shown in the dialog); if the user
+// gives up, the promise rejects with an error named "PasswordException".
+export function openPdf(data, { name } = {}) {
+  const task = pdfjsLib.getDocument({
     data,
     cMapUrl: PDFJS + "cmaps/",
     cMapPacked: true,
     standardFontDataUrl: PDFJS + "standard_fonts/",
   });
+  let tried = null;
+  let cancelled = false;
+  task.onPassword = async (update, reason) => {
+    if (reason === pdfjsLib.PasswordResponses.NEED_PASSWORD && lastPassword && tried === null) {
+      update((tried = lastPassword));
+      return;
+    }
+    // A wrong saved password counts as the first try, not as the user's mistake.
+    const retry = reason === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD && tried !== lastPassword;
+    const password = await askPassword(name, { retry });
+    if (password === null) {
+      cancelled = true;
+      task.destroy();
+    } else {
+      update((tried = password));
+    }
+  };
+  const promise = task.promise.then(
+    (pdf) => {
+      if (tried !== null) lastPassword = tried;
+      return pdf;
+    },
+    (err) => {
+      if (!cancelled) throw err;
+      const e = new Error("password not given");
+      e.name = "PasswordException";
+      throw e;
+    },
+  );
+  return { promise, destroy: () => task.destroy() };
 }
 
 // pdf-lib cannot decrypt, so a protected (encrypted) PDF is rebuilt from page images

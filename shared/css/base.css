@@ -4,6 +4,12 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
+/* ---------- colors ---------- */
+
+/* Each tool's style.css sets --bg, --bar, --text, --muted, --line and its accent colors. These
+   are for buttons, cards and inputs (--surface), hover and table heads (--soft) and wells (--subtle). */
+:root { --surface: #fff; --soft: #eef0f3; --subtle: #f7f8fa; }
+
 /* ---------- app bar ---------- */
 
 .toolbar { min-height: 56px; padding: 8px 12px; gap: 8px 12px; background: var(--bar); border-bottom: 1px solid var(--line); box-shadow: none; }
@@ -16,7 +22,7 @@
 /* ---------- buttons ---------- */
 
 .btn { min-height: 36px; padding: 0 14px; gap: 6px; border-radius: 18px; border-color: var(--line); font-weight: 500; }
-.btn:hover:not(:disabled) { background: #eef0f3; }
+.btn:hover:not(:disabled) { background: var(--soft); }
 .btn:disabled { opacity: .45; cursor: default; }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
@@ -59,4 +65,92 @@
   font-size: 24px; color: var(--accent); font-weight: bold;
   z-index: 30;
   pointer-events: none;
+}
+
+/* ---------- small dialogs made by shared/js (password and the like) ---------- */
+
+.app-dialog {
+  border: 0;
+  border-radius: 14px;
+  padding: 20px 24px;
+  width: 400px;
+  max-width: calc(100vw - 24px);
+  background: var(--bar);
+  color: var(--text);
+  box-shadow: 0 10px 40px rgba(0,0,0,.3);
+  font: inherit;
+}
+.app-dialog::backdrop { background: rgba(17, 24, 39, .45); }
+.app-dialog h2 { margin: 0 0 4px; font-size: 20px; }
+.app-dialog .hint { margin: 0 0 12px; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+.app-dialog input[type="password"], .app-dialog input[type="text"] {
+  width: 100%; min-height: 40px; padding: 0 12px; font: inherit;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--bar); color: var(--text);
+}
+.app-dialog input:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.app-dialog .show { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 14px; color: var(--muted); }
+.app-dialog .error { margin: 8px 0 0; color: #c0392b; font-size: 14px; }
+.app-dialog .dialog-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+/* "次のツールで開く" menu (handoff.js) */
+.next-wrap { position: relative; display: inline-flex; }
+.next-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 240px;
+  padding: 8px;
+  background: var(--bar);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.18);
+}
+.next-title { font-size: 12px; color: var(--muted); margin: 2px 8px 6px; }
+.next-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.next-item:hover, .next-item:focus-visible { background: color-mix(in srgb, var(--accent) 12%, transparent); outline: none; }
+
+/* ---------- dark mode ---------- */
+
+/* Dark mode follows the Chromebook's setting (like the top page). html:root wins over the tools'
+   own :root. PDF pages, previews and the graph stay white: they are paper. */
+@media (prefers-color-scheme: dark) {
+  html:root {
+    color-scheme: dark;
+    --bg: #1f2329;
+    --bar: #2a2f37;
+    --surface: #2a2f37;
+    --soft: #363c46;
+    --subtle: #23272e;
+    --text: #f7f8fa;
+    --muted: #9aa1ab;
+    --line: #3a3f48;
+    --accent-soft: color-mix(in srgb, var(--accent) 30%, #2a2f37);
+    --select: #7fa2ec;
+    --card: #2a2f37;
+    --key: #2a2f37;
+    --key-fn: #323842;
+    --key-op: #383d5e;
+    --track: #3a3f48;
+  }
+  .btn.tool.selected, .segmented input:checked + span { color: var(--text); }
+  .welcome, .card, .panel { box-shadow: 0 0 0 1px var(--line); }
+  .status { background: #3a3f48; }
+  :where(select) { background-color: var(--surface); color: var(--text); }
 }

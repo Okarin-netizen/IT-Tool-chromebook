@@ -411,6 +411,25 @@ export function createInkEditor({ state, history, viewOf, allViews, drawItem, up
     });
   }
 
+  // A box dragged out from corner to corner. `make(x, y, w, h)` builds the item.
+  function drawBoxFrom(e, view, [x, y], make) {
+    e.preventDefault();
+    select(null);
+    state.drawing = make(x, y, 0, 0);
+    track(e, view, ([px, py]) => {
+      Object.assign(state.drawing, { x: Math.min(x, px), y: Math.min(y, py), w: Math.abs(px - x), h: Math.abs(py - y) });
+      renderInk(view);
+    }, (cancelled) => {
+      const box = state.drawing;
+      state.drawing = null;
+      if (!cancelled && box.w > 2 && box.h > 2) {
+        state.items.push(box);
+        commit();
+      }
+      renderInk(view);
+    });
+  }
+
   // Removes whatever the pointer passes over.
   function eraseFrom(e, view, point) {
     e.preventDefault();
@@ -482,6 +501,6 @@ export function createInkEditor({ state, history, viewOf, allViews, drawItem, up
     renderInk, renderPageInk, updateSelbox, itemAt, select, deleteSelected, commit, changeSelected,
     undo: () => restore(history.pos - 1),
     redo: () => restore(history.pos + 1),
-    pagePoint, drawStrokeFrom, eraseFrom, selectFrom, placeFrom, onResizeDown,
+    pagePoint, drawStrokeFrom, drawBoxFrom, eraseFrom, selectFrom, placeFrom, onResizeDown,
   };
 }

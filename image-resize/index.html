@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>画像を小さく</title>
+  <meta name="description" content="写真や画像の大きさ・ファイルサイズを小さくするブラウザだけで動くツール。「200KB以下」のような指定もできます">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#0d7fa8">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  </svg>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">画像を小さく</span>
+      <label class="btn primary" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-image"/></svg>画像を追加</label>
+      <input id="file-input" type="file" accept="image/*,.heic,.heif" multiple hidden>
+    </div>
+
+    <div class="group" role="group" aria-label="小さくする設定">
+      <label class="field" title="画像の長いほうの辺を、この長さ（ピクセル）までにする">長い辺
+        <select id="max-side">
+          <option value="0">元のまま</option>
+          <option value="3000">3000</option>
+          <option value="2000">2000</option>
+          <option value="1600" selected>1600</option>
+          <option value="1280">1280</option>
+          <option value="1024">1024</option>
+          <option value="800">800</option>
+          <option value="640">640</option>
+        </select>
+      </label>
+      <label class="field">形式
+        <select id="format">
+          <option value="image/jpeg" selected>JPG</option>
+          <option value="image/png">PNG</option>
+          <option value="image/webp">WebP</option>
+        </select>
+      </label>
+      <label class="field" title="画質を選ぶか、ファイルの大きさの上限（KB）を決める">仕上がり
+        <select id="mode">
+          <option value="0.92">きれい</option>
+          <option value="0.8" selected>ふつう</option>
+          <option value="0.6">軽め</option>
+          <option value="target">サイズ指定</option>
+        </select>
+      </label>
+      <label id="target-field" class="field" hidden><input id="target-kb" type="number" min="10" max="20000" step="10" value="200" aria-label="ファイルの大きさの上限"> KB以下</label>
+    </div>
+
+    <div class="group">
+      <button id="clear-btn" class="btn" disabled title="すべての画像を外す"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>全部消す</button>
+    </div>
+
+    <div class="group end">
+      <span id="total" class="total"></span>
+      <button id="save-btn" class="btn primary" disabled><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>保存</button>
+    </div>
+  </header>
+
+  <main id="viewer" class="viewer">
+    <section id="welcome" class="welcome">
+      <h1>画像を小さく</h1>
+      <p>写真やスクリーンショットの大きさ（ピクセル）とファイルの大きさを小さくします。提出フォームの「〇KBまで」「〇MBまで」に引っかかるときに。</p>
+      <ol>
+        <li>「画像を追加」を押すか、画像をここにドラッグします。何枚でもまとめてできます。</li>
+        <li>「長い辺」「形式」「仕上がり」を選びます。「サイズ指定」にすると、「200 KB以下」のように上限を決められます。</li>
+        <li>仕上がりの大きさを確かめて「保存」。2枚以上はZIPにまとめて保存します。</li>
+      </ol>
+      <p class="note">撮った場所などの情報（Exif）は取り除かれます。画像はこのパソコンの中だけで処理され、どこにも送信されません。</p>
+    </section>
+    <ul id="list" class="list" aria-label="画像の一覧"></ul>
+  </main>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+  <div id="drop-overlay" class="drop-overlay" hidden>ここに画像をドロップ</div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

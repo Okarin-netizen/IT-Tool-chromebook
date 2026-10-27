@@ -1,6 +1,7 @@
 import { pdfjsLib, openPdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
+import { addNextTool } from "../shared/js/handoff.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 
@@ -73,7 +74,7 @@ async function openFile(file) {
   try {
     ({ PDFDocument, PDFName, PDFDict, PDFArray, PDFRef, PDFRawStream, PDFStream, decodePDFRawStream } = await loadPdfLib());
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const pdf = await loadPdfJs(bytes);
+    const pdf = await loadPdfJs(bytes, file.name);
     // pdf-lib can't decrypt, so a protected PDF can only be shrunk by rendering its pages.
     const probe = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
     await state.file?.pdf.destroy();
@@ -81,7 +82,7 @@ async function openFile(file) {
     state.file = { name: file.name || "document.pdf", bytes, pdf, encrypted: probe.isEncrypted };
   } catch (err) {
     console.error(err);
-    showStatus(err?.name === "PasswordException" ? "開くのにパスワードが必要なPDFは使えません" : "PDFを読み込めませんでした", { error: true });
+    showStatus(err?.name === "PasswordException" ? "パスワードが入力されなかったので開けませんでした" : "PDFを読み込めませんでした", { error: true });
     return;
   }
 
@@ -101,8 +102,8 @@ async function openFile(file) {
   }
 }
 
-function loadPdfJs(bytes) {
-  return openPdf(bytes.slice()).promise;
+function loadPdfJs(bytes, name) {
+  return openPdf(bytes.slice(), { name }).promise;
 }
 
 /* ---------- method 1: re-encode the embedded images ---------- */
@@ -461,6 +462,7 @@ els.fileInput.addEventListener("change", () => {
 });
 els.compressBtn.addEventListener("click", compress);
 els.saveBtn.addEventListener("click", save);
+addNextTool({ saveBtn: els.saveBtn, save: save, kind: "pdf" });
 els.prevPage.addEventListener("click", () => {
   state.previewPage--;
   renderPreview();

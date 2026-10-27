@@ -15,5 +15,7 @@
 | `harfbuzz-1.6.3/` | [harfbuzzjs](https://github.com/harfbuzz/harfbuzzjs) 1.6.3 | 使う文字だけにフォントを縮小 | PDF文字入れ、ページ番号・透かし入れ | MIT |
 | `noto-sans-jp/` | [Noto Sans JP](https://fonts.google.com/noto/specimen/Noto+Sans+JP) | 日本語フォント | PDF文字入れ、ページ番号・透かし入れ | SIL OFL 1.1 |
 | `tesseract-7.0.0/` | [tesseract.js](https://github.com/naptha/tesseract.js) 7.0.0 / tesseract.js-core 7.0.0（SIMD版のみ）、[tessdata_best](https://github.com/tesseract-ocr/tessdata_best)（`@tesseract.js-data` 1.0.0 の jpn / jpn_vert / eng、best_int） | OCR | PDF文字取り出し | Apache-2.0 |
+| `heic-to-1.6.6/` | [heic-to](https://github.com/hoppergee/heic-to) 1.6.6（libheif を WebAssembly にしたもの。CSP 版） | iPhoneの写真（HEIC）をJPEGに変換。HEICを開いたときだけ読み込みます | 画像→PDF、画像を小さく、画像に書き込み | LGPL-3.0（libheif） |
+| `qrcode-generator-2.0.4/` | [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 2.0.4（ESM版 `qrcode.mjs`） | QRコードの作成 | QRコード作成 | MIT |
 
 ライセンスの全文は各フォルダの `LICENSE`・`LICENSE.md`・`OFL.txt` などにあります。

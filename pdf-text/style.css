@@ -40,7 +40,7 @@ body {
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-weight: 500;
@@ -74,7 +74,7 @@ body {
 .welcome {
   max-width: 560px;
   margin: 40px auto;
-  background: #fff;
+  background: var(--surface);
   border-radius: 12px;
   padding: 24px 28px;
   line-height: 1.7;
@@ -167,3 +167,26 @@ body {
   .group.end { margin-left: 0; }
   .viewer { padding: 16px 8px 64px; }
 }
+
+/* ---------- fill-in fields, drawn by pdf.js's AnnotationLayer ---------- */
+
+.annotationLayer { position: absolute; top: 0; left: 0; pointer-events: none; transform-origin: 0 0; }
+.annotationLayer section { position: absolute; pointer-events: auto; box-sizing: border-box; transform-origin: 0 0; text-align: initial; }
+.annotationLayer :is(.textWidgetAnnotation, .choiceWidgetAnnotation, .buttonWidgetAnnotation) :is(input, textarea, select) {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0 2px;
+  border: 1px solid rgba(53, 101, 201, .5);
+  border-radius: 2px;
+  /* A blue tint over the field's own background (set inline by pdf.js), like Firefox's viewer. */
+  background-image: linear-gradient(rgba(53, 101, 201, .14), rgba(53, 101, 201, .14));
+  color: #000;
+  font: calc(9px * var(--scale-factor)) "PdfTextJP", sans-serif;
+  vertical-align: top;
+}
+.annotationLayer .textWidgetAnnotation textarea { resize: none; }
+.annotationLayer :is(input, textarea, select):focus { outline: 2px solid var(--accent); background-image: none; }
+.annotationLayer .buttonWidgetAnnotation:is(.checkBox, .radioButton) input { accent-color: var(--accent); }
+.annotationLayer .linkAnnotation, .annotationLayer .popupAnnotation { display: none; }

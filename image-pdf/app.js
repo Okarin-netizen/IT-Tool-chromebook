@@ -1,7 +1,10 @@
 import { showStatus } from "../shared/js/status.js";
 import { download, onFileDrop } from "../shared/js/files.js";
+import { addNextTool } from "../shared/js/handoff.js";
+import { isImage, isHeic, readableImage } from "../shared/js/heic.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
+import { detectCorners, scanLook, warp } from "./straighten.js";
 
 const MAX_IMAGE_PX = 2400; // longest side kept per photo; enough to read handwriting, keeps PDFs small
 const JPEG_QUALITY = 0.88;
@@ -34,10 +37,20 @@ const els = {
   cameraShot: $("camera-shot"),
   cameraClose: $("camera-close"),
   cameraCount: $("camera-count"),
+  straighten: $("straighten"),
+  stStage: $("straighten-stage"),
+  stCanvas: $("straighten-canvas"),
+  stFrame: $("straighten-frame"),
+  stAuto: $("straighten-auto"),
+  stAll: $("straighten-all"),
+  stCancel: $("straighten-cancel"),
+  stOk: $("straighten-ok"),
 };
 
 const state = {
-  images: [], // { id, name, bytes, url, width, height, rotation }
+  // { id, name, bytes, url, width, height, rotation }; after straightening also source (the photo
+  // as added: { bytes, width, height }) and corners (where the paper's corners are on it)
+  images: [],
   nextId: 1,
   dirty: false,
   busy: false,
@@ -71,13 +84,13 @@ function canvasToJpeg(canvas) {
 }
 
 async function addFiles(files) {
-  const list = [...files].filter((f) => f.type.startsWith("image/") || /\.(heic|heif)$/i.test(f.name));
+  const list = [...files].filter(isImage);
   if (!list.length) return;
   let failed = 0;
   for (let i = 0; i < list.length; i++) {
-    if (list.length > 1) showStatus(`読み込み中… ${i + 1} / ${list.length}`, { sticky: true });
+    if (list.length > 1 || isHeic(list[i])) showStatus(`読み込み中… ${i + 1} / ${list.length}`, { sticky: true });
     try {
-      const img = await prepareImage(list[i]);
+      const img = await prepareImage(await readableImage(list[i]));
       state.images.push({ id: state.nextId++, name: list[i].name || "画像", rotation: 0, ...img });
     } catch (err) {
       console.error(err);
@@ -87,7 +100,7 @@ async function addFiles(files) {
   state.dirty = true;
   render();
   if (failed) {
-    showStatus(`${failed}枚の画像を読み込めませんでした（JPEG・PNGを使ってください。iPhoneのHEICは読めません）`, { error: true });
+    showStatus(`${failed}枚の画像を読み込めませんでした（JPEG・PNG・HEICの画像を使ってください）`, { error: true });
   } else {
     showStatus(`${list.length}枚追加しました`);
   }
@@ -101,6 +114,7 @@ function settings() {
     orientation: els.orientation.value,
     margin: Number(els.margin.value),
     gray: els.colorMode.value === "gray",
+    scan: els.colorMode.value === "scan",
   };
 }
 
@@ -153,6 +167,7 @@ function card(img, index, opts) {
   const sheet = document.createElement("div");
   sheet.className = "sheet";
   sheet.classList.toggle("gray", opts.gray);
+  sheet.classList.toggle("scan", opts.scan);
   sheet.style.width = `${pw * k}px`;
   sheet.style.height = `${ph * k}px`;
 
@@ -177,6 +192,7 @@ function card(img, index, opts) {
     button("◀", "前へ移動", () => move(img.id, -1), index === 0),
     button("▶", "後ろへ移動", () => move(img.id, 1), index === state.images.length - 1),
     button("⟳", "右に90°回転", () => rotate(img.id)),
+    iconButton("i-straighten", "まっすぐにする（ななめに撮ったプリントを長方形に直す）", () => openStraighten(img.id), img.corners ? "on" : ""),
     button("✕", "このページを消す", () => remove(img.id), false, "del"),
   );
 
@@ -192,6 +208,12 @@ function button(label, title, onClick, disabled = false, extra = "") {
   b.setAttribute("aria-label", title);
   b.disabled = disabled;
   b.addEventListener("click", onClick);
+  return b;
+}
+
+function iconButton(icon, title, onClick, extra = "") {
+  const b = button("", title, onClick, false, extra);
+  b.innerHTML = `<svg class="i" aria-hidden="true"><use href="#${icon}"/></svg>`;
   return b;
 }
 
@@ -273,6 +295,153 @@ els.grid.addEventListener("drop", (e) => {
   render();
 });
 
+/* ---------- straightening ---------- */
+
+const CORNER_NAMES = ["左上", "右上", "右下", "左下"];
+const straight = { img: null, canvas: null, corners: null, scale: 1, handles: [] };
+
+async function bytesToCanvas(bytes) {
+  const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/jpeg" }));
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  canvas.getContext("2d").drawImage(bitmap, 0, 0);
+  bitmap.close();
+  return canvas;
+}
+
+const wholeImage = (c) => [[0, 0], [c.width, 0], [c.width, c.height], [0, c.height]];
+
+async function openStraighten(id) {
+  const img = state.images[indexOf(id)];
+  if (!img) return;
+  const canvas = await bytesToCanvas((img.source ?? img).bytes);
+  straight.img = img;
+  straight.canvas = canvas;
+  straight.corners = img.corners?.map((c) => [...c]) ?? detectCorners(canvas) ?? wholeImage(canvas);
+  if (!straight.handles.length) {
+    straight.handles = CORNER_NAMES.map((name, i) => {
+      const h = document.createElement("button");
+      h.type = "button";
+      h.className = "corner";
+      h.title = h.ariaLabel = `${name}の角（ドラッグか矢印キーで動かす）`;
+      h.addEventListener("pointerdown", (e) => startCornerDrag(e, i));
+      h.addEventListener("keydown", (e) => nudgeCorner(e, i));
+      els.stStage.append(h);
+      return h;
+    });
+  }
+  els.straighten.showModal();
+  drawStraighten();
+}
+
+// Fits the photo in the dialog and draws the frame and the corner handles over it.
+function drawStraighten() {
+  const { canvas } = straight;
+  const maxW = els.stStage.parentElement.clientWidth - 48;
+  const maxH = window.innerHeight * 0.62;
+  const scale = Math.min(maxW / canvas.width, maxH / canvas.height);
+  const w = Math.round(canvas.width * scale), h = Math.round(canvas.height * scale);
+  const dpr = window.devicePixelRatio || 1;
+  straight.scale = scale;
+  els.stStage.style.width = `${w}px`;
+  els.stStage.style.height = `${h}px`;
+  const view = els.stCanvas;
+  view.width = Math.round(w * dpr);
+  view.height = Math.round(h * dpr);
+  view.style.width = `${w}px`;
+  view.style.height = `${h}px`;
+  view.getContext("2d").drawImage(canvas, 0, 0, view.width, view.height);
+  els.stFrame.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  placeCorners();
+}
+
+function placeCorners() {
+  const s = straight.scale;
+  const pts = straight.corners.map(([x, y]) => [x * s, y * s]);
+  els.stFrame.querySelector("polygon").setAttribute("points", pts.map((p) => p.join(",")).join(" "));
+  pts.forEach(([x, y], i) => {
+    straight.handles[i].style.left = `${x}px`;
+    straight.handles[i].style.top = `${y}px`;
+  });
+}
+
+function setCorner(i, x, y) {
+  const { canvas } = straight;
+  straight.corners[i] = [Math.min(canvas.width, Math.max(0, x)), Math.min(canvas.height, Math.max(0, y))];
+  placeCorners();
+}
+
+function startCornerDrag(e, i) {
+  e.preventDefault();
+  const handle = e.currentTarget;
+  handle.setPointerCapture(e.pointerId);
+  handle.focus();
+  const move = (ev) => {
+    const r = els.stStage.getBoundingClientRect();
+    setCorner(i, (ev.clientX - r.left) / straight.scale, (ev.clientY - r.top) / straight.scale);
+  };
+  const end = () => {
+    handle.removeEventListener("pointermove", move);
+    handle.removeEventListener("pointerup", end);
+    handle.removeEventListener("pointercancel", end);
+  };
+  handle.addEventListener("pointermove", move);
+  handle.addEventListener("pointerup", end);
+  handle.addEventListener("pointercancel", end);
+}
+
+function nudgeCorner(e, i) {
+  const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+  if (!d) return;
+  e.preventDefault();
+  const step = (e.shiftKey ? 20 : 4) / straight.scale;
+  const [x, y] = straight.corners[i];
+  setCorner(i, x + d[0] * step, y + d[1] * step);
+}
+
+const isWhole = (corners, c) => wholeImage(c).every(([x, y], i) => Math.hypot(x - corners[i][0], y - corners[i][1]) < 1);
+
+async function applyStraighten() {
+  const { img, canvas, corners } = straight;
+  els.straighten.close();
+  img.source ??= { bytes: img.bytes, width: img.width, height: img.height };
+  let result;
+  if (isWhole(corners, canvas)) {
+    result = img.source;
+    img.corners = null;
+  } else {
+    const out = warp(canvas, corners, MAX_IMAGE_PX);
+    result = { bytes: new Uint8Array(await (await canvasToJpeg(out)).arrayBuffer()), width: out.width, height: out.height };
+    img.corners = corners;
+  }
+  URL.revokeObjectURL(img.url);
+  Object.assign(img, result, { url: URL.createObjectURL(new Blob([result.bytes], { type: "image/jpeg" })) });
+  state.dirty = true;
+  render();
+  showStatus(img.corners ? "まっすぐにしました" : "元の写真に戻しました");
+}
+
+els.stAuto.addEventListener("click", () => {
+  const found = detectCorners(straight.canvas);
+  if (found) {
+    straight.corners = found;
+    placeCorners();
+  } else {
+    showStatus("プリントの角を見つけられませんでした。丸をドラッグして合わせてください", { error: true });
+  }
+});
+els.stAll.addEventListener("click", () => {
+  straight.corners = wholeImage(straight.canvas);
+  placeCorners();
+});
+els.stCancel.addEventListener("click", () => els.straighten.close());
+els.stOk.addEventListener("click", applyStraighten);
+els.straighten.addEventListener("close", () => (straight.canvas = null));
+window.addEventListener("resize", () => {
+  if (els.straighten.open) drawStraighten();
+});
+
 /* ---------- camera ---------- */
 
 const camera = { stream: null, facing: "environment", shots: 0, total: 0 };
@@ -340,9 +509,9 @@ els.cameraSwitch.addEventListener("click", async () => {
 /* ---------- saving ---------- */
 
 // The bytes to put in the PDF: the stored JPEG when nothing changed, otherwise
-// redrawn with the rotation and black-and-white filter applied.
-async function pageJpeg(img, gray) {
-  if (!img.rotation && !gray) return img.bytes;
+// redrawn with the rotation and the black-and-white or scan look applied.
+async function pageJpeg(img, gray, scan) {
+  if (!img.rotation && !gray && !scan) return img.bytes;
   const bitmap = await createImageBitmap(new Blob([img.bytes], { type: "image/jpeg" }));
   const turned = img.rotation % 180 !== 0;
   const canvas = document.createElement("canvas");
@@ -354,6 +523,7 @@ async function pageJpeg(img, gray) {
   ctx.rotate((img.rotation * Math.PI) / 180);
   ctx.drawImage(bitmap, -img.width / 2, -img.height / 2);
   bitmap.close();
+  if (scan) scanLook(canvas);
   return new Uint8Array(await (await canvasToJpeg(canvas)).arrayBuffer());
 }
 
@@ -376,7 +546,7 @@ async function save() {
       showStatus(`PDFを作成中… ${i + 1} / ${state.images.length}`, { sticky: true });
       const img = state.images[i];
       const { pw, ph, x, y, w, h } = layout(img, opts);
-      const image = await doc.embedJpg(await pageJpeg(img, opts.gray));
+      const image = await doc.embedJpg(await pageJpeg(img, opts.gray, opts.scan));
       const page = doc.addPage([pw, ph]);
       page.drawImage(image, { x, y: ph - y - h, width: w, height: h });
     }
@@ -418,6 +588,7 @@ els.clearBtn.addEventListener("click", () => {
 });
 
 els.saveBtn.addEventListener("click", save);
+addNextTool({ saveBtn: els.saveBtn, save: save, kind: "pdf" });
 
 document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
@@ -429,7 +600,7 @@ document.addEventListener("keydown", (e) => {
 // Paste a screenshot (Ctrl+V) to add it as a page.
 document.addEventListener("paste", (e) => {
   if (e.target === els.fileName) return;
-  const files = [...e.clipboardData.files].filter((f) => f.type.startsWith("image/"));
+  const files = [...e.clipboardData.files].filter(isImage);
   if (files.length) {
     e.preventDefault();
     addFiles(files);
@@ -442,7 +613,7 @@ window.addEventListener("beforeunload", (e) => {
 
 // Drag & drop image files anywhere on the page.
 onFileDrop((files) => {
-  if (files.some((f) => f.type.startsWith("image/"))) addFiles(files);
+  if (files.some(isImage)) addFiles(files);
   else if (files.length) showStatus("画像ファイルをドロップしてください", { error: true });
 });
 
@@ -452,6 +623,7 @@ registerOffline([
   "index.html",
   "style.css",
   "app.js",
+  "straighten.js",
   "icon.svg",
   "manifest.webmanifest",
   "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
@@ -460,4 +632,4 @@ registerOffline([
 render();
 
 // Hook for automated tests.
-window.__imagePdf = { state, addFiles, layout, settings, save, move, rotate, remove };
+window.__imagePdf = { state, addFiles, layout, settings, save, move, rotate, remove, openStraighten, straight, detectCorners };

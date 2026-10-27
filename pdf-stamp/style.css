@@ -47,7 +47,7 @@ body {
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-weight: 500;
@@ -99,7 +99,7 @@ body {
   padding: 0 8px;
   border-radius: 8px;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
 }
 .row input[type="range"] { width: 110px; accent-color: var(--accent); }
@@ -120,12 +120,12 @@ body {
   width: 104px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: #f7f8fa;
+  background: var(--subtle);
 }
 .pos {
   border: 1px solid var(--line);
   border-radius: 4px;
-  background: #fff;
+  background: var(--surface);
   cursor: pointer;
   padding: 0;
 }
@@ -136,7 +136,7 @@ body {
 .chip {
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-size: 13px;
@@ -150,7 +150,7 @@ body {
 .welcome {
   max-width: 560px;
   margin: 40px auto;
-  background: #fff;
+  background: var(--surface);
   border-radius: 12px;
   padding: 24px 28px;
   line-height: 1.7;
@@ -188,3 +188,15 @@ body {
   .group.end { margin-left: 0; }
   .file-name { max-width: 60vw; }
 }
+
+/* ---------- header & footer, image watermark ---------- */
+
+.hf-grid { display: grid; grid-template-columns: auto 1fr 1fr 1fr; gap: 6px; align-items: center; font-size: 14px; }
+.hf-grid input {
+  min-width: 0; min-height: 32px; padding: 0 6px; font: inherit; font-size: 13px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--bar); color: var(--text);
+}
+.help code { font-size: 12px; background: var(--bg); padding: 0 3px; border-radius: 4px; }
+.image-name { margin-left: 8px; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.page .file { font-weight: 600; }
+.opts .opts { margin-top: 0; }
