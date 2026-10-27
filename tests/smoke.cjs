@@ -67,14 +67,46 @@ const TOOLS = {
       const doc = await t.expectPdfPages(file, 2);
       t.expect(doc.getPage(0).getRotation().angle === 90, "1ページ目が90°回転していない");
 
+      // Page tools: number ranges, blank page, duplicate, reverse, front/back interleave, 2-in-1.
+      const range = await t.page.evaluate(() => JSON.stringify(__pdfPages.parseRange("１－３、5, 9-", 10)));
+      t.expect(range === "[0,1,2,4,8,9]", `番号で選ぶの読み取りが違う: ${range}`);
+      await t.page.evaluate(async () => {
+        const { state, toggleSelect, insertBlank, duplicatePages, reversePages } = __pdfPages;
+        toggleSelect(state.pages[0]);
+        await insertBlank(); // after page 1 → 3 pages
+        duplicatePages(); // page 1 again → 4 pages
+        state.pages.forEach((p) => (p.selected = false));
+        reversePages();
+      });
+      const order = await t.page.evaluate(() => __pdfPages.state.pages.map((p) => (p.file.blank ? "白" : p.index + 1)).join(","));
+      t.expect(order === "3,白,2,2", `白紙・複製・逆順のあとの並びが違う: ${order}`);
+      await t.page.selectOption("#nup", "2");
+      await t.page.click("#save-btn");
+      const [sheets] = await t.downloads(1);
+      t.expectName(sheets, "資料_編集済み_2in1.pdf");
+      const sheetDoc = await t.expectPdfPages(sheets, 2);
+      const { width, height } = sheetDoc.getPage(0).getSize();
+      t.expect(width > height, "2in1の紙が横向きになっていない");
+      await t.page.selectOption("#nup", "1");
+      await t.page.evaluate(() => __pdfPages.removePages(__pdfPages.state.pages.slice()));
+      await t.setFiles("#file-input", [t.pdf("表.pdf", 3), t.pdf("裏.pdf", 2)]);
+      await t.until(() => __pdfPages.state.pages.length === 5);
+      await t.page.evaluate(() => {
+        const [front, back] = __pdfPages.state.pages.map((p) => p.file).filter((f, i, a) => a.indexOf(f) === i);
+        __pdfPages.interleave(front, back, true);
+      });
+      const mixed = await t.page.evaluate(() => __pdfPages.state.pages.map((p) => `${p.file.name[0]}${p.index + 1}`).join(","));
+      t.expect(mixed === "表1,裏2,表2,裏1,表3", `表裏の交互の並びが違う: ${mixed}`);
+      await t.page.evaluate(() => __pdfPages.removePages(__pdfPages.state.pages.slice()));
+
       // A PDF locked with a password asks for it; a wrong one asks again.
       await t.setFiles("#file-input", [t.locked("鍵つき.pdf")]);
       await t.enterPassword("0000");
       await t.page.locator(".password-dialog .error").waitFor();
       await t.enterPassword("1234");
-      await t.until(() => __pdfPages.state.pages.length === 4 && __pdfPages.state.pages.every((p) => p.rendered));
+      await t.until(() => __pdfPages.state.pages.length === 2 && __pdfPages.state.pages.every((p) => p.rendered));
       await t.page.click("#save-btn");
-      await t.expectPdfPages((await t.downloads(1))[0], 4);
+      await t.expectPdfPages((await t.downloads(1))[0], 2);
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.pdf("資料.pdf", 3)]);

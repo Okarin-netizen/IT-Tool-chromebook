@@ -41,10 +41,23 @@ const els = {
   previewRotate: $("preview-rotate"),
   previewDelete: $("preview-delete"),
   previewClose: $("preview-close"),
+  moreBtn: $("more-btn"),
+  moreMenu: $("more-menu"),
+  blankBtn: $("blank-btn"),
+  duplicateBtn: $("duplicate-btn"),
+  reverseBtn: $("reverse-btn"),
+  interleaveBtn: $("interleave-btn"),
+  rangeForm: $("range-form"),
+  rangeInput: $("range-input"),
+  interleaveDialog: $("interleave-dialog"),
+  frontFile: $("front-file"),
+  backFile: $("back-file"),
+  backReverse: $("back-reverse"),
+  nup: $("nup"),
 };
 
 const state = {
-  files: [], // { name, bytes, pdf (pdf.js), doc (pdf-lib, null when protected) }; kept until "最初から" so undo can bring pages back
+  files: [], // { name, bytes, pdf (pdf.js), doc (pdf-lib, null when protected), blank }; kept until "最初から" so undo can bring pages back
   pages: [], // { id, file, index (0-based), baseRotation, rotation (added by the user), selected, el, canvas, rendered }
   lastClicked: null, // for shift-click range selection
   history: [], // snapshots for undo
@@ -110,23 +123,18 @@ async function addFile(file) {
 
   for (let index = 0; index < pdf.numPages; index++) {
     const page = await pdf.getPage(index + 1);
-    const view = {
-      id: nextId++,
-      file: entry,
-      index,
-      baseRotation: page.rotate,
-      rotation: 0,
-      selected: false,
-      el: null,
-      canvas: null,
-      rendered: false,
-    };
-    createCard(view);
+    const view = newView(entry, index, page.rotate);
     state.pages.push(view);
     els.grid.append(view.el);
   }
   state.dirty = true;
   return entry;
+}
+
+function newView(file, index, baseRotation, rotation = 0) {
+  const view = { id: nextId++, file, index, baseRotation, rotation, selected: false, el: null, canvas: null, rendered: false };
+  createCard(view);
+  return view;
 }
 
 /* ---------- page cards ---------- */
@@ -428,10 +436,151 @@ function clearAll() {
   removePages(state.pages.slice());
   for (const file of state.files) file.pdf.destroy();
   state.files = [];
+  blankFiles.clear();
   state.history = [];
   state.future = [];
   hideStatus();
   updateUi();
+}
+
+// A blank page the size of the page it follows (as shown, after turning), so it prints alike.
+const blankFiles = new Map(); // "595x842" → file entry, reused for every blank page of that size
+
+async function blankFile(width, height) {
+  const key = `${Math.round(width)}x${Math.round(height)}`;
+  if (!blankFiles.has(key)) {
+    const { PDFDocument } = await loadPdfLib();
+    const doc = await PDFDocument.create();
+    doc.addPage([width, height]);
+    const bytes = await doc.save();
+    const pdf = await openPdf(bytes.slice()).promise;
+    const entry = { name: "白紙", bytes, pdf, doc, blank: true };
+    state.files.push(entry);
+    blankFiles.set(key, entry);
+  }
+  return blankFiles.get(key);
+}
+
+async function insertBlank() {
+  const selected = state.pages.filter((p) => p.selected);
+  const after = selected.at(-1) ?? state.pages.at(-1);
+  let [width, height] = [595.28, 841.89]; // A4
+  if (after) {
+    const page = await after.file.pdf.getPage(after.index + 1);
+    const size = page.getViewport({ scale: 1, rotation: (after.baseRotation + after.rotation) % 360 });
+    [width, height] = [size.width, size.height];
+  }
+  const view = newView(await blankFile(width, height), 0, 0);
+  remember();
+  state.pages.splice(after ? state.pages.indexOf(after) + 1 : state.pages.length, 0, view);
+  state.dirty = true;
+  syncOrder();
+  view.el.scrollIntoView({ block: "nearest" });
+  showStatus("白紙のページを入れました");
+}
+
+function duplicatePages() {
+  const selected = state.pages.filter((p) => p.selected);
+  if (!selected.length) return;
+  remember();
+  state.pages = state.pages.flatMap((view) => view.selected
+    ? [view, newView(view.file, view.index, view.baseRotation, view.rotation)]
+    : [view]);
+  state.dirty = true;
+  syncOrder();
+  showStatus(`${selected.length}ページを複製しました`);
+}
+
+// Reverses the selected pages among themselves (they stay where they are), or every page.
+function reversePages() {
+  const targets = targetPages();
+  if (targets.length < 2) return;
+  const reversed = targets.slice().reverse();
+  let k = 0;
+  remember();
+  state.pages = state.pages.map((view) => (targets.includes(view) ? reversed[k++] : view));
+  state.dirty = true;
+  syncOrder();
+  showStatus("順番を逆にしました");
+}
+
+// Front and back pages of double-sided prints scanned one side at a time: front 1, back 1,
+// front 2, back 2… When the stack was turned over to scan the backs, they come last-first.
+function interleave(front, back, reverseBack) {
+  const fronts = state.pages.filter((p) => p.file === front);
+  const backs = state.pages.filter((p) => p.file === back);
+  if (reverseBack) backs.reverse();
+  const merged = [];
+  for (let i = 0; i < Math.max(fronts.length, backs.length); i++) {
+    if (fronts[i]) merged.push(fronts[i]);
+    if (backs[i]) merged.push(backs[i]);
+  }
+  const at = state.pages.findIndex((p) => p.file === front || p.file === back);
+  const rest = state.pages.filter((p) => p.file !== front && p.file !== back);
+  remember();
+  state.pages = [...rest.slice(0, at), ...merged, ...rest.slice(at)];
+  state.dirty = true;
+  syncOrder();
+  showStatus(`${merged.length}ページを表と裏の交互に並べました`);
+}
+
+function openInterleave() {
+  const files = [...new Set(state.pages.filter((p) => !p.file.blank).map((p) => p.file))];
+  if (files.length < 2) return;
+  for (const [select, pick] of [[els.frontFile, 0], [els.backFile, 1]]) {
+    select.replaceChildren(...files.map((file, i) => {
+      const count = state.pages.filter((p) => p.file === file).length;
+      return new Option(`${file.name}（${count}ページ）`, i, false, i === pick);
+    }));
+  }
+  els.interleaveDialog.returnValue = "";
+  els.interleaveDialog.onclose = () => {
+    if (els.interleaveDialog.returnValue !== "ok") return;
+    const front = files[els.frontFile.value];
+    const back = files[els.backFile.value];
+    if (front === back) return showStatus("表面と裏面に別々のPDFを選んでください", { error: true });
+    interleave(front, back, els.backReverse.checked);
+  };
+  els.interleaveDialog.showModal();
+}
+
+// "1-3, 5" → page positions 0, 1, 2, 4. Full-width digits and 、 also work; "8-" runs to the
+// last page. Returns null when the text is not a list of numbers and ranges.
+function parseRange(text, total) {
+  const normal = text
+    .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/[－ー〜～−]/g, "-")
+    .replace(/[、，,\s]+/g, ",");
+  const picked = new Set();
+  for (const part of normal.split(",").filter(Boolean)) {
+    const m = part.match(/^(\d*)-(\d*)$|^(\d+)$/);
+    if (!m) return null;
+    let from;
+    let to;
+    if (m[3]) from = to = Number(m[3]);
+    else {
+      from = m[1] ? Number(m[1]) : 1;
+      to = m[2] ? Number(m[2]) : total;
+    }
+    if (from > to) [from, to] = [to, from];
+    for (let n = Math.max(1, from); n <= Math.min(total, to); n++) picked.add(n - 1);
+  }
+  return [...picked].sort((a, b) => a - b);
+}
+
+function selectByRange() {
+  const picked = parseRange(els.rangeInput.value, state.pages.length);
+  if (!picked) return showStatus("「1-3, 5」のように、ページの番号とハイフン・カンマで入れてください", { error: true });
+  if (!picked.length) return showStatus(`ページは 1〜${state.pages.length} です`, { error: true });
+  state.pages.forEach((view, i) => (view.selected = picked.includes(i)));
+  updateUi();
+  closeMenu();
+  showStatus(`${picked.length}ページを選びました`);
+}
+
+function closeMenu() {
+  els.moreMenu.hidden = true;
+  els.moreBtn.setAttribute("aria-expanded", "false");
 }
 
 /* ---------- undo / redo ---------- */
@@ -526,7 +675,8 @@ async function renderPreview() {
   const view = previewView;
   const i = state.pages.indexOf(view);
   const turned = view.rotation ? ` ・${view.rotation}°回転` : "";
-  els.previewLabel.textContent = `${i + 1} / ${state.pages.length}ページ（${view.file.name} p.${view.index + 1}${turned}）`;
+  const source = view.file.blank ? "白紙" : `${view.file.name} p.${view.index + 1}`;
+  els.previewLabel.textContent = `${i + 1} / ${state.pages.length}ページ（${source}${turned}）`;
   els.previewPrev.disabled = i === 0;
   els.previewNext.disabled = i === state.pages.length - 1;
   const token = (previewToken = {});
@@ -567,7 +717,7 @@ function targetPages() {
 
 // Files that still have pages in the list.
 function fileCount() {
-  return new Set(state.pages.map((p) => p.file)).size;
+  return new Set(state.pages.filter((p) => !p.file.blank).map((p) => p.file)).size;
 }
 
 function syncOrder() {
@@ -587,8 +737,8 @@ function updateUi() {
     const turned = view.rotation ? ` ・${view.rotation}°` : "";
     label.innerHTML = "";
     label.append(Object.assign(document.createElement("b"), { textContent: `${i + 1}` }),
-      ` （${source}p.${view.index + 1}${turned}）`);
-    label.title = `${view.file.name} の ${view.index + 1}ページ目`;
+      view.file.blank ? ` （白紙${turned}）` : ` （${source}p.${view.index + 1}${turned}）`);
+    label.title = view.file.blank ? "白紙のページ" : `${view.file.name} の ${view.index + 1}ページ目`;
     view.el.querySelector('[data-act="left"]').disabled = i === 0;
     view.el.querySelector('[data-act="right"]').disabled = i === total - 1;
   });
@@ -600,6 +750,9 @@ function updateUi() {
     btn.disabled = none;
   }
   els.selectNone.disabled = none || selected === 0;
+  els.moreBtn.disabled = none;
+  els.duplicateBtn.disabled = selected === 0;
+  els.interleaveBtn.disabled = fileCount() < 2;
   els.deleteBtn.disabled = none || selected === 0;
   els.extractBtn.disabled = none || selected === 0;
   els.undoBtn.disabled = state.busy || state.loading || !state.history.length;
@@ -611,7 +764,7 @@ function updateUi() {
 
 /* ---------- saving ---------- */
 
-async function buildPdf(views) {
+async function buildPdf(views, { nup = 1 } = {}) {
   const { PDFDocument, degrees } = await loadPdfLib();
   const out = await PDFDocument.create();
   // Copy runs of pages from the same file together so shared resources are copied once.
@@ -634,7 +787,64 @@ async function buildPdf(views) {
     });
     i = j;
   }
-  return out.save();
+  return nup > 1 ? (await placeOnSheets(out, nup)).save() : out.save();
+}
+
+// N-up for printing: puts `n` (2 or 4) pages side by side on each sheet, in reading order
+// (left to right, then top to bottom). The sheet is the first page's size, turned sideways
+// for 2 pages, so 2 A4 pages land on one landscape A4. Each page keeps its look, scaled down.
+async function placeOnSheets(src, n) {
+  const { PDFDocument, degrees } = await loadPdfLib();
+  const out = await PDFDocument.create();
+  const pages = src.getPages();
+  // A page with nothing on it (no content stream, like a blank page) cannot be embedded; its
+  // place on the sheet is left empty.
+  const embedded = [];
+  for (const page of pages) embedded.push(page.node.Contents() ? await out.embedPage(page) : null);
+  const shown = pages.map((page) => {
+    const angle = ((page.getRotation().angle % 360) + 360) % 360;
+    const { width, height } = page.getSize();
+    return { angle, width: angle % 180 ? height : width, height: angle % 180 ? width : height };
+  });
+  const [cols, rows] = n === 2 ? [2, 1] : [2, 2];
+  const first = shown[0];
+  let sheetW = Math.min(first.width, first.height);
+  let sheetH = Math.max(first.width, first.height);
+  if (n === 2) [sheetW, sheetH] = [sheetH, sheetW];
+  const margin = 18; // pt, about 6 mm
+  const gap = 12;
+  const cellW = (sheetW - margin * 2 - gap * (cols - 1)) / cols;
+  const cellH = (sheetH - margin * 2 - gap * (rows - 1)) / rows;
+  let sheet = null;
+  embedded.forEach((page, i) => {
+    const slot = i % n;
+    if (slot === 0) sheet = out.addPage([sheetW, sheetH]);
+    if (!page) return;
+    const { angle, width, height } = shown[i];
+    const k = Math.min(cellW / width, cellH / height);
+    const w = width * k;
+    const h = height * k;
+    const col = slot % cols;
+    const row = Math.floor(slot / cols);
+    const x = margin + col * (cellW + gap) + (cellW - w) / 2;
+    const y = sheetH - margin - (row + 1) * cellH - row * gap + (cellH - h) / 2;
+    // A page turned by /Rotate (clockwise) is drawn turned the same way. pdf-lib turns the
+    // drawing counterclockwise around its lower left corner, so that corner moves.
+    const at = {
+      0: [x, y],
+      90: [x, y + h],
+      180: [x + w, y + h],
+      270: [x + w, y],
+    }[angle];
+    sheet.drawPage(page, {
+      x: at[0],
+      y: at[1],
+      xScale: k,
+      yScale: k,
+      rotate: degrees(-angle),
+    });
+  });
+  return out;
 }
 
 // Draws a page of a protected PDF as an image, the same as printing it, already turned upright.
@@ -661,7 +871,9 @@ function baseName(name) {
 }
 
 function outputName(suffix) {
-  const first = baseName(state.pages[0].file.name);
+  const first = baseName((state.pages.find((p) => !p.file.blank) ?? state.pages[0]).file.name);
+  const n = Number(els.nup.value);
+  if (n > 1) suffix += `_${n}in1`;
   return fileCount() > 1 ? `${first}など_${suffix}.pdf` : `${first}_${suffix}.pdf`;
 }
 
@@ -683,7 +895,7 @@ async function withBusy(message, fn) {
 
 function saveAll() {
   return withBusy("PDFを作成中…", async () => {
-    const bytes = await buildPdf(state.pages);
+    const bytes = await buildPdf(state.pages, { nup: Number(els.nup.value) });
     download(new Blob([bytes], { type: "application/pdf" }), outputName(fileCount() > 1 ? "結合" : "編集済み"));
     state.dirty = false;
     showStatus("保存しました");
@@ -694,7 +906,7 @@ function saveSelected() {
   const views = state.pages.filter((p) => p.selected);
   if (!views.length) return;
   return withBusy("PDFを作成中…", async () => {
-    const bytes = await buildPdf(views);
+    const bytes = await buildPdf(views, { nup: Number(els.nup.value) });
     download(new Blob([bytes], { type: "application/pdf" }), outputName("抜き出し"));
     showStatus(`${views.length}ページを保存しました`);
   });
@@ -750,6 +962,24 @@ els.preview.addEventListener("click", (e) => {
 els.saveBtn.addEventListener("click", saveAll);
 els.extractBtn.addEventListener("click", saveSelected);
 els.splitBtn.addEventListener("click", saveEachPage);
+els.moreBtn.addEventListener("click", () => {
+  const show = els.moreMenu.hidden;
+  els.moreMenu.hidden = !show;
+  els.moreBtn.setAttribute("aria-expanded", String(show));
+});
+document.addEventListener("pointerdown", (e) => {
+  if (!e.target.closest(".menu-wrap")) closeMenu();
+});
+for (const [btn, fn] of [[els.blankBtn, insertBlank], [els.duplicateBtn, duplicatePages], [els.reverseBtn, reversePages], [els.interleaveBtn, openInterleave]]) {
+  btn.addEventListener("click", () => {
+    closeMenu();
+    if (!state.busy) fn();
+  });
+}
+els.rangeForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  selectByRange();
+});
 
 window.addEventListener("keydown", (e) => {
   const mod = e.ctrlKey || e.metaKey;
@@ -781,6 +1011,8 @@ window.addEventListener("keydown", (e) => {
   if (mod && e.key === "a" && state.pages.length && !e.target.closest("input, textarea")) {
     e.preventDefault();
     setAllSelected(true);
+  } else if (e.key === "Escape" && !els.moreMenu.hidden) {
+    closeMenu();
   } else if (e.key === "Escape") {
     setAllSelected(false);
   }
@@ -810,4 +1042,7 @@ setThumbSize(loadText("pdf-pages-thumb") || "medium");
 updateUi();
 
 // Hook for automated tests.
-window.__pdfPages = { state, addFiles, buildPdf, rotatePages, removePages, movePage, toggleSelect, placePages, undo, redo, openPreview };
+window.__pdfPages = {
+  state, addFiles, buildPdf, rotatePages, removePages, movePage, toggleSelect, placePages, undo, redo, openPreview,
+  insertBlank, duplicatePages, reversePages, interleave, parseRange,
+};

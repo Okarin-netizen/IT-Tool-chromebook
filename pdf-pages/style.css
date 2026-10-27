@@ -276,3 +276,46 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   .grid { gap: 14px; }
   .preview-nav { width: 36px; }
 }
+
+/* ---------- "ページの操作" menu ---------- */
+
+.menu-wrap { position: relative; }
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 15;
+  width: 260px;
+  padding: 8px;
+  background: var(--bar);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.18);
+}
+.menu-item {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.menu-item:hover:not(:disabled) { background: var(--accent-soft); }
+.menu-item:disabled { opacity: .45; cursor: default; }
+.menu-title { font-size: 12px; color: var(--muted); margin: 10px 10px 6px; }
+.range-form { display: flex; gap: 6px; padding: 0 4px 4px; }
+.range-form input {
+  flex: 1; min-width: 0; min-height: 36px; padding: 0 8px; font: inherit;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--bar); color: var(--text);
+}
+.dialog-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0; font-size: 14px; }
+.dialog-field select { flex: 1; max-width: 240px; min-height: 36px; font: inherit; border-radius: 8px; border: 1px solid var(--line); }
+
+@media (max-width: 600px) {
+  .menu { position: fixed; left: 8px; right: 8px; top: auto; width: auto; }
+}

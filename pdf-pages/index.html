@@ -52,11 +52,32 @@
     <div class="group" role="group" aria-label="選んだページの操作">
       <button id="rotate-left" class="btn" disabled title="選んだページを左に90°回転（選んでいなければ全ページ）">⟲ 左に回転</button>
       <button id="rotate-right" class="btn" disabled title="選んだページを右に90°回転（選んでいなければ全ページ）">⟳ 右に回転</button>
+      <div class="menu-wrap">
+        <button id="more-btn" class="btn" disabled aria-haspopup="true" aria-expanded="false" title="白紙ページ・複製・逆順・表裏合わせ・番号で選ぶ">ページの操作 ▾</button>
+        <div id="more-menu" class="menu" hidden>
+          <button id="blank-btn" class="menu-item" title="選んだページの後ろ（選んでいなければ最後）に白紙を1ページ入れる">白紙ページを入れる</button>
+          <button id="duplicate-btn" class="menu-item" title="選んだページのすぐ後ろに同じページを入れる">選んだページを複製</button>
+          <button id="reverse-btn" class="menu-item" title="選んだページ（選んでいなければ全ページ）の順番を逆にする">順番を逆にする</button>
+          <button id="interleave-btn" class="menu-item" title="表面のPDFと裏面のPDFのページを交互に並べる">表と裏を交互に並べる…</button>
+          <div class="menu-title">番号で選ぶ</div>
+          <form id="range-form" class="range-form">
+            <input id="range-input" type="text" inputmode="numeric" placeholder="例: 1-3, 5" autocomplete="off" aria-label="選ぶページの番号">
+            <button class="btn">選ぶ</button>
+          </form>
+        </div>
+      </div>
       <button id="delete-btn" class="btn" disabled title="選んだページを一覧から外す"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>削除</button>
       <button id="clear-btn" class="btn" disabled title="すべてのページを一覧から外す">最初から</button>
     </div>
 
     <div class="group end" role="group" aria-label="保存">
+      <label class="field" title="1枚の紙に何ページ分を並べて保存するか（印刷の紙の節約）">1枚に
+        <select id="nup">
+          <option value="1" selected>1ページ</option>
+          <option value="2">2ページ</option>
+          <option value="4">4ページ</option>
+        </select>
+      </label>
       <button id="split-btn" class="btn" disabled title="1ページずつ別々のPDFとして保存"><svg class="i" aria-hidden="true"><use href="#i-cut"/></svg>1ページずつ保存</button>
       <button id="extract-btn" class="btn" disabled title="選んだページだけを1つのPDFとして保存"><svg class="i" aria-hidden="true"><use href="#i-page"/></svg>選んだページを保存</button>
       <button id="save-btn" class="btn primary" disabled title="並んでいる全ページを1つのPDFとして保存"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>1つのPDFに保存</button>
@@ -71,9 +92,10 @@
         <li>「PDFを追加」を押すか、PDFをここにドラッグします。いくつでも追加できます。</li>
         <li>ページをドラッグするか、「◀ ▶」で順番を入れかえます。タッチ画面では、ページを長押ししてから動かします。</li>
         <li>ページをクリックすると選べます。選んだページはまとめてドラッグ・回転・削除できます。</li>
-        <li>「」かダブルクリックでページを大きく表示して、中身を確かめられます。まちがえたら「元に戻す」。</li>
+        <li>虫めがねのボタンかダブルクリックでページを大きく表示して、中身を確かめられます。まちがえたら「元に戻す」。</li>
         <li>「1つのPDFに保存」で全ページをまとめて保存します。</li>
         <li>「選んだページを保存」で選んだページだけ、「1ページずつ保存」でページごとに分けて保存します。</li>
+        <li>「ページの操作」で、白紙ページの追加・複製・逆順や、片面ずつ読み取った表と裏のPDFを交互に並べられます。「1枚に 2ページ」で、2ページ分を1枚に並べて保存します（印刷の紙の節約に）。</li>
       </ol>
       <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。</p>
     </section>
@@ -93,6 +115,20 @@
       <button id="preview-next" class="preview-nav" title="次のページ（→）" aria-label="次のページ">›</button>
     </div>
   </div>
+
+  <dialog id="interleave-dialog" class="app-dialog">
+    <form method="dialog">
+      <h2>表と裏を交互に並べる</h2>
+      <p class="hint">両面のプリントを、表面だけ・裏面だけで1つずつPDFにしたときに、表1・裏1・表2・裏2…の順に並べかえます。</p>
+      <label class="dialog-field">表面のPDF <select id="front-file"></select></label>
+      <label class="dialog-field">裏面のPDF <select id="back-file"></select></label>
+      <label class="show"><input id="back-reverse" type="checkbox" checked> 裏面は逆の順番（束を裏返して読み取ったとき）</label>
+      <div class="dialog-buttons">
+        <button value="cancel" class="btn">やめる</button>
+        <button value="ok" class="btn primary">並べかえる</button>
+      </div>
+    </form>
+  </dialog>
 
   <div id="status" class="status" role="status" aria-live="polite" hidden></div>
   <div id="drop-overlay" class="drop-overlay" hidden>ここにPDFをドロップ</div>
