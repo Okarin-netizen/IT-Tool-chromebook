@@ -2,7 +2,7 @@ import { pdfjsLib, openPdf, rasterizePdf } from "../shared/js/pdf.js";
 import { createPageViewer, clampScale } from "../shared/js/page-viewer.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, download, onFileDrop } from "../shared/js/files.js";
-import { subsetFont, preloadFont } from "../shared/js/font-jp.js";
+import { subsetFont, preloadFont, EMBED_OPTIONS } from "../shared/js/font-jp.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib, loadFontkit } from "../shared/js/pdf-lib.js";
 
@@ -236,7 +236,7 @@ async function fillForm(doc) {
   }
   const texts = form.getFields().filter((f) => f instanceof PDFTextField).map((f) => f.getText() ?? "").join("");
   if (texts.trim()) {
-    const font = await doc.embedFont(await subsetFont(texts + "0123456789"), { subset: false });
+    const font = await doc.embedFont(await subsetFont(texts + "0123456789"), EMBED_OPTIONS);
     form.updateFieldAppearances(font);
   }
 }
@@ -587,7 +587,7 @@ async function save() {
 
     const items = state.items.filter((item) => item.type === "text" && item.text.trim());
     const font = items.length
-      ? await doc.embedFont(await subsetFont(items.map((i) => i.text).join("")), { subset: false })
+      ? await doc.embedFont(await subsetFont(items.map((i) => i.text).join("")), EMBED_OPTIONS)
       : null;
 
     for (const item of items) {
