@@ -226,7 +226,7 @@ async function addFiles(fileList) {
     }
     showStatus(`PDFを読み込み中… (${i + 1}/${pdfs.length})`, { sticky: true });
     try {
-      const pdf = await openPdf(src.bytes.slice()).promise;
+      const pdf = await openPdf(src.bytes.slice(), { name: src.name }).promise;
       const file = { id: nextId++, name: src.name, size: src.size, bytes: src.bytes, pdf, views: [] };
       buildFileView(file);
       for (let num = 1; num <= pdf.numPages; num++) {

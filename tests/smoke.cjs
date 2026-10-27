@@ -66,6 +66,15 @@ const TOOLS = {
       t.expectName(file, "資料_編集済み.pdf");
       const doc = await t.expectPdfPages(file, 2);
       t.expect(doc.getPage(0).getRotation().angle === 90, "1ページ目が90°回転していない");
+
+      // A PDF locked with a password asks for it; a wrong one asks again.
+      await t.setFiles("#file-input", [t.locked("鍵つき.pdf")]);
+      await t.enterPassword("0000");
+      await t.page.locator(".password-dialog .error").waitFor();
+      await t.enterPassword("1234");
+      await t.until(() => __pdfPages.state.pages.length === 4 && __pdfPages.state.pages.every((p) => p.rendered));
+      await t.page.click("#save-btn");
+      await t.expectPdfPages((await t.downloads(1))[0], 4);
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.pdf("資料.pdf", 3)]);
@@ -125,6 +134,12 @@ const TOOLS = {
       const names = fixtures.zipNames(file.bytes);
       t.expect(names.includes("生徒A_採点済.pdf") && names.includes("生徒B_採点済.pdf"), `ZIPの中身が違う: ${names.join(", ")}`);
       t.expect(names.some((n) => n.endsWith(".csv")), `ZIPに点数一覧がない: ${names.join(", ")}`);
+
+      // Two PDFs locked with the same password ask for it only once.
+      await t.setFiles("#file-input", [t.locked("生徒C.pdf"), t.locked("生徒D.pdf")]);
+      await t.enterPassword("1234");
+      await t.until(() => __pdfGrade.state.files.length === 4);
+      t.expect(!(await t.page.locator(".password-dialog").evaluate((d) => d.open)), "同じパスワードを2回聞かれた");
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.pdf("生徒A.pdf", 2)]);
@@ -341,6 +356,18 @@ class ToolTest {
 
   pdf(name, pages, opts) {
     return { name, mimeType: "application/pdf", buffer: fixtures.pdf(pages, opts) };
+  }
+
+  // A 2-page PDF that needs the password "1234" to open.
+  locked(name) {
+    return { name, mimeType: "application/pdf", buffer: fs.readFileSync(path.join(__dirname, "fixtures", "locked-1234.pdf")) };
+  }
+
+  async enterPassword(password) {
+    const dialog = this.page.locator(".password-dialog[open]");
+    await dialog.waitFor();
+    await dialog.locator("input[name=password]").fill(password);
+    await dialog.locator("button[value=ok]").click();
   }
 
   png(name, width, height) {

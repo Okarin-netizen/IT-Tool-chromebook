@@ -1,4 +1,4 @@
-import { pdfjsLib, openPdf } from "../shared/js/pdf.js";
+import { openPdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, download, onFileDrop } from "../shared/js/files.js";
 import { loadText, saveText } from "../shared/js/storage.js";
@@ -43,17 +43,10 @@ async function openFile(file) {
   showStatus("PDFを読み込み中…", { sticky: true });
   let pdf;
   try {
-    const task = openPdf(new Uint8Array(await file.arrayBuffer()));
-    task.onPassword = (update, reason) => {
-      const retry = reason === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD;
-      const password = prompt(retry ? "パスワードがちがいます。もう一度入力してください" : "このPDFはパスワードで保護されています。パスワードを入力してください");
-      if (password === null) task.destroy();
-      else update(password);
-    };
-    pdf = await task.promise;
+    pdf = await openPdf(new Uint8Array(await file.arrayBuffer()), { name: file.name }).promise;
   } catch (err) {
     console.error(err);
-    showStatus(err?.name === "PasswordException" ? "パスワードが必要なPDFは開けませんでした" : "PDFを読み込めませんでした", { error: true });
+    showStatus(err?.name === "PasswordException" ? "パスワードが入力されなかったので開けませんでした" : "PDFを読み込めませんでした", { error: true });
     return;
   }
 

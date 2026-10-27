@@ -78,7 +78,7 @@ async function openFile(file) {
   showStatus("PDFを読み込み中…", { sticky: true });
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const pdf = await openPdf(bytes.slice()).promise;
+    const pdf = await openPdf(bytes.slice(), { name: file.name }).promise;
 
     resetDocument();
     state.bytes = bytes;
@@ -101,7 +101,7 @@ async function openFile(file) {
   } catch (err) {
     console.error(err);
     const msg = err?.name === "PasswordException"
-      ? "パスワード付きのPDFは開けません"
+      ? "パスワードが入力されなかったので開けませんでした"
       : "PDFを開けませんでした";
     showStatus(msg, { error: true });
   }

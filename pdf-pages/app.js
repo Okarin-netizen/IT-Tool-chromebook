@@ -94,13 +94,13 @@ async function addFiles(fileList) {
 }
 
 function describeLoadError(err) {
-  if (err?.name === "PasswordException") return "開くのにパスワードが必要なPDFは使えません";
+  if (err?.name === "PasswordException") return "パスワードが入力されなかったので開けませんでした";
   return "PDFを読み込めませんでした";
 }
 
 async function addFile(file) {
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const pdf = await openPdf(bytes.slice()).promise;
+  const pdf = await openPdf(bytes.slice(), { name: file.name }).promise;
   // pdf-lib can't decrypt, so pages of a protected PDF are saved as images rendered by pdf.js.
   const { PDFDocument } = await loadPdfLib();
   const loaded = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
