@@ -294,3 +294,9 @@ body[data-tool="score"] .page canvas.ink { cursor: text; }
   .viewer { padding: 16px 8px 64px; }
   .menu { position: fixed; left: 8px; right: 8px; top: auto; width: auto; }
 }
+
+/* ---------- carrying on from last time ---------- */
+
+.resume { margin: 0 0 16px; padding: 12px 16px; border-radius: 10px; background: var(--accent-soft); }
+.resume p { margin: 0 0 8px; }
+.resume-buttons { display: flex; gap: 8px; flex-wrap: wrap; }

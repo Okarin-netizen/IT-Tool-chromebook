@@ -167,6 +167,18 @@ const TOOLS = {
       t.expect(names.includes("生徒A_採点済.pdf") && names.includes("生徒B_採点済.pdf"), `ZIPの中身が違う: ${names.join(", ")}`);
       t.expect(names.some((n) => n.endsWith(".csv")), `ZIPに点数一覧がない: ${names.join(", ")}`);
 
+      // Work in progress survives closing the tab: reload and carry on.
+      const before = await t.page.evaluate(async () => {
+        await __pdfGrade.autosave();
+        return __pdfGrade.state.items.length;
+      });
+      await t.page.reload();
+      await t.page.locator("#resume:not([hidden])").waitFor();
+      await t.page.click("#resume-btn");
+      await t.until(() => __pdfGrade.state.files.length === 2 && __pdfGrade.state.items.length > 0);
+      const after = await t.page.evaluate(() => __pdfGrade.state.items.length);
+      t.expect(after === before, `続きから始めたときの書き込みの数が違う: ${after}（期待: ${before}）`);
+
       // Two PDFs locked with the same password ask for it only once.
       await t.setFiles("#file-input", [t.locked("生徒C.pdf"), t.locked("生徒D.pdf")]);
       await t.enterPassword("1234");

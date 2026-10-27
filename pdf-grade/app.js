@@ -9,6 +9,7 @@ import {
 } from "../shared/js/ink.js";
 import { makeZip } from "../shared/js/zip.js";
 import { readZip } from "../shared/js/unzip.js";
+import { kvGet, kvSet, kvDelete } from "../shared/js/kv.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 
@@ -51,6 +52,10 @@ const els = {
   viewer: $("viewer"),
   welcome: $("welcome"),
   docs: $("docs"),
+  resume: $("resume"),
+  resumeText: $("resume-text"),
+  resumeBtn: $("resume-btn"),
+  discardBtn: $("discard-btn"),
 };
 
 const state = {
@@ -215,6 +220,11 @@ async function addFiles(fileList) {
   if (!list.length) return;
   showStatus("ファイルを読み込み中…", { sticky: true });
   const { pdfs, skipped } = await collectPdfs(list);
+  await addPdfs(pdfs, skipped);
+}
+
+// pdfs: [{ name, size, bytes }]. Returns the number added.
+async function addPdfs(pdfs, skipped = 0) {
   const failed = [];
   let dupes = 0;
   let added = 0;
@@ -263,6 +273,80 @@ async function addFiles(fileList) {
   if (failed.length) notes.push(`開けなかったPDF: ${failed.join("、")}`);
   if (!notes.length) notes.push("PDFが見つかりませんでした");
   showStatus(notes.join("。"), { error: !added });
+  if (added) {
+    autosaveOn = true;
+    els.resume.hidden = true;
+    scheduleAutosave();
+  }
+  return added;
+}
+
+/* ---------- keeping work in progress ---------- */
+
+// Marking dozens of students takes a while, and closing the tab by mistake used to lose it all.
+// The PDFs and everything written on them are kept in this browser (IndexedDB) a moment after
+// each change, and the next visit offers to carry on, the way Excalidraw keeps a drawing.
+const SESSION_KEY = "pdf-grade:session";
+const fileKey = (f) => `pdf-grade:file:${f.size}:${f.name}`;
+let autosaveOn = false; // only once PDFs were added or a session was resumed in this tab
+let autosaveTimer = 0;
+let savedFileKeys = new Set();
+
+function scheduleAutosave() {
+  if (!autosaveOn) return;
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(autosave, 800);
+}
+
+async function autosave() {
+  if (!state.files.length) return discardSession();
+  const keys = state.files.map(fileKey);
+  for (const [i, file] of state.files.entries()) {
+    if (!savedFileKeys.has(keys[i])) await kvSet(keys[i], { name: file.name, size: file.size, bytes: file.bytes });
+  }
+  for (const key of savedFileKeys) if (!keys.includes(key)) await kvDelete(key);
+  savedFileKeys = new Set(keys);
+  const items = state.items.flatMap((item) => {
+    const view = state.pages.get(item.page);
+    return view ? [{ ...item, page: undefined, file: state.files.indexOf(view.file), num: view.num }] : [];
+  });
+  await kvSet(SESSION_KEY, { savedAt: Date.now(), files: keys, items, dirty: state.dirty });
+}
+
+async function discardSession() {
+  const session = await kvGet(SESSION_KEY);
+  for (const key of new Set([...(session?.files ?? []), ...savedFileKeys])) await kvDelete(key);
+  savedFileKeys = new Set();
+  await kvDelete(SESSION_KEY);
+}
+
+async function offerResume() {
+  const session = await kvGet(SESSION_KEY);
+  if (!session?.files?.length || state.files.length) return;
+  const when = new Date(session.savedAt).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const marked = new Set(session.items.map((i) => i.file)).size;
+  els.resumeText.textContent = `${when} の採点の続きがあります（${session.files.length}人分、書き込み済み ${marked}人${session.dirty ? "、まだ保存していません" : ""}）。`;
+  els.resume.hidden = false;
+}
+
+async function resumeSession() {
+  const session = await kvGet(SESSION_KEY);
+  els.resume.hidden = true;
+  if (!session) return;
+  showStatus("前回の続きを読み込み中…", { sticky: true });
+  const pdfs = (await Promise.all(session.files.map((key) => kvGet(key)))).filter(Boolean);
+  await addPdfs(pdfs);
+  const byIndex = session.files.map((key) => state.files.find((f) => fileKey(f) === key));
+  state.items = session.items.flatMap(({ file, num, ...item }) => {
+    const view = byIndex[file]?.views[num - 1];
+    return view ? [{ ...item, page: view.id }] : [];
+  });
+  state.dirty = session.dirty;
+  history.reset();
+  for (const view of state.pages.values()) if (view.rendered) renderInk(view);
+  refreshAllRows();
+  updateUi();
+  showStatus(`前回の続きから始めます（${state.files.length}人分）`);
 }
 
 function buildFileView(file) {
@@ -359,6 +443,7 @@ function removeFile(file) {
   file.section.remove();
   file.row.remove();
   state.files = state.files.filter((f) => f !== file);
+  autosaveOn = true;
   state.items = state.items.filter((i) => state.pages.has(i.page));
   // Undo steps could bring back ink for pages that are gone, so start the history over.
   history.reset();
@@ -632,6 +717,7 @@ function updateUi() {
   els.deleteBtn.disabled = !state.selected;
   els.saveBtn.disabled = !open || saving;
   els.folderSaveBtn.disabled = !open || saving;
+  scheduleAutosave();
 }
 
 /* ---------- menus ---------- */
@@ -876,6 +962,12 @@ els.zoomOut.addEventListener("click", () => state.files.length && setScale(clamp
 els.prevBtn.addEventListener("click", () => stepFile(-1));
 els.nextBtn.addEventListener("click", () => stepFile(1));
 els.saveBtn.addEventListener("click", saveZip);
+els.resumeBtn.addEventListener("click", resumeSession);
+els.discardBtn.addEventListener("click", () => {
+  if (!confirm("前回の採点の続きを消しますか？（元に戻せません）")) return;
+  els.resume.hidden = true;
+  discardSession();
+});
 els.folderSaveBtn.addEventListener("click", saveToFolder);
 els.folderSaveBtn.hidden = typeof window.showDirectoryPicker !== "function";
 
@@ -952,6 +1044,7 @@ refreshAllRows();
 setTool("pen", { hint: false });
 // Seal previews use the system's Japanese font, which may finish loading after first paint.
 document.fonts.ready.then(renderStampChoices);
+offerResume();
 
 // Hook for automated tests.
-window.__pdfGrade = { state, addFiles, buildPdf, saveZip, setScale, setTool, undo, redo, commit, renderInk, stepFile };
+window.__pdfGrade = { state, addFiles, buildPdf, saveZip, setScale, setTool, undo, redo, commit, renderInk, stepFile, autosave, resumeSession };

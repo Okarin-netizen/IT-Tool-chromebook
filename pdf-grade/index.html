@@ -126,6 +126,13 @@
     <main id="viewer" class="viewer">
       <section id="welcome" class="welcome">
         <h1>PDF一括採点</h1>
+        <div id="resume" class="resume" hidden>
+          <p id="resume-text"></p>
+          <div class="resume-buttons">
+            <button id="resume-btn" class="btn primary">続きから始める</button>
+            <button id="discard-btn" class="btn">消す</button>
+          </div>
+        </div>
         <p>生徒から提出されたPDFをまとめて開いて、続けて採点できます。終わったら1人ずつ別々のPDFにして保存するので、そのまま返却できます。</p>
         <ol>
           <li>「PDFを追加」で提出されたPDFをまとめて選びます（Ctrl+A で全部選べます）。PDFの入ったZIPや「フォルダ」、ドラッグでもOKです。</li>
@@ -134,7 +141,7 @@
           <li>「点数」で点数の場所をクリックして数字を入力します（1人に1つ）。「文字」でコメントも書けます。</li>
           <li>「まとめて保存」で、1人ずつのPDF（<code>元の名前_採点済.pdf</code>）と点数一覧（CSV）を1つのZIPにして保存します。</li>
         </ol>
-        <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。ページを閉じると書き込みは消えるので、保存してから閉じてください。</p>
+        <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。書き込みはこのブラウザにも自動で残るので、ページを閉じてしまっても次に開いたときに続きから始められます。返却用のPDFは「まとめて保存」で保存してください。</p>
       </section>
       <div id="docs" class="docs"></div>
     </main>
