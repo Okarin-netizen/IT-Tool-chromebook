@@ -31,6 +31,12 @@
         ],
         "image/bmp": [
           ".bmp"
+        ],
+        "image/heic": [
+          ".heic"
+        ],
+        "image/heif": [
+          ".heif"
         ]
       }
     }

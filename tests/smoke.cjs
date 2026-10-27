@@ -322,6 +322,9 @@ const TOOLS = {
       const [file] = await t.downloads(1);
       t.expectName(file, "アルバム.pdf");
       await t.expectPdfPages(file, 2);
+      // iPhone photos (HEIC) are turned into JPEG before they are added.
+      await t.setFiles("#file-input", [t.heic("iPhone.heic")]);
+      await t.until(() => __imagePdf.state.images.length === 3, 30000);
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.png("写真1.png", 640, 480)]);
@@ -348,6 +351,8 @@ const TOOLS = {
       t.expectName(file, "画像_小.zip");
       const names = fixtures.zipNames(file.bytes);
       t.expect(names.join(",") === "写真1_小.jpg,写真2_小.jpg", `ZIPの中身が違う: ${names.join(", ")}`);
+      await t.setFiles("#file-input", [t.heic("iPhone.heic")]);
+      await t.until(() => __imageResize.state.items.length === 3 && __imageResize.state.items[2].result, 30000);
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.png("写真1.png", 640, 480)]);
@@ -366,6 +371,9 @@ const TOOLS = {
       const [file] = await t.downloads(1);
       t.expectName(file, "画面_書き込み.png");
       t.expect(file.bytes.subarray(1, 4).toString() === "PNG", "PNG画像になっていない");
+      t.page.once("dialog", (d) => d.accept());
+      await t.setFiles("#file-input", [t.heic("iPhone.heic")]);
+      await t.until(() => document.querySelector("#canvas").width === 400, 30000);
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.png("画面.png", 800, 500)]);
@@ -477,6 +485,11 @@ class ToolTest {
   // A 2-page PDF that needs the password "1234" to open.
   locked(name) {
     return { name, mimeType: "application/pdf", buffer: fs.readFileSync(path.join(__dirname, "fixtures", "locked-1234.pdf")) };
+  }
+
+  // A 400x300 iPhone-style photo (HEIC).
+  heic(name) {
+    return { name, mimeType: "image/heic", buffer: fs.readFileSync(path.join(__dirname, "fixtures", "photo.heic")) };
   }
 
   async enterPassword(password) {

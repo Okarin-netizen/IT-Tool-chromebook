@@ -1,5 +1,6 @@
-import { showStatus } from "../shared/js/status.js";
+import { hideStatus, showStatus } from "../shared/js/status.js";
 import { download, onFileDrop } from "../shared/js/files.js";
+import { isImage, isHeic, readableImage } from "../shared/js/heic.js";
 import { registerOffline } from "../shared/js/offline.js";
 
 const MAX_IMAGE_PX = 4000; // longest side; larger photos are shrunk so the canvas stays responsive
@@ -77,7 +78,8 @@ async function openImage(blob, name) {
   if (!confirmDiscard()) return;
   let img;
   try {
-    img = await loadImage(blob);
+    if (blob.name && isHeic(blob)) showStatus("iPhoneの写真（HEIC）を変換中…", { sticky: true });
+    img = await loadImage(blob.name ? await readableImage(blob) : blob);
   } catch {
     showStatus("この画像は開けませんでした。PNGやJPEGの画像を選んでください", { error: true });
     return;
@@ -91,6 +93,7 @@ async function openImage(blob, name) {
   base.getContext("2d").drawImage(img, 0, 0, w, h);
   start(base, name);
   if (scale < 1) showStatus("大きな画像なので、少し縮小して開きました");
+  else if (isHeic(blob)) hideStatus();
 }
 
 function openBlank() {
@@ -812,7 +815,7 @@ document.addEventListener("paste", (e) => {
 });
 
 onFileDrop((files) => {
-  const img = files.find((f) => f.type.startsWith("image/"));
+  const img = files.find(isImage);
   if (img) openImage(img, img.name);
   else showStatus("画像ファイルをドロップしてください", { error: true });
 });

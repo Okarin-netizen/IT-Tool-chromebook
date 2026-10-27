@@ -1,5 +1,6 @@
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { download, onFileDrop } from "../shared/js/files.js";
+import { isImage, readableImage } from "../shared/js/heic.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { makeZip } from "../shared/js/zip.js";
 import { registerOffline } from "../shared/js/offline.js";
@@ -64,7 +65,7 @@ function settingsChanged() {
 /* ---------- adding images ---------- */
 
 async function addFiles(fileList) {
-  const files = [...fileList].filter((f) => f.type.startsWith("image/") || /\.(heic|heif)$/i.test(f.name));
+  const files = [...fileList].filter(isImage);
   if (!files.length) return showStatus("画像ファイルを選んでください", { error: true });
   const failed = [];
   for (const file of files) {
@@ -80,16 +81,13 @@ async function addFiles(fileList) {
     }
   }
   updateUi();
-  if (failed.length) {
-    const heic = failed.some((n) => /\.(heic|heif)$/i.test(n));
-    showStatus(`${failed.join("、")} を読み込めませんでした${heic ? "（HEICはJPEGで保存し直してください）" : ""}`, { error: true });
-  }
+  if (failed.length) showStatus(`${failed.join("、")} を読み込めませんでした`, { error: true });
   processAll();
 }
 
 // Photos taken sideways are turned upright from their Exif orientation by the browser.
-function decode(file) {
-  return createImageBitmap(file, { imageOrientation: "from-image" });
+async function decode(file) {
+  return createImageBitmap(await readableImage(file), { imageOrientation: "from-image" });
 }
 
 /* ---------- cards ---------- */

@@ -1,5 +1,6 @@
 import { showStatus } from "../shared/js/status.js";
 import { download, onFileDrop } from "../shared/js/files.js";
+import { isImage, isHeic, readableImage } from "../shared/js/heic.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 
@@ -71,13 +72,13 @@ function canvasToJpeg(canvas) {
 }
 
 async function addFiles(files) {
-  const list = [...files].filter((f) => f.type.startsWith("image/") || /\.(heic|heif)$/i.test(f.name));
+  const list = [...files].filter(isImage);
   if (!list.length) return;
   let failed = 0;
   for (let i = 0; i < list.length; i++) {
-    if (list.length > 1) showStatus(`読み込み中… ${i + 1} / ${list.length}`, { sticky: true });
+    if (list.length > 1 || isHeic(list[i])) showStatus(`読み込み中… ${i + 1} / ${list.length}`, { sticky: true });
     try {
-      const img = await prepareImage(list[i]);
+      const img = await prepareImage(await readableImage(list[i]));
       state.images.push({ id: state.nextId++, name: list[i].name || "画像", rotation: 0, ...img });
     } catch (err) {
       console.error(err);
@@ -87,7 +88,7 @@ async function addFiles(files) {
   state.dirty = true;
   render();
   if (failed) {
-    showStatus(`${failed}枚の画像を読み込めませんでした（JPEG・PNGを使ってください。iPhoneのHEICは読めません）`, { error: true });
+    showStatus(`${failed}枚の画像を読み込めませんでした（JPEG・PNG・HEICの画像を使ってください）`, { error: true });
   } else {
     showStatus(`${list.length}枚追加しました`);
   }
