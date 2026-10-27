@@ -1,8 +1,9 @@
 import { openPdf, rasterizePdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
-import { isPdf, download, onFileDrop } from "../shared/js/files.js";
+import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
+import { makeZip } from "../shared/js/zip.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
-import { subsetFont } from "../shared/js/font-jp.js";
+import { subsetFont, EMBED_OPTIONS } from "../shared/js/font-jp.js";
 import { createLazyRenderer } from "../shared/js/lazy.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib, loadFontkit } from "../shared/js/pdf-lib.js";
@@ -43,14 +44,39 @@ const els = {
   wmOpacity: $("wm-opacity"),
   wmOpacityOut: $("wm-opacity-out"),
   wmSkipFirst: $("wm-skip-first"),
+  wmType: $("wm-type"),
+  wmTextOpts: $("wm-text-opts"),
+  wmImageOpts: $("wm-image-opts"),
+  wmImageInput: $("wm-image-input"),
+  wmImageName: $("wm-image-name"),
+  wmImageSize: $("wm-image-size"),
+  wmImageSizeOut: $("wm-image-size-out"),
+  wmSizeRow: $("wm-size-row"),
+  wmColorRow: $("wm-color-row"),
+  numScope: $("num-scope"),
+  numScopeRow: $("num-scope-row"),
+  hfOn: $("hf-on"),
+  hfOpts: $("hf-opts"),
+  hfTl: $("hf-tl"),
+  hfTc: $("hf-tc"),
+  hfTr: $("hf-tr"),
+  hfBl: $("hf-bl"),
+  hfBc: $("hf-bc"),
+  hfBr: $("hf-br"),
+  hfSize: $("hf-size"),
+  hfColor: $("hf-color"),
+  hfMargin: $("hf-margin"),
+  hfSkipFirst: $("hf-skip-first"),
 };
 
 const state = {
-  fileName: "document.pdf",
-  bytes: null, // original PDF bytes (never handed to pdf.js, which detaches buffers)
-  pdf: null, // pdf.js document
-  pages: [], // { num, viewport (scale 1), el, canvas, base (rendered page without stamps), rendered }
+  // { name, bytes (never handed to pdf.js, which detaches buffers), pdf (pdf.js), views }
+  files: [],
+  // every page of every file, in order:
+  // { file, num (in its file), index (overall), viewport (scale 1), el, canvas, base (rendered page without stamps), rendered }
+  pages: [],
   numPos: "bottom-center",
+  wmImage: null, // { name, bytes (PNG), img } for an image watermark
   busy: false,
 };
 
@@ -69,8 +95,21 @@ function readSettings() {
       start: Math.trunc(Number(els.numStart.value)) || 0,
       skipFirst: els.numSkipFirst.checked,
     },
+    hf: {
+      on: els.hfOn.checked && [els.hfTl, els.hfTc, els.hfTr, els.hfBl, els.hfBc, els.hfBr].some((el) => el.value.trim()),
+      top: [els.hfTl.value, els.hfTc.value, els.hfTr.value],
+      bottom: [els.hfBl.value, els.hfBc.value, els.hfBr.value],
+      size: Number(els.hfSize.value),
+      color: els.hfColor.value,
+      margin: Number(els.hfMargin.value),
+      skipFirst: els.hfSkipFirst.checked,
+    },
+    perFile: els.numScope.value === "file" && state.files.length > 1,
     wm: {
-      on: els.wmOn.checked && els.wmText.value.trim() !== "",
+      on: els.wmOn.checked && (els.wmType.value === "image" ? !!state.wmImage : els.wmText.value.trim() !== ""),
+      type: els.wmType.value,
+      image: els.wmType.value === "image" ? state.wmImage : null,
+      imageSize: Number(els.wmImageSize.value) / 100,
       text: els.wmText.value.trim(),
       angle: els.wmAngle.value,
       layout: els.wmLayout.value,
@@ -84,7 +123,9 @@ function readSettings() {
 
 // The form controls are the source of truth; this only remembers them between visits.
 const SAVED_FIELDS = ["numOn", "numFormat", "numCustom", "numSize", "numColor", "numMargin", "numStart",
-  "numSkipFirst", "wmOn", "wmText", "wmAngle", "wmLayout", "wmSize", "wmColor", "wmOpacity", "wmSkipFirst"];
+  "numSkipFirst", "wmOn", "wmText", "wmAngle", "wmLayout", "wmSize", "wmColor", "wmOpacity", "wmSkipFirst",
+  "numScope", "hfOn", "hfTl", "hfTc", "hfTr", "hfBl", "hfBc", "hfBr", "hfSize", "hfColor", "hfMargin", "hfSkipFirst",
+  "wmType", "wmImageSize"];
 
 function storeSettings() {
   const data = { numPos: state.numPos };
@@ -110,7 +151,15 @@ function syncControls() {
   els.numCustomRow.hidden = !custom;
   els.numCustomHelp.hidden = !custom;
   els.numOpts.classList.toggle("off", !els.numOn.checked);
+  els.hfOpts.classList.toggle("off", !els.hfOn.checked);
   els.wmOpts.classList.toggle("off", !els.wmOn.checked);
+  els.numScopeRow.hidden = state.files.length < 2;
+  const image = els.wmType.value === "image";
+  els.wmTextOpts.hidden = image;
+  els.wmImageOpts.hidden = !image;
+  els.wmSizeRow.hidden = image;
+  els.wmColorRow.hidden = image;
+  els.wmImageSizeOut.textContent = `${els.wmImageSize.value}%`;
   els.wmSizeOut.textContent = els.wmSize.value;
   els.wmOpacityOut.textContent = `${els.wmOpacity.value}%`;
   for (const btn of document.querySelectorAll(".pos")) {
@@ -119,22 +168,32 @@ function syncControls() {
     btn.setAttribute("aria-checked", on);
   }
   const s = readSettings();
-  els.saveBtn.disabled = !state.pdf || state.busy || (!s.num.on && !s.wm.on);
+  els.saveBtn.disabled = !state.files.length || state.busy || (!s.num.on && !s.hf.on && !s.wm.on);
 }
 
 /* ---------- layout ---------- */
 
+// Where a page stands in the numbering: overall, or within its own file when "PDFごとに1から"
+// is chosen. index is 0-based, count is the number of pages counted together.
+function pageInfo(view, settings) {
+  if (settings.perFile) return { index: view.num - 1, count: view.file.views.length, file: view.file.name };
+  return { index: view.index, count: state.pages.length, file: view.file.name };
+}
+
+const today = () => new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" });
+
 // Returns everything to draw on one page, in page units (1 = 1pt) with a
 // top-left origin as the page is seen on screen. `y` is the text baseline and
-// `angle` is counter-clockwise degrees. `measure(text, size)` gives text width.
-function layoutPage(index, pageCount, width, height, settings, measure) {
+// `angle` is counter-clockwise degrees. Images are { image, x, y, w, h, angle, opacity } with
+// (x, y) at their lower left corner. `measure(text, size)` gives text width.
+function layoutPage({ index, count, file }, width, height, settings, measure) {
   const draws = [];
-  const { num, wm } = settings;
+  const { num, hf, wm } = settings;
 
   if (num.on && !(num.skipFirst && index === 0)) {
     const first = num.skipFirst ? 1 : 0;
     const n = num.start + index - first;
-    const total = num.start + (pageCount - first) - 1;
+    const total = num.start + (count - first) - 1;
     const text = num.format.replaceAll("{n}", n).replaceAll("{total}", total);
     if (text.trim()) {
       const w = measure(text, num.size);
@@ -145,24 +204,44 @@ function layoutPage(index, pageCount, width, height, settings, measure) {
     }
   }
 
+  if (hf.on && !(hf.skipFirst && index === 0)) {
+    const fill = (t) => t.replaceAll("{n}", index + 1).replaceAll("{total}", count)
+      .replaceAll("{date}", today()).replaceAll("{file}", baseName(file)).trim();
+    for (const [row, texts] of [["top", hf.top], ["bottom", hf.bottom]]) {
+      texts.forEach((raw, col) => {
+        const text = fill(raw);
+        if (!text) return;
+        const w = measure(text, hf.size);
+        const x = col === 0 ? hf.margin : col === 2 ? width - hf.margin - w : (width - w) / 2;
+        const y = row === "top" ? hf.margin + hf.size * ASCENT : height - hf.margin;
+        draws.push({ text, x, y, angle: 0, size: hf.size, color: hf.color, opacity: 1 });
+      });
+    }
+  }
+
   if (wm.on && !(wm.skipFirst && index === 0)) {
     const angle = wm.angle === "diagonal" ? (Math.atan2(height, width) * 180) / Math.PI : Number(wm.angle);
     const rad = (angle * Math.PI) / 180;
     const cos = Math.cos(rad);
     const sin = Math.sin(rad);
-    const w = measure(wm.text, wm.size);
+    const image = wm.image;
+    // An image is as wide as `imageSize` of the page; text is `size` points tall.
+    const w = image ? width * wm.imageSize : measure(wm.text, wm.size);
+    const h = image ? (w * image.img.naturalHeight) / image.img.naturalWidth : wm.size;
     // Screen y grows downward, so "counter-clockwise" flips the sign of sin.
+    // Text is placed by the left end of its baseline, an image by its lower left corner.
     const place = (cx, cy) => {
       const lx = -w / 2;
-      const ly = wm.size * MID;
+      const ly = image ? h / 2 : wm.size * MID;
       return { x: cx + lx * cos + ly * sin, y: cy - lx * sin + ly * cos };
     };
-    const stamp = (cx, cy) =>
-      draws.push({ text: wm.text, ...place(cx, cy), angle, size: wm.size, color: wm.color, opacity: wm.opacity });
+    const stamp = (cx, cy) => draws.push(image
+      ? { image, ...place(cx, cy), w, h, angle, opacity: wm.opacity }
+      : { text: wm.text, ...place(cx, cy), angle, size: wm.size, color: wm.color, opacity: wm.opacity });
 
     if (wm.layout === "tile") {
-      const stepX = w + wm.size * 1.5; // along the text
-      const stepY = wm.size * 3; // across the lines
+      const stepX = w + (image ? w * 0.4 : wm.size * 1.5); // along the text
+      const stepY = image ? h * 1.6 : wm.size * 3; // across the lines
       const reach = Math.hypot(width, height) / 2 + w;
       const cols = Math.ceil(reach / stepX) + 1;
       const rows = Math.ceil(reach / stepY) + 1;
@@ -185,50 +264,61 @@ function layoutPage(index, pageCount, width, height, settings, measure) {
 
 /* ---------- opening a PDF ---------- */
 
-async function openFile(file) {
-  if (!file) return;
-  if (!isPdf(file)) {
+async function openFiles(list) {
+  const files = [...list].filter(isPdf);
+  if (!files.length) {
     showStatus("PDFファイルを選んでください", { error: true });
     return;
   }
   showStatus("PDFを読み込み中…", { sticky: true });
-  try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const pdf = await openPdf(bytes.slice(), { name: file.name }).promise;
-
-    resetDocument();
-    state.bytes = bytes;
-    state.pdf = pdf;
-    state.fileName = file.name || "document.pdf";
-    document.title = `${state.fileName} - ページ番号・透かし入れ`;
-    els.fileName.textContent = `${state.fileName}（${pdf.numPages}ページ）`;
-
-    for (let num = 1; num <= pdf.numPages; num++) {
-      const page = await pdf.getPage(num);
-      state.pages.push(createPageView(num, page.getViewport({ scale: 1 })));
+  const opened = [];
+  const failed = [];
+  for (const file of files) {
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const pdf = await openPdf(bytes.slice(), { name: file.name }).promise;
+      opened.push({ name: file.name || "document.pdf", bytes, pdf, views: [] });
+    } catch (err) {
+      console.error(err);
+      failed.push(err?.name === "PasswordException" ? `${file.name}（パスワードが入力されませんでした）` : file.name);
     }
-    els.welcome.hidden = true;
-    els.viewer.scrollTop = 0;
-    syncControls();
-    hideStatus();
-  } catch (err) {
-    console.error(err);
-    const msg = err?.name === "PasswordException"
-      ? "パスワードが入力されなかったので開けませんでした"
-      : "PDFを開けませんでした";
-    showStatus(msg, { error: true });
   }
+  if (!opened.length) {
+    showStatus(`PDFを開けませんでした: ${failed.join("、")}`, { error: true });
+    return;
+  }
+
+  resetDocument();
+  state.files = opened;
+  const total = opened.reduce((n, f) => n + f.pdf.numPages, 0);
+  document.title = `${opened[0].name}${opened.length > 1 ? " など" : ""} - ページ番号・透かし入れ`;
+  els.fileName.textContent = opened.length > 1
+    ? `${opened.length}個のPDF（全${total}ページ）`
+    : `${opened[0].name}（${total}ページ）`;
+  for (const file of opened) {
+    for (let num = 1; num <= file.pdf.numPages; num++) {
+      const page = await file.pdf.getPage(num);
+      const view = createPageView(file, num, page.getViewport({ scale: 1 }));
+      file.views.push(view);
+      state.pages.push(view);
+    }
+  }
+  els.welcome.hidden = true;
+  els.viewer.scrollTop = 0;
+  syncControls();
+  if (failed.length) showStatus(`開けなかったPDF: ${failed.join("、")}`, { error: true });
+  else hideStatus();
 }
 
 function resetDocument() {
   previews.clear();
-  state.pdf?.destroy();
-  state.pdf = null;
+  for (const file of state.files) file.pdf.destroy();
+  state.files = [];
   state.pages = [];
   els.pages.replaceChildren();
 }
 
-function createPageView(num, viewport) {
+function createPageView(file, num, viewport) {
   const el = document.createElement("li");
   el.className = "page";
   // The canvas gets its pixels when it comes near the screen; its size on the page is fixed now.
@@ -241,11 +331,14 @@ function createPageView(num, viewport) {
   canvas.style.height = `${(px.h / px.w) * PREVIEW_PX}px`;
   const label = document.createElement("div");
   label.className = "label";
-  label.textContent = `${num} / ${state.pdf.numPages}`;
+  label.textContent = `${num} / ${file.pdf.numPages}`;
+  if (state.files.length > 1 && num === 1) {
+    label.prepend(Object.assign(document.createElement("span"), { className: "file", textContent: `${file.name}　` }));
+  }
   el.append(canvas, label);
   els.pages.append(el);
 
-  const view = { num, viewport, el, canvas, px, base: null, rendered: false, stale: false };
+  const view = { file, num, index: state.pages.length, viewport, el, canvas, px, base: null, rendered: false, stale: false };
   previews.add(view);
   return view;
 }
@@ -267,7 +360,7 @@ const previews = createLazyRenderer({
 
 async function renderPage(view) {
   view.rendered = true;
-  const pdf = state.pdf;
+  const pdf = view.file.pdf;
   const page = await pdf.getPage(view.num);
   const base = document.createElement("canvas");
   base.width = view.px.w;
@@ -280,7 +373,7 @@ async function renderPage(view) {
   } catch (err) {
     console.error(err);
   }
-  if (state.pdf !== pdf || !view.rendered) return; // another PDF was opened, or scrolled far away
+  if (!state.files.includes(view.file) || !view.rendered) return; // another PDF was opened, or scrolled far away
   view.base = base;
   view.canvas.width = base.width;
   view.canvas.height = base.height;
@@ -301,13 +394,17 @@ function drawPreview(view, settings = readSettings()) {
   ctx.globalAlpha = 1;
   ctx.drawImage(view.base, 0, 0);
   const scale = view.canvas.width / view.viewport.width;
-  const draws = layoutPage(view.num - 1, state.pages.length, view.viewport.width, view.viewport.height,
+  const draws = layoutPage(pageInfo(view, settings), view.viewport.width, view.viewport.height,
     settings, measureOnScreen);
   for (const d of draws) {
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.translate(d.x, d.y);
     ctx.rotate((-d.angle * Math.PI) / 180);
     ctx.globalAlpha = d.opacity;
+    if (d.image) {
+      ctx.drawImage(d.image.img, 0, -d.h, d.w, d.h);
+      continue;
+    }
     ctx.fillStyle = d.color;
     ctx.font = `${d.size}px ${FONT_FAMILY}`;
     ctx.fillText(d.text, 0, 0);
@@ -346,60 +443,78 @@ function hexToRgb(hex, rgb) {
   return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
 }
 
-function outputName(settings) {
-  const base = state.fileName.replace(/\.pdf$/i, "");
-  const suffix = settings.num.on && settings.wm.on ? "番号・透かし入り" : settings.num.on ? "番号入り" : "透かし入り";
-  return `${base}_${suffix}.pdf`;
+function suffixOf(settings) {
+  const parts = [settings.num.on && "番号", settings.hf.on && "ヘッダー", settings.wm.on && "透かし"].filter(Boolean);
+  return `${parts.join("・")}入り`;
+}
+
+const outputName = (file, settings) => `${baseName(file.name)}_${suffixOf(settings)}.pdf`;
+
+// Writes the stamps on one file. Returns { bytes, rebuilt }.
+async function stampFile(file, settings, font) {
+  const { PDFDocument, rgb, degrees } = await loadPdfLib();
+  const original = await PDFDocument.load(file.bytes, { ignoreEncryption: true });
+  const rebuilt = original.isEncrypted;
+  const onPage = (num, count) => showStatus(`保護されたPDFのため、ページを画像にしています… (${num}/${count})`, { sticky: true });
+  const doc = rebuilt ? await rasterizePdf(file.pdf, { onPage }) : original;
+  doc.registerFontkit(await loadFontkit());
+  const embedded = font ? await doc.embedFont(font, EMBED_OPTIONS) : null;
+  const measure = (text, size) => embedded.widthOfTextAtSize(text, size);
+  const image = settings.wm.on && settings.wm.image ? await doc.embedPng(settings.wm.image.bytes) : null;
+
+  file.views.forEach((view, i) => {
+    const page = doc.getPage(i);
+    const { viewport } = view;
+    // Maps screen coordinates (scale 1, top-left origin) onto the page.
+    // Rebuilt pages are already upright, so only the y axis flips.
+    const toPdf = rebuilt ? (x, y) => [x, viewport.height - y] : (x, y) => viewport.convertToPdfPoint(x, y);
+    const rotation = rebuilt ? 0 : viewport.rotation;
+    for (const d of layoutPage(pageInfo(view, settings), viewport.width, viewport.height, settings, measure)) {
+      const [x, y] = toPdf(d.x, d.y);
+      if (d.image) {
+        page.drawImage(image, { x, y, width: d.w, height: d.h, opacity: d.opacity, rotate: degrees(d.angle + rotation) });
+        continue;
+      }
+      page.drawText(d.text, {
+        x, y, size: d.size, font: embedded,
+        color: hexToRgb(d.color, rgb),
+        opacity: d.opacity,
+        rotate: degrees(d.angle + rotation),
+      });
+    }
+  });
+  return { bytes: await doc.save(), rebuilt };
 }
 
 async function save() {
-  if (!state.bytes || state.busy) return;
+  if (!state.files.length || state.busy) return;
   const settings = readSettings();
-  if (!settings.num.on && !settings.wm.on) return;
+  if (!settings.num.on && !settings.hf.on && !settings.wm.on) return;
   state.busy = true;
   syncControls();
   showStatus("PDFを作成中…", { sticky: true });
   try {
-    const [{ PDFDocument, rgb, degrees }, fontkit] = await Promise.all([loadPdfLib(), loadFontkit()]);
-    const original = await PDFDocument.load(state.bytes, { ignoreEncryption: true });
-    const rebuilt = original.isEncrypted;
-    const onPage = (num, count) => showStatus(`保護されたPDFのため、ページを画像にしています… (${num}/${count})`, { sticky: true });
-    const doc = rebuilt ? await rasterizePdf(state.pdf, { onPage }) : original;
-    doc.registerFontkit(fontkit);
-    showStatus("PDFを作成中…", { sticky: true });
-
+    await Promise.all([loadPdfLib(), loadFontkit()]);
     // The font only needs the characters that actually get drawn, so lay out
     // with a rough width first just to collect them.
-    const pageCount = state.pages.length;
     const allText = state.pages
-      .flatMap((v, i) => layoutPage(i, pageCount, v.viewport.width, v.viewport.height, settings, () => 0))
-      .map((d) => d.text)
+      .flatMap((v) => layoutPage(pageInfo(v, settings), v.viewport.width, v.viewport.height, settings, () => 0))
+      .map((d) => d.text ?? "")
       .join("");
-    const font = await doc.embedFont(await subsetFont(allText + " "), { subset: false });
-    const measure = (text, size) => font.widthOfTextAtSize(text, size);
+    const font = allText ? await subsetFont(allText + " ") : null;
 
-    state.pages.forEach((view, i) => {
-      const page = doc.getPage(i);
-      const { viewport } = view;
-      // Maps screen coordinates (scale 1, top-left origin) onto the page.
-      // Rebuilt pages are already upright, so only the y axis flips.
-      const toPdf = rebuilt ? (x, y) => [x, viewport.height - y] : (x, y) => viewport.convertToPdfPoint(x, y);
-      const rotation = rebuilt ? 0 : viewport.rotation;
-      for (const d of layoutPage(i, pageCount, viewport.width, viewport.height, settings, measure)) {
-        const [x, y] = toPdf(d.x, d.y);
-        page.drawText(d.text, {
-          x, y, size: d.size, font,
-          color: hexToRgb(d.color, rgb),
-          opacity: d.opacity,
-          rotate: degrees(d.angle + rotation),
-        });
-      }
-    });
-
-    const out = await doc.save();
-    download(new Blob([out], { type: "application/pdf" }), outputName(settings));
-    showStatus(rebuilt
-      ? "保存しました（保護されたPDFのため、元のページは画像として保存しています）"
+    const outputs = [];
+    let rebuiltCount = 0;
+    for (const [i, file] of state.files.entries()) {
+      if (state.files.length > 1) showStatus(`PDFを作成中… (${i + 1}/${state.files.length})`, { sticky: true });
+      const { bytes, rebuilt } = await stampFile(file, settings, font);
+      if (rebuilt) rebuiltCount++;
+      outputs.push({ name: outputName(file, settings), bytes });
+    }
+    if (outputs.length === 1) download(new Blob([outputs[0].bytes], { type: "application/pdf" }), outputs[0].name);
+    else download(makeZip(outputs), `${suffixOf(settings)}_${outputs.length}件.zip`);
+    showStatus(rebuiltCount
+      ? "保存しました（保護されたPDFは、元のページを画像として保存しています）"
       : "保存しました（ダウンロードフォルダを確認してください）");
   } catch (err) {
     console.error(err);
@@ -410,11 +525,42 @@ async function save() {
   }
 }
 
+/* ---------- image watermark ---------- */
+
+// Any picture becomes a PNG (keeping see-through parts) so pdf-lib can embed it.
+async function setWatermarkImage(file) {
+  if (!file?.type.startsWith("image/")) return showStatus("画像ファイルを選んでください", { error: true });
+  try {
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement("canvas");
+    const k = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+    canvas.width = Math.round(bitmap.width * k);
+    canvas.height = Math.round(bitmap.height * k);
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    const img = new Image();
+    img.src = URL.createObjectURL(blob);
+    await img.decode();
+    state.wmImage = { name: file.name, bytes: new Uint8Array(await blob.arrayBuffer()), img };
+    els.wmImageName.textContent = file.name;
+    els.wmOn.checked = true;
+    update();
+  } catch (err) {
+    console.error(err);
+    showStatus("画像を読み込めませんでした", { error: true });
+  }
+}
+
 /* ---------- events ---------- */
 
 els.fileInput.addEventListener("change", () => {
-  openFile(els.fileInput.files[0]);
+  openFiles(els.fileInput.files);
   els.fileInput.value = "";
+});
+els.wmImageInput.addEventListener("change", () => {
+  setWatermarkImage(els.wmImageInput.files[0]);
+  els.wmImageInput.value = "";
 });
 els.saveBtn.addEventListener("click", save);
 
@@ -423,7 +569,7 @@ for (const el of document.querySelectorAll(".panel input, .panel select")) {
   el.addEventListener("change", update);
 }
 // Touching a setting of a switched-off section switches it on.
-for (const [opts, toggle] of [[els.numOpts, els.numOn], [els.wmOpts, els.wmOn]]) {
+for (const [opts, toggle] of [[els.numOpts, els.numOn], [els.hfOpts, els.hfOn], [els.wmOpts, els.wmOn]]) {
   opts.addEventListener("input", () => (toggle.checked = true), true);
   opts.addEventListener("click", (e) => {
     if (e.target.closest("button")) toggle.checked = true;
@@ -446,7 +592,7 @@ els.numFormat.addEventListener("change", () => {
 });
 
 // Drag & drop a PDF anywhere on the page.
-onFileDrop((files) => openFile(files[0]));
+onFileDrop(openFiles);
 
 restoreSettings();
 syncControls();

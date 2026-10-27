@@ -249,6 +249,21 @@ const TOOLS = {
       const [file] = await t.downloads(1);
       t.expectName(file, "プリント_番号入り.pdf");
       await t.expectPdfPages(file, 3);
+      // Several PDFs: numbers run on across them, plus a footer and an image watermark.
+      await t.setFiles("#file-input", [t.pdf("1組.pdf", 2), t.pdf("2組.pdf", 3)]);
+      await t.until(() => document.querySelectorAll(".page").length === 5);
+      await t.page.check("#hf-on");
+      await t.page.fill("#hf-bl", "{file}　{date}");
+      await t.page.selectOption("#wm-type", "image");
+      await t.setFiles("#wm-image-input", [t.png("校章.png", 200, 200)]);
+      await t.until(() => document.querySelector("#wm-image-name").textContent === "校章.png");
+      await t.page.locator(".page canvas").first().scrollIntoViewIfNeeded();
+      await t.shot("several");
+      await t.page.click("#save-btn");
+      const [zip] = await t.downloads(1);
+      t.expectName(zip, "番号・ヘッダー・透かし入り_2件.zip");
+      const names = fixtures.zipNames(zip.bytes);
+      t.expect(names.join(",") === "1組_番号・ヘッダー・透かし入り.pdf,2組_番号・ヘッダー・透かし入り.pdf", `ZIPの中身が違う: ${names.join(", ")}`);
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.pdf("プリント.pdf", 3)]);
