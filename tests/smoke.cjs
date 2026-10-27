@@ -727,6 +727,21 @@ async function testPortal(browser, server) {
     }
     await t.shot("start");
 
+    // A star puts a tool in "お気に入り"; tools opened lately show in "最近使ったもの".
+    await page.hover("section:not(.quick) a[href='pdf-text/']");
+    await page.click("section:not(.quick) a[href='pdf-text/'] ~ .star");
+    t.expect(await page.$$eval("#quick-fav li .name", (els) => els.map((e) => e.textContent).join()) === "PDF文字入れ", "お気に入りに入らない");
+    await page.goto(`${server.url}calc/`);
+    await page.goto(`${server.url}timer/`);
+    await page.goto(server.url);
+    const recent = await page.$$eval("#quick-recent li .name", (els) => els.map((e) => e.textContent).join());
+    t.expect(recent === "タイマー・ポモドーロ,関数電卓・グラフ", `最近使ったものが違う: ${recent}`);
+    t.expect(await page.$$eval("#quick-fav li", (els) => els.length) === 1, "お気に入りが残らない");
+    await t.shot("quick");
+    await page.fill("#q", "PDF文字");
+    t.expect(await page.isHidden("#quick-fav"), "さがしている間もお気に入りが出ている");
+    await page.fill("#q", "");
+
     // The top page (and the tool icons on it) also opens without a network.
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload();

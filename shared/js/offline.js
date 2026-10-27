@@ -1,6 +1,10 @@
 // Registers the site-wide service worker (../../sw.js) and asks it to keep this page's files
 // for offline use. `files` are paths relative to the page.
+import { loadJson, saveJson } from "./storage.js";
+
 const ROOT = new URL("../../", import.meta.url); // the repository root
+// Tools opened lately, newest first, for "最近使ったもの" on the top page.
+export const RECENT_KEY = "portal-recent-v1";
 // Shared files are small, so every page keeps all of them. The first visit is not yet
 // controlled by the worker, so anything it loads has to be in the list to open offline later.
 const SHARED = [
@@ -9,7 +13,15 @@ const SHARED = [
   "js/zip.js", "js/unzip.js", "js/ink.js", "js/history.js", "js/lazy.js", "js/page-viewer.js", "js/pdf-lib.js", "js/password.js", "js/kv.js", "js/heic.js", "js/handoff.js",
 ].map((f) => new URL(`shared/${f}`, ROOT).href);
 
+function rememberVisit() {
+  const tool = location.pathname.slice(ROOT.pathname.length).split("/")[0];
+  if (!tool || !location.pathname.startsWith(ROOT.pathname) || /^[_.]|^tests$|\./.test(tool)) return;
+  const list = loadJson(RECENT_KEY, []);
+  saveJson(RECENT_KEY, [tool, ...(Array.isArray(list) ? list : []).filter((t) => t !== tool)].slice(0, 8));
+}
+
 export async function registerOffline(files = []) {
+  rememberVisit();
   if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
   try {
     const reg = await navigator.serviceWorker.register(new URL("sw.js", ROOT), { scope: ROOT.pathname });

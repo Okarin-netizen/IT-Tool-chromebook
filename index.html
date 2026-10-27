@@ -108,6 +108,32 @@
     body.searching .name { font-size: 14px; font-weight: 600; }
     body.searching .desc { display: block; font-size: 13px; color: var(--muted); }
     .empty { margin: 24px 4px; color: var(--muted); }
+    /* Favorites (star on each tile) and recently used tools, above the groups. */
+    .apps li { position: relative; }
+    .star {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      opacity: 0;
+    }
+    .star svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+    .apps li:hover .star, .star:focus-visible, .star[aria-pressed="true"] { opacity: 1; }
+    @media (hover: none) { .star { opacity: .55; } }
+    .star:hover { background: var(--hover); color: var(--text); }
+    .star:focus-visible { outline: 2px solid var(--accent); }
+    .star[aria-pressed="true"] { color: #e0a100; }
+    .star[aria-pressed="true"] svg { fill: currentColor; }
+    body.searching .quick, body.searching .star { display: none; }
     footer { margin-top: 40px; padding: 0 4px; color: var(--muted); font-size: 13px; }
     footer a { color: var(--accent); }
   </style>
@@ -125,6 +151,15 @@
 
   <main>
     <p class="note">インストール不要、ブラウザだけで使えます。ファイルはこの端末の中だけで処理されます。</p>
+
+    <section id="quick-fav" class="quick" aria-labelledby="g-fav" hidden>
+      <h2 id="g-fav">お気に入り</h2>
+      <ul class="apps"></ul>
+    </section>
+    <section id="quick-recent" class="quick" aria-labelledby="g-recent" hidden>
+      <h2 id="g-recent">最近使ったもの</h2>
+      <ul class="apps"></ul>
+    </section>
 
     <!-- 新しいツールを追加するときは、フォルダを作って、合うグループの <ul> に <li> を1つ足してください（docs/開発の手引き.md） -->
     <section aria-labelledby="g-pdf">
@@ -249,7 +284,7 @@
       const words = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
       document.body.classList.toggle("searching", words.length > 0);
       let shown = 0;
-      document.querySelectorAll("section").forEach((sec) => {
+      document.querySelectorAll("section:not(.quick)").forEach((sec) => {
         let inSection = 0;
         sec.querySelectorAll("li").forEach((li) => {
           const text = li.textContent.toLowerCase();
@@ -264,14 +299,64 @@
       document.getElementById("empty").hidden = shown > 0;
     });
     q.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") document.querySelector("li:not([hidden]) .app")?.click();
+      if (e.key === "Enter") document.querySelector("section:not(.quick) li:not([hidden]) .app")?.click();
       if (e.key === "Escape") { q.value = ""; q.dispatchEvent(new Event("input")); }
     });
   </script>
   <script type="module">
     // Keeps the top page (and its tool icons) available without a network.
-    import { registerOffline } from "./shared/js/offline.js";
+    import { RECENT_KEY, registerOffline } from "./shared/js/offline.js";
+    import { loadJson, saveJson } from "./shared/js/storage.js";
     registerOffline(["./", "index.html", ...[...document.querySelectorAll(".apps img")].map((img) => img.getAttribute("src"))]);
+
+    // Favorites (the star on each tile, like IT-Tools) and the tools used lately.
+    const FAV_KEY = "portal-favorites-v1";
+    const RECENT_SHOWN = 6;
+    const tiles = new Map(); // "pdf-text" → its <li> in the groups
+    for (const li of document.querySelectorAll("section:not(.quick) .apps li")) {
+      tiles.set(li.querySelector(".app").getAttribute("href").replace(/\/$/, ""), li);
+    }
+    const known = (list) => (Array.isArray(list) ? list.filter((t) => tiles.has(t)) : []);
+    const favorites = () => known(loadJson(FAV_KEY, []));
+
+    function addStar(li, tool, on) {
+      li.querySelector(".star")?.remove();
+      const name = li.querySelector(".name").textContent;
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "star";
+      b.setAttribute("aria-pressed", String(on));
+      b.title = b.ariaLabel = on ? `${name}をお気に入りから外す` : `${name}をお気に入りに入れる`;
+      b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/></svg>';
+      b.addEventListener("click", () => {
+        const list = favorites().filter((t) => t !== tool);
+        saveJson(FAV_KEY, on ? list : [...list, tool]);
+        renderQuick();
+        tiles.get(tool).querySelector(".star").focus();
+      });
+      li.append(b);
+    }
+
+    function fill(id, tools) {
+      const sec = document.getElementById(id);
+      sec.querySelector("ul").replaceChildren(...tools.map((tool) => {
+        const li = tiles.get(tool).cloneNode(true);
+        li.hidden = false;
+        addStar(li, tool, favorites().includes(tool));
+        return li;
+      }));
+      sec.hidden = !tools.length;
+    }
+
+    function renderQuick() {
+      const favs = favorites();
+      for (const [tool, li] of tiles) addStar(li, tool, favs.includes(tool));
+      fill("quick-fav", favs);
+      fill("quick-recent", known(loadJson(RECENT_KEY, [])).filter((t) => !favs.includes(t)).slice(0, RECENT_SHOWN));
+    }
+    renderQuick();
+    // Coming back with the browser's back button shows the page from memory: refresh the lists.
+    window.addEventListener("pageshow", (e) => e.persisted && renderQuick());
   </script>
 </body>
 </html>
