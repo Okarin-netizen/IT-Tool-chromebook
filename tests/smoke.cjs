@@ -271,6 +271,32 @@ const TOOLS = {
     },
   },
 
+  "image-resize": {
+    async run(t) {
+      await t.setFiles("#file-input", [t.png("写真1.png", 1600, 1200), t.png("写真2.png", 1200, 1600)]);
+      await t.until(() => __imageResize.state.items.length === 2 && __imageResize.state.items.every((i) => i.result));
+      await t.shot("open");
+      const small = await t.page.evaluate(() => __imageResize.state.items.map((i) => Math.max(i.result.width, i.result.height)));
+      t.expect(small.every((n) => n === 1600), `長い辺1600にならない: ${small}`);
+      // "60 KB以下" lowers the quality, then the size, until it fits.
+      await t.page.selectOption("#mode", "target");
+      await t.page.fill("#target-kb", "60");
+      await t.page.dispatchEvent("#target-kb", "change");
+      await t.until(() => __imageResize.state.items.every((i) => i.result), 60000);
+      const sizes = await t.page.evaluate(() => __imageResize.state.items.map((i) => i.result.blob.size));
+      t.expect(sizes.every((n) => n <= 60 * 1024), `60KB以下にならない: ${sizes}`);
+      await t.page.click("#save-btn");
+      const [file] = await t.downloads(1);
+      t.expectName(file, "画像_小.zip");
+      const names = fixtures.zipNames(file.bytes);
+      t.expect(names.join(",") === "写真1_小.jpg,写真2_小.jpg", `ZIPの中身が違う: ${names.join(", ")}`);
+    },
+    async offline(t) {
+      await t.setFiles("#file-input", [t.png("写真1.png", 640, 480)]);
+      await t.until(() => __imageResize.state.items[0]?.result);
+    },
+  },
+
   "image-annotate": {
     async run(t) {
       await t.setFiles("#file-input", [t.png("画面.png", 800, 500)]);
