@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>タイピング練習</title>
+  <meta name="description" content="日本語（ローマ字入力）と英語のタイピングを練習できるブラウザだけで動くツール">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#1e3a8a">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></symbol>
+  </svg>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">タイピング練習</span>
+    </div>
+    <div class="tabs" role="tablist" aria-label="言葉">
+      <button class="tab" role="tab" data-lang="ja" aria-selected="true">日本語（ローマ字）</button>
+      <button class="tab" role="tab" data-lang="en" aria-selected="false">英語</button>
+    </div>
+    <div class="group">
+      <label class="field">時間
+        <select id="duration">
+          <option value="30">30秒</option>
+          <option value="60" selected>60秒</option>
+          <option value="120">2分</option>
+        </select>
+      </label>
+      <label class="field">ことば
+        <select id="source">
+          <option value="builtin" selected>基本のことば</option>
+          <option value="custom">自分のことば</option>
+        </select>
+      </label>
+    </div>
+    <div class="group end">
+      <button id="stop-btn" class="btn" hidden><svg class="i" aria-hidden="true"><use href="#i-stop"/></svg>やめる（Esc）</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <section id="start" class="card start">
+      <h1>タイピング練習</h1>
+      <p id="start-hint">出てきたことばを、ローマ字で打ちます。「し」は shi でも si でもOK。いろいろな打ち方に対応しています。</p>
+      <button id="start-btn" class="btn primary big"><svg class="i" aria-hidden="true"><use href="#i-play"/></svg>スタート（スペースキー）</button>
+      <p id="best" class="best"></p>
+      <p class="note">日本語入力（かな）はオフにして、英数入力で打ってください。記録はこのブラウザの中だけに保存されます。</p>
+      <details id="custom" class="custom">
+        <summary>自分のことばを使う</summary>
+        <p id="custom-hint" class="note"></p>
+        <textarea id="custom-text" rows="6" spellcheck="false"></textarea>
+      </details>
+    </section>
+
+    <section id="play" class="card play" hidden>
+      <div class="meter">
+        <span>のこり <b id="time-left">60</b> 秒</span>
+        <span>打った数 <b id="score">0</b></span>
+        <span>ミス <b id="misses">0</b></span>
+      </div>
+      <div class="timebar"><div id="timebar-fill"></div></div>
+      <p id="word" class="word"></p>
+      <p id="kana" class="kana"></p>
+      <p id="romaji" class="romaji" aria-hidden="true"><span id="typed" class="typed"></span><span id="next-key" class="next-key"></span><span id="rest" class="rest"></span></p>
+      <p id="ime-warning" class="ime-warning" hidden>日本語入力がオンになっています。キーボードの「英数」キー（または Ctrl+スペース）で英数入力にしてください。</p>
+    </section>
+
+    <section id="result" class="card result" hidden>
+      <h2>結果</h2>
+      <dl class="stats">
+        <div><dt>1分あたり</dt><dd><b id="r-speed">0</b> 打</dd></div>
+        <div><dt>正確さ</dt><dd><b id="r-accuracy">0</b> %</dd></div>
+        <div><dt>打った数</dt><dd><b id="r-score">0</b></dd></div>
+        <div><dt>ミス</dt><dd><b id="r-misses">0</b></dd></div>
+        <div><dt>ことば</dt><dd><b id="r-words">0</b> こ</dd></div>
+      </dl>
+      <p id="r-best" class="best"></p>
+      <p id="r-keys" class="note"></p>
+      <button id="again-btn" class="btn primary big"><svg class="i" aria-hidden="true"><use href="#i-play"/></svg>もう一度（スペースキー）</button>
+    </section>
+  </main>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

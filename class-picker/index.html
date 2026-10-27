@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>名前ルーレット・班分け</title>
+  <meta name="description" content="名簿から発表する人をランダムに選んだり、班をランダムに分けたりするブラウザだけで動くツール">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5c8a00">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+    <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M4 7h3c5 0 5 10 10 10h3M4 17h3c2 0 3-1.5 4-3.5M13 9.5c1-2 2-2.5 4-2.5h3M17 4l3 3-3 3M17 14l3 3-3 3"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v5h5"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 9h11v11H9z"/><path d="M5 15H4V4h11v1"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  </svg>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">名前ルーレット・班分け</span>
+    </div>
+    <div class="tabs" role="tablist" aria-label="モード">
+      <button class="tab" role="tab" data-mode="pick" aria-selected="true">ルーレット</button>
+      <button class="tab" role="tab" data-mode="groups" aria-selected="false">班分け</button>
+    </div>
+    <div class="group end">
+      <button id="fullscreen-btn" class="btn icon" title="全画面表示（F）" aria-label="全画面表示"><svg class="i" aria-hidden="true"><use href="#i-fullscreen"/></svg></button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="roster" aria-label="名簿">
+      <div class="roster-head">
+        <select id="list-select" aria-label="クラス（名簿）"></select>
+        <button id="list-add" class="btn icon" title="名簿を増やす" aria-label="名簿を増やす"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></button>
+        <button id="list-rename" class="btn icon" title="名簿の名前を変える" aria-label="名簿の名前を変える"><svg class="i" aria-hidden="true"><use href="#i-edit"/></svg></button>
+        <button id="list-delete" class="btn icon" title="この名簿を消す" aria-label="この名簿を消す"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg></button>
+      </div>
+      <label for="names" class="roster-label">名前（1行に1人）<span id="count" class="count"></span></label>
+      <textarea id="names" spellcheck="false" placeholder="青木&#10;井上&#10;上田&#10;…&#10;&#10;表計算ソフトの名簿の列をコピーして貼り付けられます"></textarea>
+      <p class="note">名簿はこのブラウザの中だけに保存され、どこにも送信されません。</p>
+    </aside>
+
+    <main id="pick" class="view">
+      <div id="pick-display" class="pick-display" aria-live="polite">名簿を入れて「回す」</div>
+      <div class="pick-buttons">
+        <button id="spin-btn" class="btn primary big" title="ランダムに1人選ぶ（スペースキー）"><svg class="i" aria-hidden="true"><use href="#i-shuffle"/></svg>回す</button>
+      </div>
+      <div class="pick-options">
+        <label class="check"><input id="no-repeat" type="checkbox" checked> 一度当たった人は外す</label>
+        <span id="left" class="count"></span>
+        <button id="pick-reset" class="btn"><svg class="i" aria-hidden="true"><use href="#i-reset"/></svg>最初から</button>
+      </div>
+      <section class="picked-wrap" aria-labelledby="picked-title">
+        <h2 id="picked-title">当たった人</h2>
+        <ol id="picked" class="picked"></ol>
+      </section>
+    </main>
+
+    <main id="groups" class="view" hidden>
+      <div class="group-setup">
+        <label class="field">
+          <select id="group-mode">
+            <option value="count">班の数</option>
+            <option value="size">1班の人数</option>
+          </select>
+          <input id="group-n" type="number" min="1" max="99" value="6" inputmode="numeric">
+        </label>
+        <button id="group-btn" class="btn primary"><svg class="i" aria-hidden="true"><use href="#i-shuffle"/></svg>班を作る</button>
+        <button id="group-copy" class="btn" disabled title="班の一覧をコピーして、ドキュメントやClassroomに貼り付ける"><svg class="i" aria-hidden="true"><use href="#i-copy"/></svg>コピー</button>
+      </div>
+      <p id="group-note" class="note">名簿の人をランダムに分けます。人数が割り切れないときは、1人多い班ができます。</p>
+      <ol id="group-list" class="group-list"></ol>
+    </main>
+  </div>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

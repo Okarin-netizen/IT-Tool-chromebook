@@ -1,0 +1,15 @@
+{
+  "name": "名前ルーレット・班分け",
+  "short_name": "ルーレット・班分け",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f1f3f6",
+  "theme_color": "#5c8a00",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

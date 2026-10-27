@@ -1,0 +1,207 @@
+/* The shared look is in ../shared/css/base.css. This file sets the tool's colors and layout. */
+:root {
+  --bg: #f1f3f6;
+  --bar: #ffffff;
+  --text: #1f2329;
+  --muted: #5f6672;
+  --line: #d6dae1;
+  --accent: #5c8a00; /* the tool's color: also in icon.svg, manifest.webmanifest and theme-color */
+  --accent-dark: #4a6f00;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, #fff);
+  --accent-text: #ffffff;
+}
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  font-family: system-ui, "Noto Sans JP", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn.big { min-height: 52px; min-width: 180px; border-radius: 26px; font-size: 18px; padding: 0 28px; }
+.btn.big .i { width: 22px; height: 22px; }
+
+.field { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.field select, .field input {
+  min-height: 36px;
+  font: inherit;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+}
+.field input[type="number"] { width: 72px; }
+
+/* Mode switch as a segmented control, like the timer. */
+.tabs { display: flex; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+.tab {
+  min-height: 34px;
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.tab + .tab { border-left: 1px solid var(--line); }
+.tab[aria-selected="true"] { background: var(--accent-soft); color: var(--accent-dark); font-weight: 600; }
+
+.layout { flex: 1; display: flex; min-height: 0; }
+
+.roster {
+  flex: none;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--bar);
+  border-right: 1px solid var(--line);
+  overflow: auto;
+}
+.roster-head { display: flex; align-items: center; gap: 4px; }
+.roster-head select {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+.roster-label { font-size: 14px; font-weight: 600; display: flex; justify-content: space-between; margin-top: 8px; }
+#names {
+  flex: 1;
+  min-height: 240px;
+  resize: none;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+}
+#names:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.note { margin: 0; color: var(--muted); font-size: 13px; }
+.count { color: var(--muted); font-size: 13px; font-weight: normal; }
+
+.view { flex: 1; min-width: 0; overflow: auto; padding: 24px; }
+
+/* ---------- roulette ---------- */
+
+#pick { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+#pick[hidden] { display: none; }
+.pick-display {
+  width: min(720px, 100%);
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+.pick-display.name { color: var(--text); font-size: clamp(32px, 8vw, 88px); font-weight: 700; }
+.pick-display.spinning { color: var(--muted); }
+.pick-display.done { color: var(--accent-dark); animation: pop .35s ease-out; }
+@keyframes pop { from { transform: scale(.92); } to { transform: none; } }
+.pick-options { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 16px; font-size: 14px; }
+.check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+.picked-wrap { width: min(720px, 100%); }
+.picked-wrap h2 { margin: 0 0 8px; font-size: 14px; color: var(--muted); }
+.picked { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; counter-reset: n; }
+.picked li {
+  counter-increment: n;
+  padding: 2px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 14px;
+}
+.picked li::before { content: counter(n) ". "; color: var(--muted); }
+
+/* ---------- groups ---------- */
+
+.group-setup { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+#group-note { margin: 10px 0 16px; }
+.group-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.group-card {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  border-top: 4px solid var(--accent);
+}
+.group-card h3 { margin: 0 0 6px; font-size: 16px; }
+.group-card h3 span { color: var(--muted); font-size: 13px; font-weight: normal; margin-left: 6px; }
+.group-card ul { margin: 0; padding-left: 1.2em; font-size: 16px; line-height: 1.7; }
+
+/* Projected on a screen: bigger names. */
+:fullscreen .roster { display: none; }
+:fullscreen .group-card ul { font-size: 22px; }
+:fullscreen .group-card h3 { font-size: 20px; }
+
+@media (max-width: 760px) {
+  .layout { flex-direction: column; }
+  .roster { width: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+  #names { min-height: 140px; }
+  .view { padding: 16px; overflow: visible; }
+}
+@media (prefers-color-scheme: dark) {
+  .pick-display.done { color: #a6d860; }
+  .tab[aria-selected="true"] { color: var(--text); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pick-display.done { animation: none; }
+}

@@ -432,6 +432,88 @@ const TOOLS = {
     },
   },
 
+  "class-picker": {
+    async run(t) {
+      await t.page.fill("#names", ["青木", "井上", "上田", "江藤", "大野", "加藤", "木村"].join("\n"));
+      await t.until(() => document.querySelector("#count").textContent === "7人");
+      // With "一度当たった人は外す", seven spins pick everyone once.
+      for (let i = 0; i < 7; i++) {
+        if (i === 1) await t.page.emulateMedia({ reducedMotion: "reduce" }); // only the first one flicks through names
+        await t.page.click("#spin-btn");
+        await t.page.waitForFunction((n) => __classPicker.store.lists[0].picked.length === n && !__classPicker.state.spinning, i + 1, { timeout: 10000 });
+      }
+      const picked = await t.page.evaluate(() => __classPicker.store.lists[0].picked.slice().sort().join());
+      t.expect(picked === "上田,井上,加藤,大野,木村,江藤,青木", `全員が1回ずつ選ばれていない: ${picked}`);
+      await t.shot("pick");
+      await t.page.click(".tab[data-mode='groups']");
+      await t.page.fill("#group-n", "3");
+      await t.page.click("#group-btn");
+      const sizes = await t.page.$$eval(".group-card ul", (uls) => uls.map((u) => u.children.length).join());
+      t.expect(sizes === "3,2,2", `班の人数が違う: ${sizes}`);
+      await t.shot("groups");
+      // The roster is kept for the next lesson.
+      await t.page.reload();
+      t.expect((await t.page.inputValue("#names")).split("\n").length === 7, "名簿が保存されていない");
+    },
+    async offline(t) {
+      await t.page.locator("#spin-btn").waitFor();
+    },
+  },
+
+  "qr-maker": {
+    async run(t) {
+      await t.page.fill("#text", "https://example.com/アンケート");
+      await t.page.fill("#caption", "アンケート");
+      await t.until(() => !document.querySelector("#save-btn").disabled);
+      const n = await t.page.evaluate(() => __qrMaker.current.getModuleCount());
+      t.expect(n >= 25, `QRコードの大きさがおかしい: ${n}`);
+      await t.shot("qr");
+      await t.page.click("#save-btn");
+      const [file] = await t.downloads(1);
+      t.expectName(file, "アンケート.png");
+      t.expect(file.bytes.subarray(1, 4).toString() === "PNG", "PNG画像になっていない");
+      // Too long for any QR code: says so instead of failing silently.
+      await t.page.fill("#text", "あ".repeat(3000));
+      await t.until(() => document.querySelector("#info").classList.contains("error"));
+    },
+    async offline(t) {
+      await t.page.fill("#text", "offline");
+      await t.until(() => !document.querySelector("#save-btn").disabled);
+    },
+  },
+
+  typing: {
+    async run(t) {
+      await t.page.selectOption("#duration", "30");
+      await t.page.keyboard.press(" ");
+      await t.until(() => __typing.game.playing);
+      // Type each word with the guide's spelling, plus one wrong key.
+      await t.page.keyboard.press("q");
+      for (let i = 0; i < 3; i++) {
+        const rest = await t.page.evaluate(() => __typing.game.matcher.rest);
+        await t.page.keyboard.type(rest);
+      }
+      await t.shot("play");
+      const { wordsDone, misses } = await t.page.evaluate(() => __typing.game);
+      t.expect(wordsDone === 3, `ことばが打ち終わらない: ${wordsDone}`);
+      t.expect(misses === 1, `ミスの数が違う: ${misses}`);
+      await t.page.evaluate(() => __typing.finish());
+      await t.page.locator("#result:not([hidden])").waitFor();
+      t.expect(await t.page.textContent("#r-words") === "3", "結果のことばの数が違う");
+      await t.shot("result");
+      // English: capitals and punctuation as shown.
+      await t.page.click(".tab[data-lang='en']");
+      await t.page.click("#start-btn");
+      const text = await t.page.evaluate(() => __typing.game.item.reading);
+      await t.page.keyboard.type(text);
+      t.expect(await t.page.evaluate(() => __typing.game.wordsDone) === 1, "英語のことばを打ち終わらない");
+      await t.page.keyboard.press("Escape");
+    },
+    async offline(t) {
+      await t.page.locator("#start-btn").waitFor();
+    },
+  },
+
   calc: {
     async run(t) {
       await t.page.fill("#expr", "1+2*3");
