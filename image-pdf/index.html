@@ -17,6 +17,7 @@
     <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
     <symbol id="i-image" viewBox="0 0 24 24"><path d="M3 5h18v14H3z"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></symbol>
     <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-straighten" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><path d="M8 8.5l8.5-1L16 16l-8.5.5z"/></symbol>
     <symbol id="i-switch" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5l2 2M20 12a8 8 0 0 1-14 5l-2-2M20 4v5h-5M4 20v-5h5"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
   </svg>
@@ -56,6 +57,7 @@
         <select id="color-mode">
           <option value="color" selected>カラー</option>
           <option value="gray">白黒（書類向け）</option>
+          <option value="scan">スキャン風（影を消して白黒くっきり）</option>
         </select>
       </label>
     </div>
@@ -81,6 +83,7 @@
         <li>「画像を追加」を押すか、画像をここにドラッグします（何枚でもOK）。</li>
         <li>「カメラで撮る」で、その場で撮影して追加することもできます。</li>
         <li>画像をドラッグするか「◀ ▶」で順番を入れ替えます。「⟳」で90°回転します。</li>
+        <li>ななめに撮ったプリントは、カードの <svg class="i inline" aria-hidden="true"><use href="#i-straighten"/></svg> で長方形にまっすぐ直せます。色を「スキャン風」にすると、影が消えて白黒くっきりになります。</li>
         <li>用紙・向き・余白を選んで「PDFを保存」を押すと、1枚1ページのPDFができます。</li>
       </ol>
       <p class="note">画像はこのパソコンの中だけで処理され、どこにも送信されません。</p>
@@ -96,6 +99,22 @@
       <button id="camera-close" class="btn">完了</button>
     </div>
     <p id="camera-count" class="camera-count"></p>
+  </dialog>
+
+  <dialog id="straighten" class="app-dialog straighten" aria-labelledby="straighten-title">
+    <h2 id="straighten-title">まっすぐにする</h2>
+    <p class="hint">4つの丸をプリントの角に合わせてください。ななめに撮った写真が長方形に直ります。</p>
+    <div id="straighten-stage" class="straighten-stage">
+      <canvas id="straighten-canvas"></canvas>
+      <svg id="straighten-frame" class="straighten-frame" aria-hidden="true"><polygon/></svg>
+    </div>
+    <div class="dialog-buttons">
+      <button id="straighten-auto" class="btn" type="button">自動で合わせる</button>
+      <button id="straighten-all" class="btn" type="button">画像全体</button>
+      <span class="spacer"></span>
+      <button id="straighten-cancel" class="btn" type="button">キャンセル</button>
+      <button id="straighten-ok" class="btn primary" type="button">まっすぐにする</button>
+    </div>
   </dialog>
 
   <div id="status" class="status" role="status" aria-live="polite" hidden></div>

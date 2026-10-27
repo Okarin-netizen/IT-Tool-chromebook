@@ -325,6 +325,44 @@ const TOOLS = {
       // iPhone photos (HEIC) are turned into JPEG before they are added.
       await t.setFiles("#file-input", [t.heic("iPhone.heic")]);
       await t.until(() => __imagePdf.state.images.length === 3, 30000);
+
+      // A photo of a print taken at an angle: the corners are found and stretched back to a rectangle.
+      const paper = [[150, 90], [610, 140], [580, 560], [110, 500]];
+      await t.page.evaluate(async (paper) => {
+        const c = Object.assign(document.createElement("canvas"), { width: 720, height: 640 });
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#3b3530";
+        ctx.fillRect(0, 0, 720, 640);
+        ctx.fillStyle = "#f4f1ea";
+        ctx.beginPath();
+        paper.forEach(([x, y]) => ctx.lineTo(x, y));
+        ctx.fill();
+        ctx.fillStyle = "#222";
+        ctx.font = "28px sans-serif";
+        for (let i = 0; i < 6; i++) ctx.fillText("プリントの文字 " + i, 190, 190 + i * 55);
+        const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.9));
+        await __imagePdf.addFiles([new File([blob], "プリント.jpg", { type: "image/jpeg" })]);
+      }, paper);
+      await t.until(() => __imagePdf.state.images.length === 4);
+      await t.page.locator(".card").nth(3).locator("button[title^='まっすぐ']").click();
+      await t.page.locator("#straighten[open] .corner").first().waitFor();
+      await t.shot("straighten");
+      const found = await t.page.evaluate(() => __imagePdf.straight.corners);
+      const off = Math.max(...found.map(([x, y], i) => Math.hypot(x - paper[i][0], y - paper[i][1])));
+      t.expect(off < 20, `角の位置がずれている（${Math.round(off)}px）: ${JSON.stringify(found)}`);
+      // Drag the top-left corner a little, then apply.
+      await t.drag(t.page.locator("#straighten .corner").first(), [[14, 14], [6, 6]]);
+      const moved = await t.page.evaluate(() => __imagePdf.straight.corners[0]);
+      t.expect(moved[0] < found[0][0] - 2, "角をドラッグで動かせない");
+      await t.page.click("#straighten-ok");
+      await t.until(() => __imagePdf.state.images[3].corners);
+      const size = await t.page.evaluate(() => [__imagePdf.state.images[3].width, __imagePdf.state.images[3].height]);
+      t.expect(size[0] / size[1] > 1 && size[0] / size[1] < 1.25, `まっすぐにした大きさがおかしい: ${size}`);
+      await t.page.selectOption("#color-mode", "scan");
+      await t.shot("scan");
+      await t.page.click("#save-btn");
+      const [scanned] = await t.downloads(1);
+      await t.expectPdfPages(scanned, 4);
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.png("写真1.png", 640, 480)]);
