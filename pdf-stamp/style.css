@@ -47,7 +47,7 @@ body {
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-weight: 500;
@@ -99,7 +99,7 @@ body {
   padding: 0 8px;
   border-radius: 8px;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
 }
 .row input[type="range"] { width: 110px; accent-color: var(--accent); }
@@ -120,12 +120,12 @@ body {
   width: 104px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: #f7f8fa;
+  background: var(--subtle);
 }
 .pos {
   border: 1px solid var(--line);
   border-radius: 4px;
-  background: #fff;
+  background: var(--surface);
   cursor: pointer;
   padding: 0;
 }
@@ -136,7 +136,7 @@ body {
 .chip {
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-size: 13px;
@@ -150,7 +150,7 @@ body {
 .welcome {
   max-width: 560px;
   margin: 40px auto;
-  background: #fff;
+  background: var(--surface);
   border-radius: 12px;
   padding: 24px 28px;
   line-height: 1.7;

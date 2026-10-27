@@ -4,6 +4,12 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
+/* ---------- colors ---------- */
+
+/* Each tool's style.css sets --bg, --bar, --text, --muted, --line and its accent colors. These
+   are for buttons, cards and inputs (--surface), hover and table heads (--soft) and wells (--subtle). */
+:root { --surface: #fff; --soft: #eef0f3; --subtle: #f7f8fa; }
+
 /* ---------- app bar ---------- */
 
 .toolbar { min-height: 56px; padding: 8px 12px; gap: 8px 12px; background: var(--bar); border-bottom: 1px solid var(--line); box-shadow: none; }
@@ -16,7 +22,7 @@
 /* ---------- buttons ---------- */
 
 .btn { min-height: 36px; padding: 0 14px; gap: 6px; border-radius: 18px; border-color: var(--line); font-weight: 500; }
-.btn:hover:not(:disabled) { background: #eef0f3; }
+.btn:hover:not(:disabled) { background: var(--soft); }
 .btn:disabled { opacity: .45; cursor: default; }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
@@ -119,3 +125,32 @@
   cursor: pointer;
 }
 .next-item:hover, .next-item:focus-visible { background: color-mix(in srgb, var(--accent) 12%, transparent); outline: none; }
+
+/* ---------- dark mode ---------- */
+
+/* Dark mode follows the Chromebook's setting (like the top page). html:root wins over the tools'
+   own :root. PDF pages, previews and the graph stay white: they are paper. */
+@media (prefers-color-scheme: dark) {
+  html:root {
+    color-scheme: dark;
+    --bg: #1f2329;
+    --bar: #2a2f37;
+    --surface: #2a2f37;
+    --soft: #363c46;
+    --subtle: #23272e;
+    --text: #f7f8fa;
+    --muted: #9aa1ab;
+    --line: #3a3f48;
+    --accent-soft: color-mix(in srgb, var(--accent) 30%, #2a2f37);
+    --select: #7fa2ec;
+    --card: #2a2f37;
+    --key: #2a2f37;
+    --key-fn: #323842;
+    --key-op: #383d5e;
+    --track: #3a3f48;
+  }
+  .btn.tool.selected, .segmented input:checked + span { color: var(--text); }
+  .welcome, .card, .panel { box-shadow: 0 0 0 1px var(--line); }
+  .status { background: #3a3f48; }
+  :where(select) { background-color: var(--surface); color: var(--text); }
+}

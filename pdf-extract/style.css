@@ -34,7 +34,7 @@ body {
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-weight: 500;
@@ -54,7 +54,7 @@ body {
 .welcome {
   max-width: 560px;
   margin: 40px auto;
-  background: #fff;
+  background: var(--surface);
   border-radius: 12px;
   padding: 24px 28px;
   line-height: 1.7;
@@ -88,7 +88,7 @@ body {
   gap: 16px;
   align-items: flex-start;
   padding: 14px;
-  background: #fff;
+  background: var(--surface);
   border-radius: 10px;
   box-shadow: 0 1px 3px rgba(0,0,0,.15);
 }
@@ -151,13 +151,13 @@ body {
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-size: 13px;
   cursor: pointer;
 }
-.mini:hover:not(:disabled) { background: #eef0f3; }
+.mini:hover:not(:disabled) { background: var(--soft); }
 .mini:disabled { opacity: .45; cursor: default; }
 .mini.suggest { border-color: var(--accent); color: var(--accent); font-weight: bold; }
 
@@ -167,4 +167,9 @@ body {
   .viewer { padding: 16px 8px 64px; }
   .page { flex-direction: column; }
   .preview { width: 100%; position: static; }
+}
+
+@media (prefers-color-scheme: dark) {
+  .badge { background: var(--accent-soft); color: var(--text); }
+  .empty-note { background: color-mix(in srgb, var(--warn) 20%, var(--surface)); color: #f5c88a; }
 }
