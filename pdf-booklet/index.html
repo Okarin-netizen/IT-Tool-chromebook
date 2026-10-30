@@ -56,6 +56,41 @@
         </div>
       </section>
 
+      <section class="box">
+        <label class="switch"><input id="spine-on" type="checkbox"> <b>背のライン</b></label>
+        <div id="spine-opts" class="opts">
+          <p class="help">入試問題の冊子のように、表紙の折り目に線を入れます。折ると背に出るので、積み重ねても冊子の種類（科目やA・B）が見分けられます。種類ごとに色か位置を変えてください。</p>
+          <label class="row">位置
+            <select id="spine-pos">
+              <option value="0">1（いちばん上）</option>
+              <option value="1">2</option>
+              <option value="2">3（まん中）</option>
+              <option value="3">4</option>
+              <option value="4">5（いちばん下）</option>
+              <option value="full">上から下まで</option>
+            </select>
+          </label>
+          <label class="row">色
+            <select id="spine-color">
+              <option value="#000000">黒</option>
+              <option value="#d92d20">赤</option>
+              <option value="#1f5fd1">青</option>
+              <option value="#16935a">緑</option>
+              <option value="#f08c00">オレンジ</option>
+              <option value="#8a3fd1">紫</option>
+            </select>
+          </label>
+          <label class="row">太さ
+            <select id="spine-width">
+              <option value="11">細い（4 mm）</option>
+              <option value="23" selected>ふつう（8 mm）</option>
+              <option value="34">太い（12 mm）</option>
+            </select>
+          </label>
+          <p class="help">白黒のプリンターでは、位置で見分けます（1〜5の5種類）。</p>
+        </div>
+      </section>
+
       <section id="summary" class="box" hidden>
         <b>できあがり</b>
         <p id="summary-text" class="summary"></p>

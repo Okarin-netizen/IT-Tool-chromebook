@@ -330,6 +330,33 @@ const TOOLS = {
       });
       t.expect(placed.join(" / ") === "右1 / 右3,左2", `ページの入る場所が違う: ${placed.join(" / ")}`);
 
+      // The line on the spine: across the fold of the outer sheet's front only.
+      await t.page.check("#spine-on");
+      await t.page.selectOption("#spine-color", "#d92d20");
+      await t.page.selectOption("#spine-pos", { value: "2" });
+      await t.until(() => __pdfBooklet.state.sides[0].band && __pdfBooklet.state.sides[0].canvas.width > 0);
+      await t.shot("spine");
+      const colors = await t.page.evaluate(async () => {
+        const { openPdf } = await import("../shared/js/pdf.js");
+        const { bytes } = await __pdfBooklet.buildPdf({ binding: "left", paper: "same", backCover: false, spine: { on: true, pos: "2", color: "#d92d20", width: 23 } });
+        const pdf = await openPdf(bytes).promise;
+        const out = [];
+        for (const n of [1, 2]) {
+          const page = await pdf.getPage(n);
+          const viewport = page.getViewport({ scale: 1 });
+          const canvas = Object.assign(document.createElement("canvas"), { width: viewport.width, height: viewport.height });
+          await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+          const ctx = canvas.getContext("2d");
+          // The middle of the fold, and a point on the fold near the top (outside the band).
+          out.push([...ctx.getImageData(viewport.width / 2, viewport.height / 2, 1, 1).data.slice(0, 3)].join(","));
+          out.push([...ctx.getImageData(viewport.width / 2, 30, 1, 1).data.slice(0, 3)].join(","));
+        }
+        return out;
+      });
+      t.expect(colors[0] === "217,45,32", `背のラインが入っていない: ${colors[0]}`);
+      t.expect(colors[1] === "255,255,255" && colors[2] === "255,255,255", `背のラインが関係ない所に入っている: ${colors.join(" / ")}`);
+      await t.page.uncheck("#spine-on");
+
       // A4 pages at their own size on A3 paper, bound on the right.
       await t.page.click("input[name=binding][value=right] + span");
       await t.page.selectOption("#paper", "double");
