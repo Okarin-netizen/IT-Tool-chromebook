@@ -14,6 +14,7 @@ const PDF_TOOLS = [
   ["pdf-text", "PDF文字入れ"],
   ["pdf-sign", "PDFに手書き・署名"],
   ["pdf-stamp", "ページ番号・透かし入れ"],
+  ["pdf-booklet", "冊子印刷"],
   ["pdf-compress", "PDF圧縮"],
   ["pdf-image", "PDF→画像"],
   ["pdf-extract", "PDF文字取り出し"],

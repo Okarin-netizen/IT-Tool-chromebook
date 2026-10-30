@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>冊子印刷</title>
+  <meta name="description" content="PDFのページを、両面印刷して半分に折ると冊子になる順番に並べかえる、ブラウザだけで動くツール">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#8a6236">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 19V6a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v2"/><path d="M4 19l3-8h14l-3 8z"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V4h10v5"/><path d="M7 17H5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"/><path d="M7 14h10v6H7z"/></symbol>
+  </svg>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">冊子印刷</span>
+      <label class="btn" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg>PDFを開く</label>
+      <input id="file-input" type="file" accept="application/pdf,.pdf" hidden>
+      <span id="file-name" class="file-name"></span>
+    </div>
+    <div class="group end">
+      <button id="print-btn" class="btn" disabled title="できたPDFを新しいタブで開きます。そこから印刷できます"><svg class="i" aria-hidden="true"><use href="#i-print"/></svg>印刷用に開く</button>
+      <button id="save-btn" class="btn primary" disabled><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>PDFを保存</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="panel" aria-label="設定">
+      <section class="box">
+        <b>冊子のつくり</b>
+        <div class="opts">
+          <div class="row">とじる側
+            <div class="seg" role="radiogroup" aria-label="とじる側">
+              <label><input type="radio" name="binding" value="left" checked><span>左とじ<small>横書き</small></span></label>
+              <label><input type="radio" name="binding" value="right"><span>右とじ<small>縦書き</small></span></label>
+            </div>
+          </div>
+          <p id="binding-help" class="help" hidden>横長のページなので、上でとじる冊子になります。</p>
+          <label class="row">用紙
+            <select id="paper">
+              <option value="same">元のページと同じ</option>
+              <option value="double">元のページ2枚分</option>
+            </select>
+          </label>
+          <p id="paper-help" class="help"></p>
+          <label class="check-row"><input id="back-cover" type="checkbox"> 最後のページを裏表紙にする</label>
+          <p class="help">ページ数が4の倍数でないときは白紙を足します。ふつうは最後に足し、これを選ぶと最後のページの前に足します。</p>
+        </div>
+      </section>
+
+      <section id="summary" class="box" hidden>
+        <b>できあがり</b>
+        <p id="summary-text" class="summary"></p>
+      </section>
+
+      <section class="box how">
+        <b>印刷のしかた</b>
+        <ol>
+          <li>「印刷用に開く」で開いたPDFを印刷します（<kbd>Ctrl</kbd>＋<kbd>P</kbd>）。</li>
+          <li><b>両面印刷</b>をオンにして、<b>短辺で綴じる</b>（短辺とじ）を選びます。</li>
+          <li>出てきた紙を順番のまま重ねて半分に折り、折り目をホチキスでとめます。</li>
+        </ol>
+      </section>
+    </aside>
+
+    <main id="viewer" class="viewer">
+      <section id="welcome" class="welcome">
+        <h1>冊子印刷</h1>
+        <p>PDFのページを、両面印刷して半分に折ると冊子になる順番に並べかえます。1枚の紙の表と裏に2ページずつ入ります。</p>
+        <ol>
+          <li>「PDFを開く」を押すか、PDFをここにドラッグします。</li>
+          <li>左で、とじる側（横書きは左とじ、縦書きは右とじ）と用紙の大きさを選びます。右に、紙1枚ずつの表と裏が表示されます。</li>
+          <li>「印刷用に開く」から両面印刷するか、「PDFを保存」でダウンロードします。</li>
+        </ol>
+        <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。</p>
+      </section>
+      <ol id="sheets" class="sheets" aria-label="並べかえたあとの紙"></ol>
+    </main>
+  </div>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+  <div id="drop-overlay" class="drop-overlay" hidden>ここにPDFをドロップ</div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

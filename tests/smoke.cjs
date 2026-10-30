@@ -290,6 +290,61 @@ const TOOLS = {
     },
   },
 
+  "pdf-booklet": {
+    async run(t) {
+      // The order of the pages: 8 pages on 2 sheets, outer sheet 8|1 and 2|7.
+      const plans = await t.page.evaluate(() => {
+        const { planBooklet } = __pdfBooklet;
+        return {
+          left: planBooklet(8).sides,
+          right: planBooklet(8, { binding: "right" }).sides,
+          backCover: planBooklet(5, { backCover: true }).sides,
+        };
+      });
+      t.expect(JSON.stringify(plans.left) === "[[7,0],[1,6],[5,2],[3,4]]", `左とじの順番が違う: ${JSON.stringify(plans.left)}`);
+      t.expect(JSON.stringify(plans.right) === "[[0,7],[6,1],[2,5],[4,3]]", `右とじの順番が違う: ${JSON.stringify(plans.right)}`);
+      t.expect(JSON.stringify(plans.backCover) === "[[4,0],[1,null],[null,2],[3,null]]", `裏表紙の前に白紙が入らない: ${JSON.stringify(plans.backCover)}`);
+
+      await t.setFiles("#file-input", [t.pdf("学級通信.pdf", 3)]);
+      await t.until(() => __pdfBooklet.state.sides.length === 2 && __pdfBooklet.state.sides.every((s) => s.canvas.width > 0));
+      await t.shot("open");
+      await t.page.click("#save-btn");
+      const [file] = await t.downloads(1);
+      t.expectName(file, "学級通信_冊子.pdf");
+      const doc = await t.expectPdfPages(file, 2);
+      const { width, height } = doc.getPage(0).getSize();
+      t.expect(Math.round(width) === 842 && Math.round(height) === 595, `A4横になっていない: ${width}×${height}`);
+      // Where each page's text ends up: front of the sheet is blank | 1, the back 2 | 3.
+      const placed = await t.page.evaluate(async () => {
+        const { openPdf } = await import("../shared/js/pdf.js");
+        const { bytes } = await __pdfBooklet.buildPdf({ binding: "left", paper: "same", backCover: false });
+        const pdf = await openPdf(bytes).promise;
+        const sides = [];
+        for (let n = 1; n <= pdf.numPages; n++) {
+          const page = await pdf.getPage(n);
+          const half = page.getViewport({ scale: 1 }).width / 2;
+          const { items } = await page.getTextContent();
+          sides.push(items.filter((i) => i.str.startsWith("Smoke")).map((i) => `${i.transform[4] < half ? "左" : "右"}${i.str.at(-1)}`).sort().join(","));
+        }
+        return sides;
+      });
+      t.expect(placed.join(" / ") === "右1 / 右3,左2", `ページの入る場所が違う: ${placed.join(" / ")}`);
+
+      // A4 pages at their own size on A3 paper, bound on the right.
+      await t.page.click("input[name=binding][value=right] + span");
+      await t.page.selectOption("#paper", "double");
+      await t.until(() => document.querySelector("#paper-help").textContent.includes("A3 横"));
+      await t.page.click("#save-btn");
+      const [big] = await t.downloads(1);
+      const size = (await t.expectPdfPages(big, 2)).getPage(0).getSize();
+      t.expect(Math.round(size.width) === 1190 && Math.round(size.height) === 842, `A3横になっていない: ${size.width}×${size.height}`);
+    },
+    async offline(t) {
+      await t.setFiles("#file-input", [t.pdf("学級通信.pdf", 3)]);
+      await t.until(() => __pdfBooklet.state.sides.length === 2 && !document.querySelector("#save-btn").disabled);
+    },
+  },
+
   "pdf-extract": {
     async run(t) {
       await t.setFiles("#file-input", [t.pdf("本文.pdf", 2)]);
