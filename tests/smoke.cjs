@@ -330,11 +330,44 @@ const TOOLS = {
       });
       t.expect(placed.join(" / ") === "右1 / 右3,左2", `ページの入る場所が違う: ${placed.join(" / ")}`);
 
+      // Dragging page 3 in front of page 1 makes it the cover.
+      await t.until(() => __pdfBooklet.state.thumbs.every((th) => th.canvas.width > 0));
+      const thumbs = t.page.locator("#thumbs .thumb");
+      await t.page.locator("#order").scrollIntoViewIfNeeded();
+      const firstBox = await thumbs.nth(0).boundingBox();
+      const lastBox = await thumbs.nth(2).boundingBox();
+      await t.page.mouse.move(lastBox.x + lastBox.width / 2, lastBox.y + 30);
+      await t.page.mouse.down();
+      await t.page.mouse.move(lastBox.x - 20, lastBox.y + 30, { steps: 5 });
+      await t.page.mouse.move(firstBox.x + 5, firstBox.y + 30, { steps: 10 });
+      await t.shot("drag");
+      await t.page.mouse.up();
+      await t.until(() => __pdfBooklet.state.order.join() === "2,0,1");
+      await t.until(() => __pdfBooklet.state.sides.every((s) => s.canvas.width > 0));
+      await t.shot("reordered");
+      t.expect(await t.page.textContent("#sheets .side .label") === "1枚目の表　白紙｜3", `並べかえが紙に反映されない: ${await t.page.textContent("#sheets .side .label")}`);
+      const reordered = await t.page.evaluate(async () => {
+        const { openPdf } = await import("../shared/js/pdf.js");
+        const { bytes } = await __pdfBooklet.buildPdf({ binding: "left", paper: "same", backCover: false });
+        const pdf = await openPdf(bytes).promise;
+        const sides = [];
+        for (let n = 1; n <= pdf.numPages; n++) {
+          const page = await pdf.getPage(n);
+          const half = page.getViewport({ scale: 1 }).width / 2;
+          const { items } = await page.getTextContent();
+          sides.push(items.filter((i) => i.str.startsWith("Smoke")).map((i) => `${i.transform[4] < half ? "左" : "右"}${i.str.at(-1)}`).sort().join(","));
+        }
+        return sides;
+      });
+      t.expect(reordered.join(" / ") === "右3 / 右2,左1", `並べかえたページの入る場所が違う: ${reordered.join(" / ")}`);
+      await t.page.click("#order-reset");
+      await t.until(() => __pdfBooklet.state.order.join() === "0,1,2");
+
       // The line on the spine: across the fold of the outer sheet's front only.
       await t.page.check("#spine-on");
       await t.page.selectOption("#spine-color", "#d92d20");
       await t.page.selectOption("#spine-pos", { value: "2" });
-      await t.until(() => __pdfBooklet.state.sides[0].band && __pdfBooklet.state.sides[0].canvas.width > 0);
+      await t.until(() => __pdfBooklet.state.sides[0].bands.length === 1 && __pdfBooklet.state.sides[0].canvas.width > 0);
       await t.shot("spine");
       const colors = await t.page.evaluate(async () => {
         const { openPdf } = await import("../shared/js/pdf.js");
@@ -355,6 +388,31 @@ const TOOLS = {
       });
       t.expect(colors[0] === "217,45,32", `背のラインが入っていない: ${colors[0]}`);
       t.expect(colors[1] === "255,255,255" && colors[2] === "255,255,255", `背のラインが関係ない所に入っている: ${colors.join(" / ")}`);
+      // Two lines: subject 3 (数学) in the upper 9 places, grade 2 in the lower 3.
+      await t.page.selectOption("#spine-mode", "pair");
+      await t.page.selectOption("#spine-subject", { value: "2" });
+      await t.page.selectOption("#spine-grade", { value: "1" });
+      await t.until(() => __pdfBooklet.state.sides[0].bands.length === 2 && __pdfBooklet.state.sides[0].canvas.width > 0);
+      await t.shot("spine-pair");
+      const pair = await t.page.evaluate(async () => {
+        const { openPdf } = await import("../shared/js/pdf.js");
+        const spine = { on: true, mode: "pair", subject: 2, grade: 1, color: "#000000", width: 23 };
+        const { bytes } = await __pdfBooklet.buildPdf({ binding: "left", paper: "same", backCover: false, spine });
+        const page = await (await openPdf(bytes).promise).getPage(1);
+        const viewport = page.getViewport({ scale: 1 });
+        const canvas = Object.assign(document.createElement("canvas"), { width: viewport.width, height: viewport.height });
+        await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+        const ctx = canvas.getContext("2d");
+        const at = (b) => [...ctx.getImageData(b.x + b.w / 2, viewport.height - b.y - b.h / 2, 1, 1).data.slice(0, 3)].join(",");
+        const layout = { stacked: false, width: viewport.width, height: viewport.height };
+        const bands = __pdfBooklet.spineBands(layout, spine);
+        const others = [...__pdfBooklet.spineBands(layout, { ...spine, subject: 0, grade: 2 })];
+        return { bands: bands.map(at), others: others.map(at), apart: bands[0].y > bands[1].y + bands[1].h };
+      });
+      t.expect(pair.bands.join(" / ") === "0,0,0 / 0,0,0", `教科と学年のラインが入っていない: ${pair.bands.join(" / ")}`);
+      t.expect(pair.others.join(" / ") === "255,255,255 / 255,255,255", `ほかの教科・学年の場所にラインがある: ${pair.others.join(" / ")}`);
+      t.expect(pair.apart, "教科のラインが学年のラインより上にない");
+      await t.page.selectOption("#spine-mode", "single");
       await t.page.uncheck("#spine-on");
 
       // A4 pages at their own size on A3 paper, bound on the right.
