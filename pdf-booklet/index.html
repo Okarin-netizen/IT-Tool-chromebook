@@ -112,10 +112,18 @@
         <p>PDFのページを、両面印刷して半分に折ると冊子になる順番に並べかえます。1枚の紙の表と裏に2ページずつ入ります。</p>
         <ol>
           <li>「PDFを開く」を押すか、PDFをここにドラッグします。</li>
-          <li>左で、とじる側（横書きは左とじ、縦書きは右とじ）と用紙の大きさを選びます。右に、紙1枚ずつの表と裏が表示されます。</li>
+          <li>左で、とじる側（横書きは左とじ、縦書きは右とじ）と用紙の大きさを選びます。右に、紙1枚ずつの表と裏が表示されます。ページの順番は、上の一覧でドラッグして変えられます。</li>
           <li>「印刷用に開く」から両面印刷するか、「PDFを保存」でダウンロードします。</li>
         </ol>
         <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。</p>
+      </section>
+      <section id="order" class="order" aria-labelledby="order-title" hidden>
+        <div class="order-head">
+          <b id="order-title">ページの順番</b>
+          <span class="help">ドラッグで並べかえられます（タッチ画面では長押ししてから）。下の紙にすぐ反映されます。</span>
+          <button id="order-reset" class="btn small" type="button" disabled>元の順番に戻す</button>
+        </div>
+        <ol id="thumbs" class="thumbs" aria-label="ページの順番"></ol>
       </section>
       <ol id="sheets" class="sheets" aria-label="並べかえたあとの紙"></ol>
     </main>

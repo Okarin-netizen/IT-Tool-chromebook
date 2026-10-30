@@ -12,6 +12,10 @@ import { loadPdfLib } from "../shared/js/pdf-lib.js";
 const SETTINGS_KEY = "pdf-booklet-settings-v1";
 const PREVIEW_PX = 340; // preview width of a sideways sheet, in CSS pixels
 const A4 = { width: 595, height: 842 }; // shown in the help before a PDF is opened
+const THUMB_PX = 72; // width of a page in the page order list, in CSS pixels
+const LONG_PRESS_MS = 350; // touch: hold this long before a page starts to drag
+const DRAG_SLOP = 8; // px the pointer may wander before a press counts as a drag (or a scroll)
+const SCROLL_EDGE = 60; // px from the top/bottom of the viewer where dragging scrolls it
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -22,6 +26,9 @@ const els = {
   viewer: $("viewer"),
   welcome: $("welcome"),
   sheets: $("sheets"),
+  order: $("order"),
+  thumbs: $("thumbs"),
+  orderReset: $("order-reset"),
   paper: $("paper"),
   paperHelp: $("paper-help"),
   bindingHelp: $("binding-help"),
@@ -41,6 +48,10 @@ const state = {
   file: null,
   // each page's size as shown (scale 1, turned by its /Rotate): { width, height }
   pages: [],
+  // the booklet's pages in reading order, as indexes into `pages` (changed by dragging)
+  order: [],
+  // one small picture per page for the page order list: { index, el, canvas, rendered }
+  thumbs: [],
   // the sides of the sheets in printing order: { sheet, back, slots: [page index or null, …], el, canvas, rendered }
   sides: [],
   busy: false,
@@ -76,6 +87,12 @@ function restoreSettings() {
 }
 
 /* ---------- the order of the pages ---------- */
+
+// The sides of the sheets for the current page order, with indexes into `pages`.
+function bookletSides(settings) {
+  return planBooklet(state.order.length, settings).sides
+    .map((slots) => slots.map((p) => (p === null ? null : state.order[p])));
+}
 
 // Saddle stitching: every sheet holds 4 pages, 2 on each side, and the sheets are stacked and
 // folded in the middle. The outer sheet carries the first 2 and the last 2 pages, the next one
@@ -187,6 +204,8 @@ async function openFiles(list) {
   state.file?.pdf.destroy();
   state.file = { name: file.name || "document.pdf", bytes, pdf };
   state.pages = pages;
+  state.order = pages.map((_, i) => i);
+  buildThumbs();
   document.title = `${state.file.name} - 冊子印刷`;
   els.fileName.textContent = `${state.file.name}（${pages.length}ページ）`;
   els.welcome.hidden = true;
@@ -209,8 +228,8 @@ function rebuildPreview(settings) {
   els.sheets.replaceChildren();
   state.sides = [];
   if (!state.file) return;
-  const layout = sheetLayout(state.pages[0], settings.paper);
-  const { sides } = planBooklet(state.pages.length, settings);
+  const layout = sheetLayout(state.pages[state.order[0]], settings.paper);
+  const sides = bookletSides(settings);
   const cssW = layout.width > layout.height ? PREVIEW_PX : PREVIEW_PX * 0.7;
   const cssH = (cssW * layout.height) / layout.width;
   sides.forEach((slots, i) => {
@@ -297,13 +316,239 @@ async function renderSide(side) {
   out.width = out.height = 0;
 }
 
+/* ---------- the page order list ---------- */
+
+const thumbPreviews = createLazyRenderer({
+  root: els.viewer,
+  render: renderThumb,
+  release: (thumb) => (thumb.canvas.width = thumb.canvas.height = 0),
+});
+
+function buildThumbs() {
+  thumbPreviews.clear();
+  els.thumbs.replaceChildren();
+  state.thumbs = state.pages.map((size, index) => {
+    const el = document.createElement("li");
+    el.className = "thumb";
+    el.tabIndex = 0;
+    el.title = "ドラッグして並べかえ（Alt＋←→ でも動かせます）";
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 0;
+    canvas.style.width = `${THUMB_PX}px`;
+    canvas.style.height = `${(THUMB_PX * size.height) / size.width}px`;
+    const num = document.createElement("span");
+    num.className = "num";
+    el.append(canvas, num);
+    const thumb = { index, el, canvas, num, rendered: false };
+    el.addEventListener("pointerdown", (e) => pressThumb(e, thumb));
+    el.addEventListener("contextmenu", (e) => {
+      if (press?.touch || drag) e.preventDefault(); // long press on a touch screen
+    });
+    el.addEventListener("keydown", (e) => {
+      if (!e.altKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+      e.preventDefault();
+      const at = state.order.indexOf(index) + (e.key === "ArrowLeft" ? -1 : 1);
+      if (at < 0 || at >= state.order.length) return;
+      const next = state.order.filter((i) => i !== index);
+      next.splice(at, 0, index);
+      setOrder(next);
+      el.focus();
+    });
+    thumbPreviews.add(thumb);
+    return thumb;
+  });
+  showOrder();
+}
+
+async function renderThumb(thumb) {
+  thumb.rendered = true;
+  const file = state.file;
+  const page = await file.pdf.getPage(thumb.index + 1);
+  const viewport = page.getViewport({ scale: (THUMB_PX * (window.devicePixelRatio || 1)) / state.pages[thumb.index].width });
+  const pic = document.createElement("canvas");
+  pic.width = Math.ceil(viewport.width);
+  pic.height = Math.ceil(viewport.height);
+  try {
+    await page.render({ canvasContext: pic.getContext("2d"), viewport }).promise;
+  } catch (err) {
+    console.error(err);
+  }
+  if (state.file !== file || !thumb.rendered) return;
+  thumb.canvas.width = pic.width;
+  thumb.canvas.height = pic.height;
+  const ctx = thumb.canvas.getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, pic.width, pic.height);
+  ctx.drawImage(pic, 0, 0);
+  pic.width = pic.height = 0;
+}
+
+// Puts the pictures in the current order. Each shows its place in the booklet, and the
+// original page number when that differs.
+function showOrder() {
+  els.order.hidden = !state.file;
+  state.order.forEach((index, at) => {
+    const thumb = state.thumbs[index];
+    els.thumbs.append(thumb.el);
+    thumb.num.textContent = index === at ? `${at + 1}` : `${at + 1}（元の${index + 1}）`;
+  });
+  els.orderReset.disabled = state.order.every((index, at) => index === at);
+}
+
+function setOrder(next) {
+  if (next.every((index, at) => index === state.order[at])) return;
+  state.order = next;
+  showOrder();
+  update();
+}
+
+/* ---------- dragging pages (mouse, touch and pen) ---------- */
+
+let press = null; // { thumb, pointerId, x, y, touch, timer } while a button/finger is down on a page
+let drag = null; // { thumb, ghost, target, after, x, y, raf } once the press has become a drag
+
+function pressThumb(e, thumb) {
+  if (!e.isPrimary || e.button !== 0 || state.busy) return;
+  const touch = e.pointerType !== "mouse";
+  press = { thumb, pointerId: e.pointerId, x: e.clientX, y: e.clientY, touch, timer: 0 };
+  // On a touch screen a quick swipe scrolls; holding still first picks the page up.
+  if (touch) press.timer = setTimeout(() => startDrag(press.x, press.y), LONG_PRESS_MS);
+}
+
+function endPress() {
+  if (press) clearTimeout(press.timer);
+  press = null;
+}
+
+window.addEventListener("pointermove", (e) => {
+  if (!press || e.pointerId !== press.pointerId) return;
+  if (!drag) {
+    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < DRAG_SLOP) return;
+    if (press.touch) return endPress(); // moved before the long press: it's a scroll
+    startDrag(e.clientX, e.clientY);
+  }
+  moveDrag(e.clientX, e.clientY);
+});
+window.addEventListener("pointerup", (e) => {
+  if (!press || e.pointerId !== press.pointerId) return;
+  if (drag) finishDrag();
+  endPress();
+});
+window.addEventListener("pointercancel", (e) => {
+  if (!press || e.pointerId !== press.pointerId) return;
+  cancelDrag();
+  endPress();
+});
+window.addEventListener("keydown", (e) => {
+  if (drag && e.key === "Escape") {
+    cancelDrag();
+    endPress();
+  }
+});
+// Keep the viewer from scrolling under a finger that is dragging a page.
+els.viewer.addEventListener("touchmove", (e) => {
+  if (drag) e.preventDefault();
+}, { passive: false });
+
+function startDrag(x, y) {
+  clearTimeout(press.timer);
+  const { thumb } = press;
+  const ghost = document.createElement("div");
+  ghost.className = "drag-ghost";
+  if (thumb.canvas.width) {
+    const copy = document.createElement("canvas");
+    copy.width = thumb.canvas.width;
+    copy.height = thumb.canvas.height;
+    copy.style.width = thumb.canvas.style.width;
+    copy.style.height = thumb.canvas.style.height;
+    copy.getContext("2d").drawImage(thumb.canvas, 0, 0);
+    ghost.append(copy);
+  }
+  document.body.append(ghost);
+  thumb.el.classList.add("dragging");
+  document.body.classList.add("is-dragging");
+  drag = { thumb, ghost, target: null, after: false, x, y, raf: 0 };
+  if (press.touch) navigator.vibrate?.(15);
+  moveDrag(x, y);
+  drag.raf = requestAnimationFrame(autoScroll);
+}
+
+function moveDrag(x, y) {
+  drag.x = x;
+  drag.y = y;
+  drag.ghost.style.transform = `translate(${x}px, ${y}px)`;
+  const hit = dropTarget(x, y);
+  clearDropMarks();
+  drag.target = hit?.thumb ?? null;
+  drag.after = hit?.after ?? false;
+  if (hit) hit.thumb.el.classList.add(hit.after ? "drop-after" : "drop-before");
+}
+
+// The page nearest the pointer, preferring the row it is on, and which side of it to drop on.
+function dropTarget(x, y) {
+  let best = null;
+  let bestDist = Infinity;
+  for (const thumb of state.thumbs) {
+    const r = thumb.el.getBoundingClientRect();
+    const dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0;
+    const dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+    const dist = dy * 4 + dx;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = { thumb, after: x > r.left + r.width / 2 };
+    }
+  }
+  return best;
+}
+
+function clearDropMarks() {
+  for (const el of els.thumbs.querySelectorAll(".drop-before, .drop-after")) el.classList.remove("drop-before", "drop-after");
+}
+
+function autoScroll() {
+  if (!drag) return;
+  const r = els.viewer.getBoundingClientRect();
+  let dy = 0;
+  if (drag.y < r.top + SCROLL_EDGE) dy = -(r.top + SCROLL_EDGE - drag.y);
+  else if (drag.y > r.bottom - SCROLL_EDGE) dy = drag.y - (r.bottom - SCROLL_EDGE);
+  if (dy) {
+    els.viewer.scrollTop += Math.max(-20, Math.min(20, dy / 3));
+    moveDrag(drag.x, drag.y);
+  }
+  drag.raf = requestAnimationFrame(autoScroll);
+}
+
+function cancelDrag() {
+  if (!drag) return;
+  cancelAnimationFrame(drag.raf);
+  drag.ghost.remove();
+  drag.thumb.el.classList.remove("dragging");
+  document.body.classList.remove("is-dragging");
+  clearDropMarks();
+  drag = null;
+}
+
+function finishDrag() {
+  const { thumb, target, after } = drag;
+  cancelDrag();
+  if (target) movePage(thumb.index, target.index, after);
+}
+
+// Moves a page to just before or after another one.
+function movePage(index, target, after) {
+  if (index === target) return;
+  const next = state.order.filter((i) => i !== index);
+  next.splice(next.indexOf(target) + (after ? 1 : 0), 0, index);
+  setOrder(next);
+}
+
 /* ---------- controls ---------- */
 
 function syncControls(settings = readSettings()) {
   const ready = !!state.file && !state.busy;
   els.saveBtn.disabled = !ready;
   els.printBtn.disabled = !ready;
-  const first = state.pages[0] ?? A4;
+  const first = state.pages[state.order[0]] ?? A4;
   const layout = sheetLayout(first, settings.paper);
   for (const el of bindingInputs) el.disabled = layout.stacked;
   els.spineOpts.classList.toggle("off", !settings.spine.on);
@@ -317,7 +562,7 @@ function syncControls(settings = readSettings()) {
     : `${pages}を縮小して、${sheet}の紙に2ページずつ入れます（${book}の冊子になります）。`;
   els.summary.hidden = !state.file;
   if (!state.file) return;
-  const { total, blanks } = planBooklet(state.pages.length, settings);
+  const { total, blanks } = planBooklet(state.order.length, settings);
   els.summaryText.textContent = `${state.pages.length}ページ → ${sheet}の紙${total / 4}枚（両面）。`
     + (blanks ? `ページ数を4の倍数にするため、白紙を${blanks}ページ足しました。` : "");
 }
@@ -351,9 +596,9 @@ async function buildPdf(settings) {
     const { width, height } = page.getSize();
     return { angle, width: angle % 180 ? height : width, height: angle % 180 ? width : height };
   });
-  const layout = sheetLayout(shown[0], settings.paper);
+  const layout = sheetLayout(shown[state.order[0]], settings.paper);
   const band = spineBand(layout, settings.spine);
-  for (const [i, slots] of planBooklet(pages.length, settings).sides.entries()) {
+  for (const [i, slots] of bookletSides(settings).entries()) {
     const sheet = out.addPage([layout.width, layout.height]);
     slots.forEach((index, slot) => {
       if (index === null || !embedded[index]) return;
@@ -432,6 +677,7 @@ els.fileInput.addEventListener("change", () => {
 });
 els.saveBtn.addEventListener("click", save);
 els.printBtn.addEventListener("click", openForPrint);
+els.orderReset.addEventListener("click", () => setOrder(state.pages.map((_, i) => i)));
 addNextTool({ saveBtn: els.saveBtn, save, kind: "pdf" });
 for (const el of [...bindingInputs, els.paper, els.backCover, els.spineOn, els.spinePos, els.spineColor, els.spineWidth]) el.addEventListener("change", update);
 // Touching a setting of the spine line switches it on.
@@ -457,4 +703,4 @@ registerOffline([
 ]);
 
 // Hook for automated tests.
-window.__pdfBooklet = { state, planBooklet, spineBand, buildPdf, save };
+window.__pdfBooklet = { state, planBooklet, spineBand, movePage, buildPdf, save };

@@ -143,6 +143,54 @@ kbd {
   box-shadow: 0 1px 3px rgba(0,0,0,.1);
 }
 
+/* The page order list: small pages that can be dragged into another order. */
+.order { max-width: 700px; margin: 0 auto 28px; }
+.order-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 10px; }
+.order-head .help { margin: 0; }
+.order-head .btn { margin-left: auto; }
+.btn.small { min-height: 30px; padding: 0 12px; font-size: 13px; }
+.thumbs { display: flex; flex-wrap: wrap; gap: 14px 18px; margin: 0; padding: 0; list-style: none; }
+.thumb {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  border-radius: 6px;
+}
+.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.thumb canvas { display: block; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.thumb .num { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.thumb.dragging { opacity: .35; }
+.thumb.drop-before::before, .thumb.drop-after::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 18px;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.thumb.drop-before::before { left: -11px; }
+.thumb.drop-after::after { right: -11px; }
+body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
+.drag-ghost {
+  position: fixed;
+  left: 0; top: 0;
+  margin: -20px 0 0 -20px;
+  padding: 4px;
+  background: var(--surface);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25);
+  pointer-events: none;
+  z-index: 100;
+}
+.drag-ghost canvas { display: block; }
+
 /* Front and back of each sheet next to each other. */
 .sheets {
   display: grid;
