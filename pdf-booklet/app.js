@@ -35,7 +35,12 @@ const els = {
   backCover: $("back-cover"),
   spineOn: $("spine-on"),
   spineOpts: $("spine-opts"),
+  spineMode: $("spine-mode"),
   spinePos: $("spine-pos"),
+  spinePosRow: $("spine-pos-row"),
+  spineSubject: $("spine-subject"),
+  spineGrade: $("spine-grade"),
+  spinePairRows: [...document.querySelectorAll(".spine-pair")],
   spineColor: $("spine-color"),
   spineWidth: $("spine-width"),
   summary: $("summary"),
@@ -67,7 +72,10 @@ function readSettings() {
     backCover: els.backCover.checked,
     spine: {
       on: els.spineOn.checked,
+      mode: els.spineMode.value,
       pos: els.spinePos.value,
+      subject: Number(els.spineSubject.value),
+      grade: Number(els.spineGrade.value),
       color: els.spineColor.value,
       width: Number(els.spineWidth.value),
     },
@@ -81,7 +89,9 @@ function restoreSettings() {
   els.backCover.checked = !!saved.backCover;
   const spine = saved.spine ?? {};
   els.spineOn.checked = !!spine.on;
-  for (const [el, value] of [[els.spinePos, spine.pos], [els.spineColor, spine.color], [els.spineWidth, String(spine.width)]]) {
+  const fields = [[els.spineMode, spine.mode], [els.spinePos, spine.pos], [els.spineSubject, String(spine.subject)],
+    [els.spineGrade, String(spine.grade)], [els.spineColor, spine.color], [els.spineWidth, String(spine.width)]];
+  for (const [el, value] of fields) {
     if ([...el.options].some((o) => o.value === value)) el.value = value;
   }
 }
@@ -147,26 +157,41 @@ function fit(cell, width, height) {
   return { k, x: cell.x + (cell.w - w) / 2, y: cell.y + (cell.h - h) / 2, w, h };
 }
 
-// The line on the spine, like on entrance exam booklets: a band printed across the fold of the
-// outer sheet's front (the side with the covers), so once folded it wraps round the spine and
-// shows on the edge of a stack of booklets. A different color or position for each kind of
-// booklet (subject, version A/B, …) lets them be told apart and sorted without opening them;
-// the 5 positions, like the steps of collating marks, also work on a black-and-white printer.
-// Returns the band in PDF points ({ x, y, w, h }), or null when there is none.
-function spineBand(layout, spine) {
-  if (!spine?.on) return null;
+// The line on the spine, like on entrance exam booklets: bands printed across the fold of the
+// outer sheet's front (the side with the covers), so once folded they wrap round the spine and
+// show on the edge of a stack of booklets. A different color or position for each kind of
+// booklet lets them be told apart and sorted without opening them; positions, like the steps
+// of collating marks, also work on a black-and-white printer.
+//   "single": one band in one of 5 places, or the whole length of the spine
+//   "pair":   two groups of places, 9 for the subject in the upper part of the spine and 3 for
+//             the grade in the lower part, so 27 kinds of booklet each get their own pair
+// Returns the bands in PDF points ([{ x, y, w, h }, …]); none when the line is off.
+const SPINE_GROUPS = {
+  subject: { from: 0.04, to: 0.58, slots: 9, length: 0.75 },
+  grade: { from: 0.66, to: 0.96, slots: 3, length: 0.7 },
+};
+
+function spineBands(layout, spine) {
+  if (!spine?.on) return [];
   const along = layout.stacked ? layout.width : layout.height; // the length of the fold
-  let from = 0;
-  let length = along;
-  if (spine.pos !== "full") {
-    // Slot 0 is at the top of the spine (the left end for a booklet bound at the top).
-    length = along / 8;
-    from = (along * (Number(spine.pos) + 1)) / 6 - length / 2;
+  // Places are measured from the top of the spine (the left end for a booklet bound at the top).
+  const spans = [];
+  if (spine.mode === "pair") {
+    for (const [group, slot] of [[SPINE_GROUPS.subject, spine.subject], [SPINE_GROUPS.grade, spine.grade]]) {
+      const step = ((group.to - group.from) * along) / group.slots;
+      const length = step * group.length;
+      spans.push([group.from * along + step * slot + (step - length) / 2, length]);
+    }
+  } else if (spine.pos === "full") {
+    spans.push([0, along]);
+  } else {
+    const length = along / 8;
+    spans.push([(along * (Number(spine.pos) + 1)) / 6 - length / 2, length]);
   }
   const width = spine.width;
-  return layout.stacked
+  return spans.map(([from, length]) => (layout.stacked
     ? { x: from, y: layout.height / 2 - width / 2, w: length, h: width }
-    : { x: layout.width / 2 - width / 2, y: layout.height - from - length, w: width, h: length };
+    : { x: layout.width / 2 - width / 2, y: layout.height - from - length, w: width, h: length }));
 }
 
 const PAPER_NAMES = [["A3", 842, 1191], ["A4", 595, 842], ["A5", 420, 595], ["B4", 729, 1032], ["B5", 516, 729], ["レター", 612, 792]];
@@ -247,8 +272,12 @@ function rebuildPreview(settings) {
     label.append(nums);
     el.append(canvas, label);
     els.sheets.append(el);
-    const band = i === 0 ? spineBand(layout, settings.spine) : null;
-    const side = { sheet, back: i % 2 === 1, slots, layout, band, bandColor: settings.spine.color, el, canvas, cssW, rendered: false };
+    const bands = i === 0 ? spineBands(layout, settings.spine) : [];
+    // With two lines, the preview also outlines every place a line can go, as a key.
+    const guides = i === 0 && settings.spine.on && settings.spine.mode === "pair"
+      ? Array.from({ length: 9 }, (_, n) => spineBands(layout, { ...settings.spine, subject: n, grade: n % 3 })).flat()
+      : [];
+    const side = { sheet, back: i % 2 === 1, slots, layout, bands, guides, bandColor: settings.spine.color, el, canvas, cssW, rendered: false };
     state.sides.push(side);
     previews.add(side);
   });
@@ -305,9 +334,12 @@ async function renderSide(side) {
     ctx.lineTo(out.width / 2, out.height);
   }
   ctx.stroke();
-  const band = side.band;
-  if (band) {
-    ctx.fillStyle = side.bandColor;
+  ctx.setLineDash([]);
+  ctx.strokeStyle = "#c5cad3";
+  ctx.lineWidth = 1;
+  for (const g of side.guides) ctx.strokeRect(g.x * scale + 0.5, (layout.height - g.y - g.h) * scale + 0.5, g.w * scale - 1, g.h * scale - 1);
+  ctx.fillStyle = side.bandColor;
+  for (const band of side.bands) {
     ctx.fillRect(band.x * scale, (layout.height - band.y - band.h) * scale, band.w * scale, band.h * scale);
   }
   canvas.width = out.width;
@@ -552,6 +584,9 @@ function syncControls(settings = readSettings()) {
   const layout = sheetLayout(first, settings.paper);
   for (const el of bindingInputs) el.disabled = layout.stacked;
   els.spineOpts.classList.toggle("off", !settings.spine.on);
+  const pair = settings.spine.mode === "pair";
+  els.spinePosRow.hidden = pair;
+  for (const el of els.spinePairRows) el.hidden = !pair;
   els.bindingHelp.hidden = !layout.stacked;
   const half = layout.cells[0];
   const sheet = paperName(layout.width, layout.height);
@@ -597,7 +632,7 @@ async function buildPdf(settings) {
     return { angle, width: angle % 180 ? height : width, height: angle % 180 ? width : height };
   });
   const layout = sheetLayout(shown[state.order[0]], settings.paper);
-  const band = spineBand(layout, settings.spine);
+  const bands = spineBands(layout, settings.spine);
   for (const [i, slots] of bookletSides(settings).entries()) {
     const sheet = out.addPage([layout.width, layout.height]);
     slots.forEach((index, slot) => {
@@ -610,7 +645,9 @@ async function buildPdf(settings) {
       sheet.drawPage(embedded[index], { x: at[0], y: at[1], xScale: k, yScale: k, rotate: degrees(-angle) });
     });
     // Drawn over the pages, so it shows even where a cover is printed right up to the fold.
-    if (i === 0 && band) sheet.drawRectangle({ x: band.x, y: band.y, width: band.w, height: band.h, color: hexToRgb(settings.spine.color, rgb) });
+    if (i === 0) {
+      for (const band of bands) sheet.drawRectangle({ x: band.x, y: band.y, width: band.w, height: band.h, color: hexToRgb(settings.spine.color, rgb) });
+    }
   }
   return { bytes: await out.save(), rebuilt };
 }
@@ -679,7 +716,7 @@ els.saveBtn.addEventListener("click", save);
 els.printBtn.addEventListener("click", openForPrint);
 els.orderReset.addEventListener("click", () => setOrder(state.pages.map((_, i) => i)));
 addNextTool({ saveBtn: els.saveBtn, save, kind: "pdf" });
-for (const el of [...bindingInputs, els.paper, els.backCover, els.spineOn, els.spinePos, els.spineColor, els.spineWidth]) el.addEventListener("change", update);
+for (const el of [...bindingInputs, els.paper, els.backCover, els.spineOn, els.spineMode, els.spinePos, els.spineSubject, els.spineGrade, els.spineColor, els.spineWidth]) el.addEventListener("change", update);
 // Touching a setting of the spine line switches it on.
 els.spineOpts.addEventListener("change", () => (els.spineOn.checked = true), true);
 
@@ -703,4 +740,4 @@ registerOffline([
 ]);
 
 // Hook for automated tests.
-window.__pdfBooklet = { state, planBooklet, spineBand, movePage, buildPdf, save };
+window.__pdfBooklet = { state, planBooklet, spineBands, movePage, buildPdf, save };

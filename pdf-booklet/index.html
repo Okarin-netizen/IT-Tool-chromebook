@@ -60,7 +60,34 @@
         <label class="switch"><input id="spine-on" type="checkbox"> <b>背のライン</b></label>
         <div id="spine-opts" class="opts">
           <p class="help">入試問題の冊子のように、表紙の折り目に線を入れます。折ると背に出るので、積み重ねても冊子の種類（科目やA・B）が見分けられます。種類ごとに色か位置を変えてください。</p>
-          <label class="row">位置
+          <label class="row">本数
+            <select id="spine-mode">
+              <option value="single">1本</option>
+              <option value="pair">2本（教科と学年）</option>
+            </select>
+          </label>
+          <label class="row spine-pair" hidden>教科
+            <select id="spine-subject">
+              <option value="0">国語（上から1段目）</option>
+              <option value="1">社会（上から2段目）</option>
+              <option value="2">数学（上から3段目）</option>
+              <option value="3">理科（上から4段目）</option>
+              <option value="4">音楽（上から5段目）</option>
+              <option value="5">美術（上から6段目）</option>
+              <option value="6">保健体育（上から7段目）</option>
+              <option value="7">技術・家庭（上から8段目）</option>
+              <option value="8">英語（上から9段目）</option>
+            </select>
+          </label>
+          <label class="row spine-pair" hidden>学年
+            <select id="spine-grade">
+              <option value="0">1年（下の上段）</option>
+              <option value="1">2年（下の中段）</option>
+              <option value="2">3年（下の下段）</option>
+            </select>
+          </label>
+          <p class="help spine-pair" hidden>背の上半分を9段に分けて教科を、下半分を3段に分けて学年を表します（9教科×3学年で27通り）。右の1枚目の表に、線が入る場所を薄い枠で示します。白黒でも見分けられます。</p>
+          <label id="spine-pos-row" class="row">位置
             <select id="spine-pos">
               <option value="0">1（いちばん上）</option>
               <option value="1">2</option>
@@ -87,7 +114,7 @@
               <option value="34">太い（12 mm）</option>
             </select>
           </label>
-          <p class="help">白黒のプリンターでは、位置で見分けます（1〜5の5種類）。</p>
+          <p id="spine-bw-help" class="help">白黒のプリンターでは、位置で見分けます。</p>
         </div>
       </section>
 
