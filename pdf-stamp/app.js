@@ -11,6 +11,7 @@ import { loadPdfLib, loadFontkit } from "../shared/js/pdf-lib.js";
 import { hexToRgb } from "../shared/js/color.js";
 import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
 import { dateText } from "../shared/js/dates.js";
+import { parseRange } from "../shared/js/range.js";
 
 const FONT_FAMILY = "PdfStampJP";
 const PREVIEW_PX = 300; // preview page width, in CSS pixels
@@ -36,7 +37,9 @@ const els = {
   numColor: $("num-color"),
   numMargin: $("num-margin"),
   numStart: $("num-start"),
-  numSkipFirst: $("num-skip-first"),
+  numRange: $("num-range"),
+  numRangeHelp: $("num-range-help"),
+  numOutsideHelp: $("num-outside-help"),
   wmOn: $("wm-on"),
   wmOpts: $("wm-opts"),
   wmText: $("wm-text"),
@@ -73,6 +76,8 @@ const els = {
   hfSkipFirst: $("hf-skip-first"),
 };
 
+const RANGE_HELP = els.numRangeHelp.textContent;
+
 const state = {
   // { name, bytes (never handed to pdf.js, which detaches buffers), pdf (pdf.js), views }
   files: [],
@@ -97,7 +102,7 @@ function readSettings() {
       color: els.numColor.value,
       margin: Number(els.numMargin.value),
       start: Math.trunc(Number(els.numStart.value)) || 0,
-      skipFirst: els.numSkipFirst.checked,
+      range: els.numRange.value.trim(),
     },
     hf: {
       on: els.hfOn.checked && [els.hfTl, els.hfTc, els.hfTr, els.hfBl, els.hfBc, els.hfBr].some((el) => el.value.trim()),
@@ -127,7 +132,7 @@ function readSettings() {
 
 // The form controls are the source of truth; this only remembers them between visits.
 const SAVED_FIELDS = ["numOn", "numFormat", "numCustom", "numSize", "numColor", "numMargin", "numStart",
-  "numSkipFirst", "wmOn", "wmText", "wmAngle", "wmLayout", "wmSize", "wmColor", "wmOpacity", "wmSkipFirst",
+  "numRange", "wmOn", "wmText", "wmAngle", "wmLayout", "wmSize", "wmColor", "wmOpacity", "wmSkipFirst",
   "numScope", "hfOn", "hfTl", "hfTc", "hfTr", "hfBl", "hfBc", "hfBr", "hfSize", "hfColor", "hfMargin", "hfSkipFirst",
   "wmType", "wmImageSize"];
 
@@ -147,6 +152,8 @@ function restoreSettings() {
       els[key].value = data[key];
     }
   }
+  // Before page ranges, numbers could only leave out the cover: "1ページ目には入れない".
+  if (!("numRange" in data) && data.numSkipFirst) els.numRange.value = "2-";
   if (document.querySelector(`.pos[data-pos="${data.numPos}"]`)) state.numPos = data.numPos;
 }
 
@@ -171,8 +178,15 @@ function syncControls() {
     btn.classList.toggle("selected", on);
     btn.setAttribute("aria-checked", on);
   }
+  els.numOutsideHelp.hidden = !state.numPos.endsWith("-outside");
   const s = readSettings();
-  els.saveBtn.disabled = !state.files.length || state.busy || (!s.num.on && !s.hf.on && !s.wm.on);
+  const badRange = s.num.on && parseRange(s.num.range, 1) === null;
+  els.numRange.setAttribute("aria-invalid", badRange);
+  els.numRangeHelp.classList.toggle("error", badRange);
+  els.numRangeHelp.textContent = badRange
+    ? "「2-」や「1-3, 5」のように、ページの番号とハイフン・カンマで入れてください"
+    : RANGE_HELP;
+  els.saveBtn.disabled = !state.files.length || state.busy || badRange || (!s.num.on && !s.hf.on && !s.wm.on);
 }
 
 /* ---------- layout ---------- */
@@ -194,7 +208,7 @@ function layoutPage(info, width, height, settings, measure) {
   const { num, hf, wm } = settings;
   const shows = (part) => part.on && !(part.skipFirst && info.index === 0);
   return [
-    ...(shows(num) ? layoutNumber(page, num) : []),
+    ...(num.on ? layoutNumber(page, num) : []),
     ...(shows(hf) ? layoutHeaderFooter(page, hf) : []),
     ...(shows(wm) ? layoutWatermark(page, wm) : []),
   ];
@@ -212,14 +226,27 @@ function alignY(align, size, height, margin) {
   return align === "top" ? margin + size * ASCENT : height - margin;
 }
 
+// The pages that get a number, as 0-based positions among `count` pages. An empty range is
+// every page; a range that does not read as one is none (saving waits until it is fixed).
+function numberedPages(num, count) {
+  if (!num.range) return null;
+  return parseRange(num.range, count) ?? [];
+}
+
+// Only pages in the range are numbered, and they are counted among themselves: with "2-" the
+// second page gets the first number. "Outside" is the right edge on odd pages and the left on
+// even ones, so the numbers stay on the outer edge of a double-sided print.
 function layoutNumber({ index, count, width, height, measure }, num) {
-  const first = num.skipFirst ? 1 : 0;
-  const n = num.start + index - first;
-  const total = num.start + (count - first) - 1;
+  const picked = numberedPages(num, count);
+  const rank = picked ? picked.indexOf(index) : index;
+  if (rank < 0) return [];
+  const n = num.start + rank;
+  const total = num.start + (picked ? picked.length : count) - 1;
   const text = num.format.replaceAll("{n}", n).replaceAll("{total}", total);
   if (!text.trim()) return [];
   const w = measure(text, num.size);
-  const [v, h] = num.pos.split("-");
+  const [v, where] = num.pos.split("-");
+  const h = where === "outside" ? (index % 2 ? "left" : "right") : where;
   const x = alignX(h, w, width, num.margin);
   const y = alignY(v, num.size, height, num.margin);
   return [{ text, x, y, angle: 0, size: num.size, color: num.color, opacity: 1 }];
@@ -641,3 +668,6 @@ registerOffline([
   "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
   "../shared/vendor/noto-sans-jp/NotoSansJP-Regular.ttf",
 ]);
+
+// Hook for automated tests.
+window.__pdfStamp = { state, readSettings, layoutPage };
