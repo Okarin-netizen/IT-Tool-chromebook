@@ -11,6 +11,7 @@ const $ = (id) => document.getElementById(id);
 
 let state = load();
 let filter = "open";
+let editing = null; // id of the task being changed, if any
 
 // ---- 保存 ----
 
@@ -219,6 +220,8 @@ function urgencyOf(t) {
 }
 
 function taskItem(t) {
+  // A form already open keeps what has been typed into it when the list is drawn again.
+  if (t.id === editing) return $("task-list").querySelector(".task.editing") ?? taskEditor(t);
   const urgency = urgencyOf(t);
   const li = document.createElement("li");
   li.className = "task";
@@ -238,14 +241,84 @@ function taskItem(t) {
   body.className = "task-body";
   body.append(title, taskMeta(t, urgency));
 
-  const del = document.createElement("button");
-  del.className = "task-del";
-  del.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-close"/></svg>';
-  del.title = "削除";
-  del.setAttribute("aria-label", "削除");
-
-  li.append(cb, body, del);
+  const edit = iconButton("task-edit", "i-edit", "直す");
+  const del = iconButton("task-del", "i-close", "削除");
+  li.append(cb, body, edit, del);
   return li;
+}
+
+function iconButton(className, icon, label) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = className;
+  btn.innerHTML = `<svg class="i" aria-hidden="true"><use href="#${icon}"/></svg>`;
+  btn.title = label;
+  btn.setAttribute("aria-label", label);
+  return btn;
+}
+
+// The task as a small form for changing its title, subject and deadline.
+// Enter keeps the change and Esc throws it away.
+function taskEditor(t) {
+  const form = document.createElement("form");
+  form.className = "task-edit-form";
+  form.autocomplete = "off";
+  const field = (className, value, label, extra = {}) => {
+    const input = document.createElement("input");
+    input.className = `input ${className}`;
+    input.value = value;
+    input.setAttribute("aria-label", label);
+    Object.assign(input, extra);
+    return input;
+  };
+  const title = field("grow edit-title", t.title, "課題の内容", { required: true });
+  const subject = field("subject edit-subject", t.subject, "科目");
+  subject.setAttribute("list", "subject-list");
+  const due = field("edit-due", t.due, "締め切り", { type: "date" });
+  const ok = document.createElement("button");
+  ok.className = "btn primary small";
+  ok.type = "submit";
+  ok.textContent = "決定";
+  const cancel = document.createElement("button");
+  cancel.className = "btn small";
+  cancel.type = "button";
+  cancel.textContent = "やめる";
+  form.append(title, subject, due, ok, cancel);
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const changed = { title: title.value.trim(), subject: subject.value.trim(), due: due.value };
+    if (!changed.title) return;
+    Object.assign(t, changed);
+    save();
+    stopEditing(t.id);
+    renderSubjects();
+  });
+  cancel.addEventListener("click", () => stopEditing(t.id));
+  form.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    stopEditing(t.id);
+  });
+
+  const li = document.createElement("li");
+  li.className = "task editing";
+  li.dataset.id = t.id;
+  li.append(form);
+  return li;
+}
+
+function startEditing(id) {
+  editing = id;
+  renderTasks();
+  $("task-list").querySelector(".edit-title")?.focus();
+}
+
+// Closes the form and puts the focus back on the task's "直す" button.
+function stopEditing(id) {
+  editing = null;
+  renderTasks();
+  $("task-list").querySelector(`.task[data-id="${id}"] .task-edit`)?.focus();
 }
 
 // The subject and the deadline under the task's title.
@@ -289,6 +362,12 @@ $("task-form").addEventListener("submit", (e) => {
   renderSubjects();
 });
 
+// Double-clicking a task's title or details also opens it for changing.
+$("task-list").addEventListener("dblclick", (e) => {
+  const task = e.target.closest(".task:not(.editing)");
+  if (task && e.target.closest(".task-body")) startEditing(task.dataset.id);
+});
+
 $("task-list").addEventListener("change", (e) => {
   if (e.target.type !== "checkbox") return;
   const t = state.tasks.find((x) => x.id === e.target.closest(".task").dataset.id);
@@ -299,6 +378,7 @@ $("task-list").addEventListener("change", (e) => {
 });
 
 $("task-list").addEventListener("click", (e) => {
+  if (e.target.closest(".task-edit")) startEditing(e.target.closest(".task").dataset.id);
   if (!e.target.closest(".task-del")) return;
   const id = e.target.closest(".task").dataset.id;
   const t = state.tasks.find((x) => x.id === id);

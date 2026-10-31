@@ -761,6 +761,31 @@ const TOOLS = {
       const [file] = await t.downloads(1);
       t.expectName(file, /^時間割と課題_\d{4}-\d{2}-\d{2}\.json$/);
       t.expect(JSON.parse(file.bytes.toString("utf8")).tasks[0].title === "読書感想文", "バックアップに課題が入っていない");
+      // "直す": Enter keeps the change, Esc throws it away, and what is saved keeps its shape.
+      await t.page.click(".task-edit");
+      await t.page.fill(".edit-title", "読書感想文（原稿用紙2枚）");
+      await t.page.fill(".edit-subject", "国語・図書");
+      await t.page.fill(".edit-due", "2030-05-20");
+      await t.page.press(".edit-title", "Enter");
+      await t.until(() => !document.querySelector(".task.editing"));
+      const saved = await t.page.evaluate(() => JSON.parse(localStorage.getItem("todo-tool-v1")).tasks[0]);
+      t.expect(saved.title === "読書感想文（原稿用紙2枚）" && saved.subject === "国語・図書" && saved.due === "2030-05-20",
+        `直した内容が保存されない: ${JSON.stringify(saved)}`);
+      t.expect(Object.keys(saved).sort().join() === "created,done,due,id,subject,title", `保存の形が変わった: ${Object.keys(saved)}`);
+      t.expect(await t.page.evaluate(() => document.activeElement.classList.contains("task-edit")), "直したあと「直す」ボタンに戻らない");
+      await t.page.dblclick(".task-title");
+      await t.page.fill(".edit-title", "消える変更");
+      await t.page.keyboard.press("Escape");
+      await t.until(() => !document.querySelector(".task.editing"));
+      t.expect(await t.page.textContent(".task-title") === "読書感想文（原稿用紙2枚）", "Esc で変更が取り消されない");
+      await t.page.click(".task-edit");
+      await t.page.fill(".edit-title", "");
+      await t.page.press(".edit-title", "Enter");
+      t.expect(await t.page.isVisible(".task.editing"), "題名を空にして決定できてしまう");
+      await t.shot("edit");
+      await t.page.click(".task-edit-form .btn:not(.primary)");
+      await t.until(() => !document.querySelector(".task.editing"));
+
       // The delete button is an icon: a click on the picture inside it still counts.
       t.page.once("dialog", (dialog) => dialog.accept());
       await t.page.click(".task-del svg");
