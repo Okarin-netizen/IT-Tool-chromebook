@@ -20,6 +20,8 @@
     <symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 9h11v11H9z"/><path d="M5 15H4V4h11v1"/></symbol>
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
     <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+    <symbol id="i-seats" viewBox="0 0 24 24"><path d="M4 4h16"/><rect x="4" y="8" width="4" height="4" rx="1"/><rect x="10" y="8" width="4" height="4" rx="1"/><rect x="16" y="8" width="4" height="4" rx="1"/><rect x="4" y="15" width="4" height="4" rx="1"/><rect x="10" y="15" width="4" height="4" rx="1"/><rect x="16" y="15" width="4" height="4" rx="1"/></symbol>
+    <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V4h10v5"/><path d="M7 17H5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"/><path d="M7 14h10v6H7z"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
   </svg>
   <header class="toolbar">
@@ -30,6 +32,7 @@
     <div class="tabs" role="tablist" aria-label="モード">
       <button class="tab" role="tab" data-mode="pick" aria-selected="true">ルーレット</button>
       <button class="tab" role="tab" data-mode="groups" aria-selected="false">班分け</button>
+      <button class="tab" role="tab" data-mode="seats" aria-selected="false">席替え</button>
     </div>
     <div class="group end">
       <button id="fullscreen-btn" class="btn icon" title="全画面表示（F）" aria-label="全画面表示"><svg class="i" aria-hidden="true"><use href="#i-fullscreen"/></svg></button>
@@ -46,6 +49,15 @@
       </div>
       <label for="names" class="roster-label">名前（1行に1人）<span id="count" class="count"></span></label>
       <textarea id="names" spellcheck="false" placeholder="青木&#10;井上&#10;上田&#10;…&#10;&#10;表計算ソフトの名簿の列をコピーして貼り付けられます"></textarea>
+      <details id="conditions" class="conditions">
+        <summary>席替え・班分けの条件</summary>
+        <label for="front-names" class="roster-label">前の席にしたい人（1行に1人）</label>
+        <textarea id="front-names" class="small-text" spellcheck="false" placeholder="目が悪い人など"></textarea>
+        <label for="apart-pairs" class="roster-label">離したい組み合わせ（1行に2人）</label>
+        <textarea id="apart-pairs" class="small-text" spellcheck="false" placeholder="青木 井上&#10;上田、江藤"></textarea>
+        <p class="note">離したい2人は、席替えでは前後左右の隣にせず、班分けでは同じ班にしません。</p>
+        <p id="condition-warn" class="note warn" hidden></p>
+      </details>
       <p class="note">名簿はこのブラウザの中だけに保存され、どこにも送信されません。</p>
     </aside>
 
@@ -77,8 +89,33 @@
         <button id="group-btn" class="btn primary"><svg class="i" aria-hidden="true"><use href="#i-shuffle"/></svg>班を作る</button>
         <button id="group-copy" class="btn" disabled title="班の一覧をコピーして、ドキュメントやClassroomに貼り付ける"><svg class="i" aria-hidden="true"><use href="#i-copy"/></svg>コピー</button>
       </div>
-      <p id="group-note" class="note">名簿の人をランダムに分けます。人数が割り切れないときは、1人多い班ができます。</p>
+      <p id="group-note" class="note">名簿の人をランダムに分けます。人数が割り切れないときは、1人多い班ができます。左の「条件」の離したい2人は、同じ班にしません。</p>
       <ol id="group-list" class="group-list"></ol>
+    </main>
+
+    <main id="seats" class="view" hidden>
+      <div class="seat-setup">
+        <label class="field">横に <input id="seat-cols" type="number" min="1" max="12" value="6" inputmode="numeric"> 席</label>
+        <label class="field">縦に <input id="seat-rows" type="number" min="1" max="12" value="6" inputmode="numeric"> 列</label>
+        <label class="field">前の席は前から <input id="seat-front" type="number" min="1" max="12" value="2" inputmode="numeric"> 列目まで</label>
+        <label class="field">
+          <select id="seat-view" aria-label="表示の向き">
+            <option value="students">生徒から見た向き</option>
+            <option value="teacher">教卓から見た向き</option>
+          </select>
+        </label>
+      </div>
+      <div class="seat-setup">
+        <button id="seat-btn" class="btn primary"><svg class="i" aria-hidden="true"><use href="#i-shuffle"/></svg>席を決める</button>
+        <button id="seat-unused" class="btn" aria-pressed="false" title="押してから席をクリックすると、使わない席になります（もう一度で戻ります）"><svg class="i" aria-hidden="true"><use href="#i-seats"/></svg>使わない席を選ぶ</button>
+        <button id="seat-print" class="btn" disabled><svg class="i" aria-hidden="true"><use href="#i-print"/></svg>印刷</button>
+      </div>
+      <p id="seat-note" class="note">席を2つ続けてクリックすると入れかえられます。</p>
+      <div id="seat-chart" class="seat-chart">
+        <h2 id="seat-title" class="seat-title"></h2>
+        <div class="desk">教卓</div>
+        <div id="seat-grid" class="seat-grid" role="grid" aria-label="座席表"></div>
+      </div>
     </main>
   </div>
 

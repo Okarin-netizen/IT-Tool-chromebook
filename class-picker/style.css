@@ -187,6 +187,72 @@ body {
 .group-card h3 span { color: var(--muted); font-size: 13px; font-weight: normal; margin-left: 6px; }
 .group-card ul { margin: 0; padding-left: 1.2em; font-size: 16px; line-height: 1.7; }
 
+/* ---------- conditions ---------- */
+
+.conditions { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+.conditions summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+.conditions[open] { display: flex; flex-direction: column; gap: 6px; padding-bottom: 10px; }
+.small-text {
+  min-height: 64px;
+  resize: vertical;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.note.warn { color: #b42318; }
+
+/* ---------- seats ---------- */
+
+.seat-setup { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 10px; }
+.seat-setup .field input[type="number"] { width: 60px; }
+#seat-note { margin: 4px 0 14px; }
+.seat-chart { display: flex; flex-direction: column; gap: 10px; max-width: 980px; }
+.seat-title { display: none; margin: 0; font-size: 18px; }
+.desk {
+  align-self: center;
+  padding: 4px 40px;
+  border: 2px solid var(--muted);
+  border-radius: 6px;
+  font-weight: 600;
+  color: var(--muted);
+}
+/* From the teacher's desk, the desk is nearest: at the bottom. */
+.teacher-view .desk { order: 2; }
+.seat-grid { display: grid; gap: 8px; }
+.seat {
+  min-height: 52px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.seat.front-row { background: var(--accent-soft); }
+.seat.unused { background: transparent; border-style: dashed; color: var(--muted); }
+.seat.picked { outline: 3px solid var(--accent); outline-offset: 1px; }
+.seat.problem { color: #b42318; border-color: #b42318; }
+.seat:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+:fullscreen .seat { min-height: 72px; font-size: 22px; }
+
+@media print {
+  .toolbar, .roster, .seat-setup, #seat-note, #status { display: none !important; }
+  body { background: #fff; display: block; height: auto; }
+  .layout, .view { display: block; padding: 0; overflow: visible; }
+  .seat-title { display: block; }
+  .seat { border-color: #555; background: #fff !important; color: #000 !important; }
+  .seat.unused { border-color: #bbb; }
+}
+
 /* Projected on a screen: bigger names. */
 :fullscreen .roster { display: none; }
 :fullscreen .group-card ul { font-size: 22px; }
