@@ -5,8 +5,9 @@ import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { History } from "../shared/js/history.js";
 import {
-  MARKER_FACTOR, SEAL_COLOR, TEXT_FONT, textWidth, drawStroke, drawStamp, hits, previewCanvas, renderInkImage, createInkEditor,
+  TEXT_FONT, textWidth, drawStroke, drawStamp, hits, renderInkImage, createInkEditor,
 } from "../shared/js/ink.js";
+import { createStamps, createMenus, syncToolbar, bindToolbar } from "../shared/js/markup.js";
 import { makeZip } from "../shared/js/zip.js";
 import { readZip } from "../shared/js/unzip.js";
 import { kvGet, kvSet, kvDelete } from "../shared/js/kv.js";
@@ -99,7 +100,7 @@ const STAMPS = [
   { id: "yoku", label: "よくできました", seal: true, shape: "rect", fit: 0.86, w: 104, h: 26, text: "よくできました" },
   { id: "saiteishutsu", label: "再提出", seal: true, shape: "rect", fit: 0.86, w: 66, h: 26, text: "再提出" },
 ];
-const stampDef = (id) => STAMPS.find((s) => s.id === id);
+const { stampDef, newStamp, renderChoices } = createStamps(STAMPS, state);
 
 const textFont = (h) => `${h * 0.85}px ${TEXT_FONT}`;
 const scoreFonts = (h) => [`bold ${h * 0.82}px ${TEXT_FONT}`, `bold ${h * 0.46}px ${TEXT_FONT}`];
@@ -146,16 +147,6 @@ function drawScore(ctx, item) {
   }
   ctx.stroke();
   ctx.restore();
-}
-
-function newStamp(id, page, cx, cy) {
-  const def = stampDef(id);
-  const { w, h } = def;
-  return {
-    type: "stamp", page, kind: id, text: def.text ?? "",
-    color: def.seal ? SEAL_COLOR : state.color,
-    x: cx - w / 2, y: cy - h / 2, w, h,
-  };
 }
 
 /* ---------- drawing items ---------- */
@@ -712,11 +703,7 @@ function setColor(color) {
 
 function updateUi() {
   const open = state.files.length > 0;
-  for (const btn of els.tools) btn.classList.toggle("selected", btn.dataset.tool === state.tool);
-  for (const sw of els.swatches) sw.classList.toggle("selected", sw.dataset.color === state.color);
-  els.undoBtn.disabled = !open || !history.canUndo;
-  els.redoBtn.disabled = !open || !history.canRedo;
-  els.deleteBtn.disabled = !state.selected;
+  syncToolbar(els, state, history, open);
   els.saveBtn.disabled = !open || saving;
   els.folderSaveBtn.disabled = !open || saving;
   scheduleAutosave();
@@ -724,39 +711,19 @@ function updateUi() {
 
 /* ---------- menus ---------- */
 
-function closeMenus() {
-  els.stampMenu.hidden = true;
-  els.scoreMenu.hidden = true;
-}
-
-function toggleMenu(menu) {
-  const show = menu.hidden;
-  closeMenus();
-  menu.hidden = !show;
-}
+const { close: closeMenus, toggle: toggleMenu } = createMenus(els.stampMenu, els.scoreMenu);
 
 function renderStampChoices() {
-  for (const [list, seal] of [[els.markList, false], [els.sealList, true]]) {
-    list.replaceChildren(...STAMPS.filter((s) => !!s.seal === seal).map((def) => {
-      const item = newStamp(def.id, 0, 0, 0);
-      item.x = item.y = 0;
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "stamp-choice";
-      btn.title = def.label;
-      btn.setAttribute("aria-label", def.label);
-      btn.classList.toggle("selected", state.stamp === def.id);
-      if (def.shape === "rect") btn.style.gridColumn = "span 2";
-      btn.append(previewCanvas((ctx) => drawStamp(ctx, item, def), item.w, item.h, def.shape === "rect" ? 110 : 46));
-      btn.addEventListener("click", () => {
-        state.stamp = def.id;
-        closeMenus();
-        renderStampChoices();
-        setTool("stamp");
-      });
-      return btn;
-    }));
-  }
+  renderChoices([[els.markList, false], [els.sealList, true]], {
+    wide: (def) => def.shape === "rect", // よくできました, 再提出
+    wideBox: 110,
+    onPick: (def) => {
+      state.stamp = def.id;
+      closeMenus();
+      renderStampChoices();
+      setTool("stamp");
+    },
+  });
 }
 
 /* ---------- saving ---------- */
@@ -934,14 +901,7 @@ els.scoreMax.addEventListener("keydown", (e) => {
   }
 });
 
-for (const sw of els.swatches) sw.addEventListener("click", () => setColor(sw.dataset.color));
-
-els.width.addEventListener("change", () => {
-  state.width = Number(els.width.value);
-  editor.changeSelected((item) => item.type === "stroke", (item) => {
-    item.width = item.tool === "marker" ? state.width * MARKER_FACTOR : state.width;
-  });
-});
+bindToolbar(els, state, editor, setColor);
 
 els.textSize.addEventListener("change", () => {
   state.textSize = Number(els.textSize.value);
@@ -951,9 +911,6 @@ els.textSize.addEventListener("change", () => {
   });
 });
 
-els.undoBtn.addEventListener("click", undo);
-els.redoBtn.addEventListener("click", redo);
-els.deleteBtn.addEventListener("click", editor.deleteSelected);
 els.zoomIn.addEventListener("click", () => state.files.length && setScale(clampScale(state.scale * 1.2)));
 els.zoomOut.addEventListener("click", () => state.files.length && setScale(clampScale(state.scale / 1.2)));
 els.prevBtn.addEventListener("click", () => stepFile(-1));
