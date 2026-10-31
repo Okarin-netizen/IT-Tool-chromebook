@@ -898,6 +898,43 @@ const TOOLS = {
       // Too long for any QR code: says so instead of failing silently.
       await t.page.fill("#text", "あ".repeat(3000));
       await t.until(() => document.querySelector("#info").classList.contains("error"));
+      // まとめて作る: one per line, a pasted spreadsheet row puts its first column under the code.
+      await t.page.click(".tab[data-pane='batch']");
+      t.expect(await t.page.isHidden("#make-actions"), "まとめて作るで1つ用の保存ボタンが出たまま");
+      const lines = ["https://example.com/1", "2組\thttps://example.com/2", "あ".repeat(3000)];
+      for (let i = 3; i <= 14; i++) lines.push(`https://example.com/${i}`);
+      await t.page.fill("#batch-text", lines.join("\n"));
+      await t.until(() => !document.querySelector("#batch-pdf").disabled);
+      t.expect(await t.page.textContent("#batch-info") === "14こ作りました（1こは長すぎて入りません）。", `まとめて作った数が違う: ${await t.page.textContent("#batch-info")}`);
+      t.expect(await t.page.evaluate(() => __qrMaker.batch[1].caption) === "2組", "2列を貼ったとき1列目が下の文字にならない");
+      await t.shot("batch");
+      await t.page.click("#batch-pdf");
+      const [pdf] = await t.downloads(1);
+      t.expectName(pdf, "QRコード_14こ.pdf");
+      await t.expectPdfPages(pdf, 2);
+      await t.page.click("#batch-zip");
+      const [zip] = await t.downloads(1);
+      t.expectName(zip, "QRコード_14こ.zip");
+      const zipped = fixtures.zipNames(zip.bytes);
+      t.expect(zipped.length === 14 && zipped[1] === "002_2組.png", `ZIPの中身が違う: ${zipped.slice(0, 3)}`);
+      // 読み取る: without BarcodeDetector it only says so; with one, an image is read.
+      await t.page.click(".tab[data-pane='read']");
+      if (!(await t.page.evaluate(() => "BarcodeDetector" in window))) {
+        t.expect(await t.page.isVisible("#read-unsupported"), "読み取れない端末で知らせが出ない");
+        t.expect(await t.page.isHidden("#camera-btn"), "読み取れない端末でカメラのボタンが出る");
+      }
+      await t.page.addInitScript(() => {
+        window.BarcodeDetector = class {
+          async detect() { return [{ rawValue: "https://example.com/読み取り" }]; }
+        };
+      });
+      await t.page.reload();
+      await t.page.click(".tab[data-pane='read']");
+      await t.setFiles("#read-file", [t.png("QR.png", 200, 200)]);
+      await t.until(() => !document.querySelector("#read-result").hidden);
+      t.expect(await t.page.textContent("#read-text") === "https://example.com/読み取り", "読み取った中身が出ない");
+      t.expect(await t.page.getAttribute("#read-open", "href") === "https://example.com/読み取り", "URLを開くボタンがない");
+      await t.shot("read");
     },
     async offline(t) {
       await t.page.fill("#text", "offline");
