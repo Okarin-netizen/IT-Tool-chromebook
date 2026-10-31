@@ -1,9 +1,10 @@
 import { pdfjsLib, openPdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
-import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
+import { isPdf, baseName, download, formatSize, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
+import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
 
 // pdf-lib is loaded when the first PDF is opened (compressing needs an open PDF).
 let PDFDocument, PDFName, PDFDict, PDFArray, PDFRef, PDFRawStream, PDFStream, decodePDFRawStream;
@@ -55,11 +56,6 @@ const state = {
   previewPage: 1,
   busy: false,
 };
-
-function formatSize(bytes) {
-  if (bytes < MB) return `${Math.max(1, Math.round(bytes / 1000))} KB`;
-  return `${(bytes / MB).toFixed(bytes < 10 * MB ? 2 : 1)} MB`;
-}
 
 /* ---------- opening a PDF ---------- */
 
@@ -327,7 +323,7 @@ async function rasterize(pdf, { dpi, quality }, onProgress) {
     g.fillStyle = "#fff";
     g.fillRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvasContext: g, viewport, annotationMode: pdfjsLib.AnnotationMode.ENABLE_STORAGE }).promise;
-    const blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", quality));
+    const blob = await canvasToBlob(canvas, "image/jpeg", quality);
     const image = await out.embedJpg(await blob.arrayBuffer());
     out.addPage([size.width, size.height]).drawImage(image, { x: 0, y: 0, width: size.width, height: size.height });
     page.cleanup();
@@ -427,7 +423,7 @@ async function renderPreview() {
   const page = await pdf.getPage(n);
   const width = Math.min(els.preview.parentElement.clientWidth - 20, 800);
   const base = page.getViewport({ scale: 1 });
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = pixelRatio();
   const viewport = page.getViewport({ scale: (width / base.width) * dpr });
   const canvas = els.preview;
   canvas.width = Math.ceil(viewport.width);

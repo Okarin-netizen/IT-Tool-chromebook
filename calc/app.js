@@ -1,6 +1,7 @@
 import { compile, format, ExprError } from "./expr.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { pixelRatio } from "../shared/js/canvas.js";
 
 const STORE_KEY = "calc-tool-v1";
 const MAX_HISTORY = 50;
@@ -237,7 +238,7 @@ let sized = false;
 function resizeCanvas() {
   const rect = els.canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = pixelRatio();
   size = { w: rect.width, h: rect.height };
   els.canvas.width = Math.round(rect.width * dpr);
   els.canvas.height = Math.round(rect.height * dpr);

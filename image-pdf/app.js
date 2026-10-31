@@ -4,6 +4,7 @@ import { addNextTool } from "../shared/js/handoff.js";
 import { isImage, isHeic, readableImage } from "../shared/js/heic.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
+import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
 import { detectCorners, scanLook, warp } from "./straighten.js";
 
 const MAX_IMAGE_PX = 2400; // longest side kept per photo; enough to read handwriting, keeps PDFs small
@@ -77,11 +78,7 @@ async function prepareImage(blob) {
   return { bytes: new Uint8Array(await jpeg.arrayBuffer()), url: URL.createObjectURL(jpeg), width, height };
 }
 
-function canvasToJpeg(canvas) {
-  return new Promise((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/jpeg", JPEG_QUALITY),
-  );
-}
+const canvasToJpeg = (canvas) => canvasToBlob(canvas, "image/jpeg", JPEG_QUALITY);
 
 async function addFiles(files) {
   const list = [...files].filter(isImage);
@@ -342,7 +339,7 @@ function drawStraighten() {
   const maxH = window.innerHeight * 0.62;
   const scale = Math.min(maxW / canvas.width, maxH / canvas.height);
   const w = Math.round(canvas.width * scale), h = Math.round(canvas.height * scale);
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = pixelRatio();
   straight.scale = scale;
   els.stStage.style.width = `${w}px`;
   els.stStage.style.height = `${h}px`;

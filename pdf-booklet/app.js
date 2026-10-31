@@ -6,6 +6,8 @@ import { loadJson, saveJson } from "../shared/js/storage.js";
 import { createLazyRenderer } from "../shared/js/lazy.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
+import { hexToRgb } from "../shared/js/color.js";
+import { pixelRatio } from "../shared/js/canvas.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use: users would lose
 // their settings. Add a new key instead.
@@ -303,7 +305,7 @@ async function renderSide(side) {
   side.rendered = true;
   const generation = state.generation;
   const { layout, canvas } = side;
-  const scale = (side.cssW * (window.devicePixelRatio || 1)) / layout.width;
+  const scale = (side.cssW * pixelRatio()) / layout.width;
   const out = document.createElement("canvas");
   out.width = Math.round(layout.width * scale);
   out.height = Math.round(layout.height * scale);
@@ -315,7 +317,7 @@ async function renderSide(side) {
     if (index === null) {
       // An added blank page: a faint note, so it is clear the space is meant to be empty.
       ctx.fillStyle = "#b8bec8";
-      ctx.font = `${Math.round(14 * (window.devicePixelRatio || 1))}px system-ui, sans-serif`;
+      ctx.font = `${Math.round(14 * pixelRatio())}px system-ui, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText("白紙", (cell.x + cell.w / 2) * scale, (layout.height - cell.y - cell.h / 2) * scale);
@@ -360,7 +362,7 @@ async function renderSide(side) {
   }
   // Which page of the finished booklet each half is: a tag at the bottom of the half, only on
   // the screen (it is not printed). The cover and back cover stand out in the tool's color.
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = pixelRatio();
   ctx.font = `600 ${Math.round(12 * dpr)}px system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -432,7 +434,7 @@ async function renderThumb(thumb) {
   thumb.rendered = true;
   const file = state.file;
   const page = await file.pdf.getPage(thumb.index + 1);
-  const viewport = page.getViewport({ scale: (THUMB_PX * (window.devicePixelRatio || 1)) / state.pages[thumb.index].width });
+  const viewport = page.getViewport({ scale: (THUMB_PX * pixelRatio()) / state.pages[thumb.index].width });
   const pic = document.createElement("canvas");
   pic.width = Math.ceil(viewport.width);
   pic.height = Math.ceil(viewport.height);
@@ -689,10 +691,6 @@ async function buildPdf(settings) {
   return { bytes: await out.save(), rebuilt };
 }
 
-function hexToRgb(hex, rgb) {
-  const n = parseInt(hex.slice(1), 16);
-  return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
-}
 
 // Builds the booklet PDF; returns { blob, name, rebuilt }, or null when it failed (and said so).
 async function makeBooklet() {

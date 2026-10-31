@@ -1,10 +1,11 @@
 import { showStatus, hideStatus } from "../shared/js/status.js";
-import { download, onFileDrop } from "../shared/js/files.js";
+import { download, formatSize, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { isImage, readableImage } from "../shared/js/heic.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { makeZip } from "../shared/js/zip.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { canvasToBlob } from "../shared/js/canvas.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use.
 const SETTINGS_KEY = "image-resize-settings-v1";
@@ -175,9 +176,6 @@ function render(item, width, height, format) {
   return canvas;
 }
 
-const encode = (canvas, format, quality) =>
-  new Promise((resolve) => canvas.toBlob(resolve, format, format === "image/png" ? undefined : quality));
-
 function fit(item, maxSide) {
   const { width, height } = turnedSize(item.bitmap, item.rotation);
   const k = maxSide ? Math.min(1, maxSide / Math.max(width, height)) : 1;
@@ -189,7 +187,7 @@ function fit(item, maxSide) {
 // trying again. PNG has no quality, so only its size changes. The same idea as the target-size
 // mode of BrowseryTools and Squoosh's resize + quality, written for this tool.
 async function shrinkToTarget(item, { maxSide, format, targetKb }, token) {
-  const bytes = targetKb * 1024;
+  const bytes = targetKb * 1000;
   let { width, height } = fit(item, maxSide);
   const aspect = height / width;
   let smallest = null;
@@ -197,7 +195,7 @@ async function shrinkToTarget(item, { maxSide, format, targetKb }, token) {
     const canvas = render(item, width, height, format);
     let best = null;
     if (format === "image/png") {
-      const blob = await encode(canvas, format);
+      const blob = await canvasToBlob(canvas, format);
       if (blob.size <= bytes) best = { blob, width, height };
       if (!smallest || blob.size < smallest.blob.size) smallest = { blob, width, height };
     } else {
@@ -206,7 +204,7 @@ async function shrinkToTarget(item, { maxSide, format, targetKb }, token) {
       for (let probe = 0; probe < 7; probe++) {
         if (token !== runToken) return null;
         const quality = (lo + hi) / 2;
-        const blob = await encode(canvas, format, quality);
+        const blob = await canvasToBlob(canvas, format, quality);
         if (!smallest || blob.size < smallest.blob.size) smallest = { blob, width, height };
         if (blob.size > bytes) {
           hi = quality;
@@ -239,7 +237,7 @@ async function shrink(item, settings, token) {
   if (settings.mode === "target") return shrinkToTarget(item, settings, token);
   const { width, height } = fit(item, settings.maxSide);
   const canvas = render(item, width, height, settings.format);
-  const blob = await encode(canvas, settings.format, Number(settings.mode));
+  const blob = await canvasToBlob(canvas, settings.format, Number(settings.mode));
   canvas.width = canvas.height = 0;
   return { blob, width, height, hit: true };
 }
@@ -270,12 +268,11 @@ async function runAll() {
   updateUi();
 }
 
-const kb = (n) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 function showSizes(item, note) {
   const el = item.el.querySelector(".sizes");
   const src = turnedSize(item.bitmap, item.rotation);
-  const before = `${src.width}×${src.height}・${kb(item.file.size)}`;
+  const before = `${src.width}×${src.height}・${formatSize(item.file.size)}`;
   if (note || !item.result) {
     el.textContent = `${before} → ${note ?? ""}`;
     return;
@@ -284,7 +281,7 @@ function showSizes(item, note) {
   const smaller = blob.size < item.file.size;
   el.replaceChildren(
     `${before} → `,
-    Object.assign(document.createElement("b"), { textContent: `${width}×${height}・${kb(blob.size)}` }),
+    Object.assign(document.createElement("b"), { textContent: `${width}×${height}・${formatSize(blob.size)}` }),
     hit ? "" : Object.assign(document.createElement("span"), { className: "warn", textContent: "（指定のサイズまで小さくできませんでした）" }),
     hit && !smaller ? Object.assign(document.createElement("span"), { className: "warn", textContent: "（元より大きくなりました）" }) : "",
   );
@@ -340,7 +337,7 @@ function updateUi() {
   if (n && done.length === n) {
     const before = state.items.reduce((s, i) => s + i.file.size, 0);
     const after = done.reduce((s, i) => s + i.result.blob.size, 0);
-    els.total.textContent = `${n}枚 ${kb(before)} → ${kb(after)}`;
+    els.total.textContent = `${n}枚 ${formatSize(before)} → ${formatSize(after)}`;
   } else {
     els.total.textContent = n ? `${n}枚` : "";
   }

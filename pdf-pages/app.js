@@ -1,11 +1,12 @@
 import { openPdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
-import { isPdf, download, onFileDrop } from "../shared/js/files.js";
+import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { loadText, saveText } from "../shared/js/storage.js";
 import { createLazyRenderer, freeCanvas } from "../shared/js/lazy.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
+import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
 
 const THUMB_SIZES = { small: 110, medium: 150, large: 220 }; // longest side of a thumbnail, in CSS pixels
 const HISTORY_LIMIT = 50;
@@ -359,7 +360,7 @@ async function renderThumb(view) {
     const page = await view.file.pdf.getPage(view.index + 1);
     const rotation = (view.baseRotation + view.rotation) % 360;
     const base = page.getViewport({ scale: 1, rotation });
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = pixelRatio();
     const scale = (state.thumbPx / Math.max(base.width, base.height)) * dpr;
     const viewport = page.getViewport({ scale, rotation });
     const canvas = document.createElement("canvas");
@@ -687,7 +688,7 @@ async function renderPreview() {
     const base = page.getViewport({ scale: 1, rotation });
     const box = els.previewStage.getBoundingClientRect();
     const fit = Math.min(box.width / base.width, box.height / base.height);
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = pixelRatio();
     const viewport = page.getViewport({ scale: fit * dpr, rotation });
     const canvas = document.createElement("canvas");
     canvas.width = Math.floor(viewport.width);
@@ -861,14 +862,10 @@ async function addRasterPage(out, view) {
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   await page.render({ canvasContext: ctx, viewport }).promise;
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+  const blob = await canvasToBlob(canvas, "image/jpeg", 0.9);
   canvas.width = canvas.height = 0;
   const image = await out.embedJpg(new Uint8Array(await blob.arrayBuffer()));
   out.addPage([size.width, size.height]).drawImage(image, { x: 0, y: 0, width: size.width, height: size.height });
-}
-
-function baseName(name) {
-  return name.replace(/\.pdf$/i, "") || "document";
 }
 
 function outputName(suffix) {

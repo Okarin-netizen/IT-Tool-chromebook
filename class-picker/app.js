@@ -1,6 +1,9 @@
 import { showStatus } from "../shared/js/status.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { randomInt, shuffle } from "../shared/js/random.js";
+import { copyText } from "../shared/js/clipboard.js";
+import { toggleFullscreen } from "../shared/js/fullscreen.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use: users would lose
 // their class lists. Add a new key instead.
@@ -50,24 +53,6 @@ const save = () => saveJson(STORE_KEY, store);
 
 // One name per line; spaces around are dropped, empty lines ignored.
 const names = () => list().names.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-
-// A fair random whole number 0 ≤ n < max.
-function randomInt(max) {
-  const limit = Math.floor(0x100000000 / max) * max;
-  const buf = new Uint32Array(1);
-  do crypto.getRandomValues(buf); while (buf[0] >= limit);
-  return buf[0] % max;
-}
-
-// Fisher–Yates shuffle (a copy).
-function shuffle(items) {
-  const a = items.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = randomInt(i + 1);
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 /* ---------- class lists ---------- */
 
@@ -180,7 +165,9 @@ async function spin() {
     let last = "";
     while (delay < 320) {
       let n;
-      do n = all[randomInt(all.length)]; while (n === last && all.length > 1);
+      do {
+        n = all[randomInt(all.length)];
+      } while (n === last && all.length > 1);
       last = n;
       showDisplay(n, "name spinning");
       await sleep(delay);
@@ -253,12 +240,8 @@ els.groupBtn.addEventListener("click", () => {
 
 els.groupCopy.addEventListener("click", async () => {
   const text = state.groups.map((g, i) => `${i + 1}班: ${g.join("、")}`).join("\n");
-  try {
-    await navigator.clipboard.writeText(text);
-    showStatus("コピーしました。ドキュメントやClassroomに Ctrl+V で貼り付けられます");
-  } catch {
-    showStatus("コピーできませんでした", { error: true });
-  }
+  if (await copyText(text)) showStatus("コピーしました。ドキュメントやClassroomに Ctrl+V で貼り付けられます");
+  else showStatus("コピーできませんでした", { error: true });
 });
 
 /* ---------- tabs, keys, full screen ---------- */
@@ -270,10 +253,6 @@ function setMode(mode) {
 }
 for (const t of els.tabs) t.addEventListener("click", () => setMode(t.dataset.mode));
 
-function toggleFullscreen() {
-  if (document.fullscreenElement) document.exitFullscreen();
-  else document.documentElement.requestFullscreen?.().catch(() => {});
-}
 els.fullscreenBtn.addEventListener("click", toggleFullscreen);
 
 document.addEventListener("keydown", (e) => {

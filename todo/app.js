@@ -2,6 +2,7 @@ import { showStatus } from "../shared/js/status.js";
 import { download } from "../shared/js/files.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { dateText } from "../shared/js/dates.js";
 
 const STORAGE_KEY = "todo-tool-v1";
 const DAYS = ["月", "火", "水", "木", "金", "土"];
@@ -56,11 +57,6 @@ function newId() {
 }
 
 // ---- 日付 ----
-
-function dateKey(d) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
 
 function daysUntil(due) {
   const [y, m, d] = due.split("-").map(Number);
@@ -328,7 +324,7 @@ for (const chip of document.querySelectorAll(".chip")) {
 // ---- バックアップ ----
 
 $("export-btn").addEventListener("click", () => {
-  download(new Blob([JSON.stringify(state, null, 2)], { type: "application/json" }), `時間割と課題_${dateKey(new Date())}.json`);
+  download(new Blob([JSON.stringify(state, null, 2)], { type: "application/json" }), `時間割と課題_${dateText()}.json`);
   showStatus("バックアップを保存しました");
 });
 
@@ -364,9 +360,9 @@ window.addEventListener("storage", (e) => {
 });
 
 // 日付が変わったとき（開きっぱなしのとき）に「今日」や残り日数を更新する
-let lastDay = dateKey(new Date());
+let lastDay = dateText();
 setInterval(() => {
-  const now = dateKey(new Date());
+  const now = dateText();
   if (now === lastDay) return;
   lastDay = now;
   if (!document.activeElement || !document.activeElement.closest("#timetable")) renderTimetable();

@@ -1,5 +1,6 @@
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { shuffle } from "../shared/js/random.js";
 import { createMatcher, normalizeKana } from "./romaji.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use. Add a new key instead.
@@ -96,15 +97,6 @@ function customWords(lang) {
 function wordList() {
   if (settings.source === "custom") return customWords(settings.lang);
   return settings.lang === "ja" ? WORDS_JA.map(([shown, reading]) => ({ shown, reading })) : WORDS_EN.map((w) => ({ shown: w, reading: w }));
-}
-
-function shuffle(items) {
-  const a = items.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 
 // English is matched key for key, capitals and punctuation included.

@@ -3,6 +3,8 @@ import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { createLazyRenderer, freeCanvas } from "../shared/js/lazy.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { pixelRatio } from "../shared/js/canvas.js";
+import { copyText } from "../shared/js/clipboard.js";
 
 const asset = (path) => new URL(path, location.href).href;
 
@@ -297,7 +299,7 @@ function createPageRow(view) {
 
   const actions = document.createElement("div");
   actions.className = "page-actions";
-  view.copyBtn = miniButton("コピー", "このページの文字をコピー", () => copyText(view.textarea.value, `${view.num}ページをコピーしました`));
+  view.copyBtn = miniButton("コピー", "このページの文字をコピー", () => copyWithMessage(view.textarea.value, `${view.num}ページをコピーしました`));
   view.ocrBtn = miniButton("画像から読み取る（OCR）", "このページを画像として文字を読み取ります", () => ocrPages([view], { confirmReplace: true }));
   view.resetBtn = miniButton("元に戻す", "書き直す前の文字に戻します", () => {
     view.edited = false;
@@ -353,7 +355,7 @@ async function renderPreview(view) {
   try {
     const page = await state.pdf.getPage(view.num);
     const base = page.getViewport({ scale: 1 });
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = pixelRatio();
     const viewport = page.getViewport({ scale: (PREVIEW_PX / base.width) * dpr });
     view.canvas.width = Math.round(viewport.width);
     view.canvas.height = Math.round(viewport.height);
@@ -497,26 +499,10 @@ function allText() {
   return `${parts.join("\n\n")}\n`;
 }
 
-async function copyText(text, message) {
+async function copyWithMessage(text, message) {
   if (!text.trim()) return;
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    // Older browsers / no permission: copy through a hidden textarea.
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.append(ta);
-    ta.select();
-    const ok = document.execCommand("copy");
-    ta.remove();
-    if (!ok) {
-      showStatus("コピーできませんでした。文字を選んで Ctrl+C でコピーしてください", { error: true });
-      return;
-    }
-  }
-  showStatus(message);
+  if (await copyText(text)) showStatus(message);
+  else showStatus("コピーできませんでした。文字を選んで Ctrl+C でコピーしてください", { error: true });
 }
 
 function saveText() {
@@ -555,7 +541,7 @@ els.togglePreview.addEventListener("click", () => {
   els.togglePreview.textContent = state.preview ? "ページを隠す" : "ページを表示";
 });
 els.ocrEmpty.addEventListener("click", () => ocrPages(state.pages.filter(isEmpty)));
-els.copyAll.addEventListener("click", () => copyText(allText(), "全ページの文字をコピーしました"));
+els.copyAll.addEventListener("click", () => copyWithMessage(allText(), "全ページの文字をコピーしました"));
 els.saveTxt.addEventListener("click", saveText);
 els.pages.addEventListener("input", () => updateUi());
 

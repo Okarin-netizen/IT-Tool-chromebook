@@ -8,6 +8,9 @@ import { subsetFont, EMBED_OPTIONS } from "../shared/js/font-jp.js";
 import { createLazyRenderer } from "../shared/js/lazy.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib, loadFontkit } from "../shared/js/pdf-lib.js";
+import { hexToRgb } from "../shared/js/color.js";
+import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
+import { dateText } from "../shared/js/dates.js";
 
 const FONT_FAMILY = "PdfStampJP";
 const PREVIEW_PX = 300; // preview page width, in CSS pixels
@@ -181,7 +184,6 @@ function pageInfo(view, settings) {
   return { index: view.index, count: state.pages.length, file: view.file.name };
 }
 
-const today = () => new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" });
 
 // Returns everything to draw on one page, in page units (1 = 1pt) with a
 // top-left origin as the page is seen on screen. `y` is the text baseline and
@@ -207,7 +209,7 @@ function layoutPage({ index, count, file }, width, height, settings, measure) {
 
   if (hf.on && !(hf.skipFirst && index === 0)) {
     const fill = (t) => t.replaceAll("{n}", index + 1).replaceAll("{total}", count)
-      .replaceAll("{date}", today()).replaceAll("{file}", baseName(file)).trim();
+      .replaceAll("{date}", dateText(new Date(), "/")).replaceAll("{file}", baseName(file)).trim();
     for (const [row, texts] of [["top", hf.top], ["bottom", hf.bottom]]) {
       texts.forEach((raw, col) => {
         const text = fill(raw);
@@ -324,7 +326,7 @@ function createPageView(file, num, viewport) {
   el.className = "page";
   // The canvas gets its pixels when it comes near the screen; its size on the page is fixed now.
   const canvas = document.createElement("canvas");
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = pixelRatio();
   const scale = PREVIEW_PX / viewport.width;
   const px = { w: Math.round(viewport.width * scale * dpr), h: Math.round(viewport.height * scale * dpr) };
   canvas.width = canvas.height = 0;
@@ -439,10 +441,6 @@ document.fonts.load(`100px ${FONT_FAMILY}`, "あ1").then(() => update());
 
 /* ---------- saving ---------- */
 
-function hexToRgb(hex, rgb) {
-  const n = parseInt(hex.slice(1), 16);
-  return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
-}
 
 function suffixOf(settings) {
   const parts = [settings.num.on && "番号", settings.hf.on && "ヘッダー", settings.wm.on && "透かし"].filter(Boolean);
@@ -539,7 +537,7 @@ async function setWatermarkImage(file) {
     canvas.height = Math.round(bitmap.height * k);
     canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close();
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    const blob = await canvasToBlob(canvas, "image/png");
     const img = new Image();
     img.src = URL.createObjectURL(blob);
     await img.decode();

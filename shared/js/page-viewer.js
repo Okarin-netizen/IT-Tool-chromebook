@@ -11,6 +11,7 @@
 //                      picture when they are shown as real input boxes instead)
 //   onRelease(view)    optional: when the page's pictures are freed
 //   onScale(view)      optional: for each page after the zoom changed
+import { pixelRatio } from "./canvas.js";
 import { createLazyRenderer } from "./lazy.js";
 
 const MIN_SCALE = 0.4;
@@ -24,7 +25,7 @@ export function createPageViewer({ state, viewer, zoomLabel, views, pdfOf, onRen
     view.task?.cancel();
     onRender?.(view);
     const page = await pdfOf(view).getPage(view.num);
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = pixelRatio();
     const viewport = page.getViewport({ scale: state.scale * dpr });
     const canvas = document.createElement("canvas");
     canvas.width = Math.floor(viewport.width);

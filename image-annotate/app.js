@@ -3,6 +3,8 @@ import { download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { isImage, isHeic, readableImage } from "../shared/js/heic.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { canvasToBlob } from "../shared/js/canvas.js";
+import { copyImage } from "../shared/js/clipboard.js";
 
 const MAX_IMAGE_PX = 4000; // longest side; larger photos are shrunk so the canvas stays responsive
 const BLANK_SIZE = [1600, 1000];
@@ -772,7 +774,7 @@ function exportBlob() {
   out.width = state.W;
   out.height = state.H;
   draw(out.getContext("2d"), false);
-  return new Promise((resolve) => out.toBlob(resolve, "image/png"));
+  return canvasToBlob(out, "image/png");
 }
 
 async function save() {
@@ -782,20 +784,15 @@ async function save() {
   showStatus("PNG画像を保存しました");
 }
 
-async function copyImage() {
+async function copyToClipboard() {
   if (!state.base) return;
-  try {
-    const blob = await exportBlob();
-    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-    showStatus("コピーしました。ドキュメントやスライドに Ctrl+V で貼り付けられます");
-  } catch {
-    showStatus("コピーできませんでした。「保存」を使ってください", { error: true });
-  }
+  if (await copyImage(exportBlob())) showStatus("コピーしました。ドキュメントやスライドに Ctrl+V で貼り付けられます");
+  else showStatus("コピーできませんでした。「保存」を使ってください", { error: true });
 }
 
 els.saveBtn.addEventListener("click", save);
 addNextTool({ saveBtn: els.saveBtn, save: save, kind: "image" });
-els.copyBtn.addEventListener("click", copyImage);
+els.copyBtn.addEventListener("click", copyToClipboard);
 
 /* ---------- opening files ---------- */
 

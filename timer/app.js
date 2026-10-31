@@ -1,6 +1,7 @@
 import { showStatus } from "../shared/js/status.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { toggleFullscreen } from "../shared/js/fullscreen.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -444,10 +445,6 @@ $("set-auto").addEventListener("change", () => {
   save();
 });
 
-function toggleFullscreen() {
-  if (document.fullscreenElement) document.exitFullscreen();
-  else document.documentElement.requestFullscreen?.().catch(() => {});
-}
 $("fullscreen-btn").addEventListener("click", toggleFullscreen);
 document.addEventListener("fullscreenchange", () => {
   document.body.classList.toggle("fullscreen", !!document.fullscreenElement);

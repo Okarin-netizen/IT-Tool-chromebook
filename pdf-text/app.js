@@ -6,6 +6,8 @@ import { addNextTool } from "../shared/js/handoff.js";
 import { subsetFont, preloadFont, EMBED_OPTIONS } from "../shared/js/font-jp.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib, loadFontkit } from "../shared/js/pdf-lib.js";
+import { hexToRgb } from "../shared/js/color.js";
+import { canvasToBlob } from "../shared/js/canvas.js";
 
 const FONT_FAMILY = "PdfTextJP";
 const LINE_HEIGHT = 1.25; // must match .tbox line-height in style.css
@@ -417,7 +419,7 @@ async function prepareImage(file) {
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
   const type = keepAlpha ? "image/png" : "image/jpeg";
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, type, 0.9));
+  const blob = await canvasToBlob(canvas, type, 0.9);
   return {
     bytes: new Uint8Array(await blob.arrayBuffer()),
     format: keepAlpha ? "png" : "jpg",
@@ -544,10 +546,6 @@ function enableResize(item, handle) {
 
 /* ---------- saving ---------- */
 
-function hexToRgb(hex, rgb) {
-  const n = parseInt(hex.slice(1), 16);
-  return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
-}
 
 function outputName() {
   const base = state.fileName.replace(/\.pdf$/i, "");

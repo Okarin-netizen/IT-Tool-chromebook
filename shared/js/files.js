@@ -3,8 +3,16 @@ import { kvDelete, kvGet } from "./kv.js";
 
 export const isPdf = (file) => file.type === "application/pdf" || /\.pdf$/i.test(file.name);
 
-// "report.pdf" → "report"
-export const baseName = (name) => name.replace(/\.pdf$/i, "");
+// "report.pdf" → "report" (".pdf" alone → "document")
+export const baseName = (name) => name.replace(/\.pdf$/i, "") || "document";
+
+// 1234567 → "1.23 MB". Counted in 1000s, as upload forms count, so a file shown as
+// "500 KB" is never over a 500 KB limit.
+export function formatSize(bytes) {
+  const MB = 1000 * 1000;
+  if (bytes < MB) return `${Math.max(1, Math.round(bytes / 1000))} KB`;
+  return `${(bytes / MB).toFixed(bytes < 10 * MB ? 2 : 1)} MB`;
+}
 
 // The folder name of the tool this page is ("pdf-pages").
 export const currentTool = () => location.pathname.replace(/[^/]*$/, "").split("/").filter(Boolean).at(-1) ?? "";

@@ -1,11 +1,13 @@
 import { openPdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
-import { isPdf, download, onFileDrop } from "../shared/js/files.js";
+import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { loadText, saveText } from "../shared/js/storage.js";
 import { makeZip } from "../shared/js/zip.js";
 import { createLazyRenderer, freeCanvas } from "../shared/js/lazy.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
+import { copyImage } from "../shared/js/clipboard.js";
 
 const THUMB_PX = 150; // longest side of a thumbnail, in CSS pixels
 const MAX_PIXELS = 25_000_000; // keep huge pages from exhausting memory
@@ -124,7 +126,7 @@ async function renderThumb(view) {
   try {
     const page = await pdf.getPage(view.index + 1);
     const base = page.getViewport({ scale: 1 });
-    const scale = (THUMB_PX / Math.max(base.width, base.height)) * (window.devicePixelRatio || 1);
+    const scale = (THUMB_PX / Math.max(base.width, base.height)) * pixelRatio();
     const canvas = document.createElement("canvas");
     const viewport = page.getViewport({ scale });
     canvas.width = Math.ceil(viewport.width);
@@ -201,16 +203,6 @@ async function renderPage(index, dpi) {
   return canvas;
 }
 
-function canvasToBlob(canvas, type) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))), type, JPEG_QUALITY);
-  });
-}
-
-function baseName(name) {
-  return name.replace(/\.pdf$/i, "") || "document";
-}
-
 function pageFileName(index, ext) {
   const digits = String(state.pages.length).length;
   return `${baseName(state.name)}_${String(index + 1).padStart(digits, "0")}.${ext}`;
@@ -236,7 +228,7 @@ function saveViews(views) {
     const { type, ext, dpi } = settings();
     if (views.length === 1) {
       showStatus("画像を作成中…", { sticky: true });
-      const blob = await canvasToBlob(await renderPage(views[0].index, dpi), type);
+      const blob = await canvasToBlob(await renderPage(views[0].index, dpi), type, JPEG_QUALITY);
       download(blob, pageFileName(views[0].index, ext));
       hideStatus();
       showStatus("画像を保存しました");
@@ -245,7 +237,7 @@ function saveViews(views) {
     const files = [];
     for (const [i, view] of views.entries()) {
       showStatus(`画像を作成中…（${i + 1}/${views.length}）`, { sticky: true });
-      const blob = await canvasToBlob(await renderPage(view.index, dpi), type);
+      const blob = await canvasToBlob(await renderPage(view.index, dpi), type, JPEG_QUALITY);
       files.push({ name: pageFileName(view.index, ext), bytes: new Uint8Array(await blob.arrayBuffer()) });
     }
     download(makeZip(files), `${baseName(state.name)}_画像.zip`);
@@ -260,17 +252,14 @@ function saveSelectedOrAll() {
 }
 
 function copyPage(view) {
-  if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
-    showStatus("このブラウザではコピーできません。保存ボタンで保存してください", { error: true });
-    return;
-  }
   return withBusy(async () => {
     showStatus("コピー中…", { sticky: true });
-    // The clipboard only takes PNG. Pass a promise so the write starts while the click still counts as a user gesture.
-    const blob = renderPage(view.index, Number(els.dpi.value)).then((canvas) => canvasToBlob(canvas, "image/png"));
-    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    // The clipboard only takes PNG.
+    const png = renderPage(view.index, Number(els.dpi.value)).then((canvas) => canvasToBlob(canvas, "image/png"));
+    const copied = await copyImage(png);
     hideStatus();
-    showStatus(`${view.index + 1}ページをコピーしました。Ctrl+V で貼り付けできます`);
+    if (copied) showStatus(`${view.index + 1}ページをコピーしました。Ctrl+V で貼り付けできます`);
+    else showStatus("コピーできませんでした。保存ボタンで保存してください", { error: true });
   });
 }
 

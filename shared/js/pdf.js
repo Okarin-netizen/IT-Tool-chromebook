@@ -2,6 +2,7 @@
 import * as pdfjsLib from "../vendor/pdfjs-4.10.38/pdf.min.mjs";
 import { loadPdfLib } from "./pdf-lib.js";
 import { askPassword } from "./password.js";
+import { canvasToBlob } from "./canvas.js";
 
 const PDFJS = new URL("../vendor/pdfjs-4.10.38/", import.meta.url).href;
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.mjs";
@@ -71,7 +72,7 @@ export async function rasterizePdf(pdf, { scale = 2, onPage } = {}) {
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvasContext: ctx, viewport }).promise;
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+    const blob = await canvasToBlob(canvas, "image/jpeg", 0.9);
     const image = await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
     const { width, height } = page.getViewport({ scale: 1 });
     doc.addPage([width, height]).drawImage(image, { x: 0, y: 0, width, height });

@@ -10,6 +10,8 @@ import {
 } from "../shared/js/ink.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
+import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
+import { dateText } from "../shared/js/dates.js";
 
 const SIGN_PT = 0.4; // signature pad units → PDF points when first placed
 const MAX_SIGNS = 5;
@@ -69,10 +71,7 @@ const state = {
 
 /* ---------- stamps ---------- */
 
-function today() {
-  const d = new Date();
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
-}
+const today = () => dateText(new Date(), "/");
 
 // Seals are always vermilion; marks use the current color.
 const STAMPS = [
@@ -221,7 +220,7 @@ const viewer = createPageViewer({
   views: () => state.pages,
   pdfOf: () => state.pdf,
   onRender: (view) => {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = pixelRatio();
     view.ink.width = Math.floor(view.viewport.width * state.scale * dpr);
     view.ink.height = Math.floor(view.viewport.height * state.scale * dpr);
     renderInk(view);
@@ -571,7 +570,7 @@ async function flattenPage(doc, view, boxes) {
   await page.render({ canvasContext: ctx, viewport }).promise;
   ctx.fillStyle = "#000";
   for (const b of boxes) ctx.fillRect(b.x * REDACT_SCALE, b.y * REDACT_SCALE, b.w * REDACT_SCALE, b.h * REDACT_SCALE);
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+  const blob = await canvasToBlob(canvas, "image/jpeg", 0.92);
   canvas.width = canvas.height = 0;
   page.cleanup();
   const image = await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
