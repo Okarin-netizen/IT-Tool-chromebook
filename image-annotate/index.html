@@ -15,6 +15,10 @@
   <svg class="sprite" aria-hidden="true">
     <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 19L19 5M10 5h9v9"/></symbol>
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-crop" viewBox="0 0 24 24"><path d="M6 2v16h16"/><path d="M2 6h16v16"/></symbol>
+    <symbol id="i-number" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10.5 9l2-1.5V17M10 17h5"/></symbol>
+    <symbol id="i-rotate-left" viewBox="0 0 24 24"><rect x="10" y="10" width="10" height="11" rx="1"/><path d="M15 4h-5a6 6 0 0 0-6 6v2"/><path d="M1 9l3 3 3-3"/></symbol>
+    <symbol id="i-rotate-right" viewBox="0 0 24 24"><rect x="4" y="10" width="10" height="11" rx="1"/><path d="M9 4h5a6 6 0 0 1 6 6v2"/><path d="M17 9l3 3 3-3"/></symbol>
     <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/></symbol>
     <symbol id="i-marker" viewBox="0 0 24 24"><path d="M14 4l6 6-8 8H6v-6z"/><path d="M4 21h9"/></symbol>
     <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 19V6a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v2"/><path d="M4 19l3-8h14l-3 8z"/></symbol>
@@ -45,6 +49,13 @@
       <button class="btn tool" data-tool="pen" title="ペン (P)"><svg class="i" aria-hidden="true"><use href="#i-pen"/></svg>ペン</button>
       <button class="btn tool" data-tool="marker" title="蛍光ペン (M)"><svg class="i" aria-hidden="true"><use href="#i-marker"/></svg>蛍光ペン</button>
       <button class="btn tool" data-tool="mosaic" title="見せたくない所をぼかす (B)">▦ モザイク</button>
+      <button class="btn tool" data-tool="number" title="押すたびに 1, 2, 3 … と進む番号 (N)"><svg class="i" aria-hidden="true"><use href="#i-number"/></svg>番号</button>
+      <button class="btn tool" data-tool="crop" title="切り抜き (C)"><svg class="i" aria-hidden="true"><use href="#i-crop"/></svg>切り抜き</button>
+    </div>
+
+    <div class="group" role="group" aria-label="回転">
+      <button id="rotate-left" class="btn icon" disabled title="左に90°回す" aria-label="左に90°回す"><svg class="i" aria-hidden="true"><use href="#i-rotate-left"/></svg></button>
+      <button id="rotate-right" class="btn icon" disabled title="右に90°回す" aria-label="右に90°回す"><svg class="i" aria-hidden="true"><use href="#i-rotate-right"/></svg></button>
     </div>
 
     <div class="group" role="group" aria-label="色と太さ">
@@ -91,11 +102,27 @@
         <li>上の道具（矢印・文字・四角など）を選んで、画像の上をドラッグして描きます。</li>
         <li>「選択」で、描いたものをドラッグして動かせます。文字はダブルクリックで直せます。</li>
         <li>「▦ モザイク」で、名前など見せたくない所をぼかせます。</li>
+        <li>「番号」は押すたびに 1, 2, 3 … と進みます。「切り抜き」と回転のボタンで、画像の向きと範囲を直せます。</li>
         <li>「保存」でPNG画像をダウンロード、「コピー」でほかのアプリに貼り付けられます。</li>
       </ol>
       <p><button id="blank-btn" class="btn"><svg class="i" aria-hidden="true"><use href="#i-page"/></svg>白い紙に描く</button></p>
       <p class="note">画像はこのパソコンの中だけで処理され、どこにも送信されません。</p>
     </section>
+    <div id="crop-bar" class="crop-bar" hidden>
+      <label class="field">形
+        <select id="crop-ratio">
+          <option value="free">自由</option>
+          <option value="1:1">正方形 1:1</option>
+          <option value="4:3">横長 4:3</option>
+          <option value="16:9">横長 16:9</option>
+          <option value="3:4">縦長 3:4</option>
+          <option value="9:16">縦長 9:16</option>
+        </select>
+      </label>
+      <button id="crop-apply" class="btn primary" disabled><svg class="i" aria-hidden="true"><use href="#i-crop"/></svg>切り抜く</button>
+      <button id="crop-cancel" class="btn">やめる</button>
+      <span class="muted">残したい所をドラッグで囲みます（Enter で切り抜く、Esc でやめる）</span>
+    </div>
     <div id="stage" class="stage" hidden>
       <canvas id="canvas"></canvas>
       <textarea id="text-editor" class="text-editor" spellcheck="false" hidden></textarea>

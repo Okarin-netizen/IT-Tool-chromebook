@@ -121,3 +121,23 @@ kbd {
   .group.end { margin-left: 0; }
   .viewer { padding: 16px 8px 64px; }
 }
+
+/* Crop: the shape and the buttons, above the image. */
+.crop-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 12px;
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0 auto 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 14px;
+}
+.crop-bar[hidden] { display: none; }
+.crop-bar .muted { color: var(--muted); font-size: 13px; }

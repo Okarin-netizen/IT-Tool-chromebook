@@ -32,12 +32,19 @@ const els = {
   stage: $("stage"),
   canvas: $("canvas"),
   editor: $("text-editor"),
+  cropBar: $("crop-bar"),
+  cropRatio: $("crop-ratio"),
+  cropApply: $("crop-apply"),
+  cropCancel: $("crop-cancel"),
+  rotateLeft: $("rotate-left"),
+  rotateRight: $("rotate-right"),
 };
 const ctx = els.canvas.getContext("2d");
 
 const state = {
   fileName: "image",
-  base: null, // canvas holding the opened image
+  base: null, // canvas holding the opened image (or its cropped / turned version)
+  bases: [], // every version of the image this session, so undo can bring an earlier one back
   W: 0,
   H: 0,
   unit: 2, // base stroke unit in image pixels, scaled to the image size
@@ -45,14 +52,19 @@ const state = {
   // arrow/line/rect/ellipse/mosaic: { type, x1, y1, x2, y2, color, mul, fill }
   // pen/marker: { type, points: [[x, y], ...], color, mul }
   // text: { type, x, y, text, color, mul }
+  // number (①②③ stamp): { type, x, y, n, color, mul }, (x, y) its center
   selected: null,
   tool: "select",
   color: "#e11d48",
   mul: 1,
   fill: false,
   editing: null, // text item open in the editor
+  crop: null, // { x1, y1, x2, y2 } being chosen with the crop tool
   dirty: false,
 };
+
+// Width / height of the crop for each choice of #crop-ratio ("free" has none).
+const RATIOS = { "1:1": 1, "4:3": 4 / 3, "3:4": 3 / 4, "16:9": 16 / 9, "9:16": 9 / 16 };
 
 /* ---------- opening an image ---------- */
 
@@ -110,22 +122,30 @@ function openBlank() {
 
 function start(base, name) {
   closeEditor(false);
-  state.base = base;
-  state.W = base.width;
-  state.H = base.height;
+  state.bases = [base];
+  state.crop = null;
+  setBase(base);
   state.unit = Math.max(1, Math.round(Math.max(state.W, state.H) / 400));
   state.fileName = (name || "image").replace(/\.[^.]+$/, "");
   state.items = [];
   state.selected = null;
   history.reset();
   state.dirty = false;
-  els.canvas.width = state.W;
-  els.canvas.height = state.H;
   els.welcome.hidden = true;
   els.stage.hidden = false;
   fitToView();
   render();
   updateButtons();
+}
+
+// Puts `base` under the drawing, resizing the canvas to it.
+function setBase(base) {
+  state.base = base;
+  state.W = base.width;
+  state.H = base.height;
+  els.canvas.width = state.W;
+  els.canvas.height = state.H;
+  fitToView();
 }
 
 function fitToView() {
@@ -143,6 +163,7 @@ const strokeWidth = (it) => state.unit * 1.5 * it.mul;
 const markerWidth = (it) => state.unit * 6 * it.mul;
 const fontSize = (it) => Math.round(Math.max(14, state.unit * 8) * Math.sqrt(it.mul));
 const mosaicBlock = () => Math.max(10, state.unit * 4);
+const numberRadius = (it) => fontSize(it) * 0.8;
 // image pixels per screen pixel
 const pxRatio = () => state.W / els.canvas.getBoundingClientRect().width;
 
@@ -172,6 +193,24 @@ function draw(c, overlay) {
     c.restore();
   }
   if (overlay && state.selected && state.selected !== state.editing) drawSelection(c, state.selected);
+  if (overlay && state.crop) drawCrop(c, state.crop);
+}
+
+// The part to keep stays bright; the rest is dimmed.
+function drawCrop(c, crop) {
+  const b = box(crop);
+  const r = pxRatio();
+  c.save();
+  c.fillStyle = "rgba(0, 0, 0, .5)";
+  c.beginPath();
+  c.rect(0, 0, state.W, state.H);
+  c.rect(b.x, b.y, b.w, b.h);
+  c.fill("evenodd");
+  c.strokeStyle = "#ffffff";
+  c.lineWidth = 2 * r;
+  c.setLineDash([6 * r, 4 * r]);
+  c.strokeRect(b.x, b.y, b.w, b.h);
+  c.restore();
 }
 
 function box(it) {
@@ -232,6 +271,21 @@ const DRAW = {
   },
   mosaic: (c, it) => drawMosaic(c, it),
   text: (c, it) => drawText(c, it),
+  number(c, it) {
+    // A colored disc with the number in white (black on a light color), ringed in white.
+    const r = numberRadius(it);
+    c.beginPath();
+    c.arc(it.x, it.y, r, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = "#ffffff";
+    c.lineWidth = Math.max(2, r * 0.12);
+    c.stroke();
+    c.fillStyle = isLight(it.color) ? "#000000" : "#ffffff";
+    c.font = FONT.replace("{size}", Math.round(r * (it.n > 9 ? 1.05 : 1.3)));
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillText(String(it.n), it.x, it.y + r * 0.06);
+  },
 };
 
 function drawArrow(c, it) {
@@ -335,6 +389,10 @@ function isLight(hex) {
 function bounds(it) {
   if (TWO_POINT.has(it.type)) return box(it);
   if (it.type === "text") return textBox(it);
+  if (it.type === "number") {
+    const r = numberRadius(it);
+    return { x: it.x - r, y: it.y - r, w: r * 2, h: r * 2 };
+  }
   const xs = it.points.map((p) => p[0]);
   const ys = it.points.map((p) => p[1]);
   const x = Math.min(...xs);
@@ -418,6 +476,8 @@ function hits(it, x, y, tol) {
       }
       return false;
     }
+    case "number":
+      return Math.hypot(x - it.x, y - it.y) <= numberRadius(it) + tol;
     case "text": {
       const b = textBox(it);
       return x >= b.x - tol && x <= b.x + b.w + tol && y >= b.y - tol && y <= b.y + b.h + tol;
@@ -459,10 +519,15 @@ function handleAt(x, y) {
 
 /* ---------- undo / redo ---------- */
 
-// Items are changed in place, so each step keeps them as JSON.
+// Items are changed in place, so each step keeps them as JSON, with which version of the image
+// (cropped, turned) they sit on.
 const history = new History(state, {
-  take: () => JSON.stringify(state.items),
-  apply: (step) => (state.items = JSON.parse(step)),
+  take: () => JSON.stringify({ items: state.items, base: state.bases.indexOf(state.base) }),
+  apply: (step) => {
+    const { items, base } = JSON.parse(step);
+    state.items = items;
+    if (state.bases[base] !== state.base) setBase(state.bases[base]);
+  },
   limit: 100,
 });
 
@@ -522,6 +587,18 @@ els.canvas.addEventListener("pointerdown", (e) => {
     if (hit && hit.type === "text") openEditor(hit);
     else openEditor(null, x, y - fontSize({ mul: state.mul }) * LINE_HEIGHT / 2);
     return;
+  } else if (state.tool === "crop") {
+    state.crop = { x1: clampX(x), y1: clampY(y), x2: clampX(x), y2: clampY(y) };
+    drag = { mode: "crop" };
+  } else if (state.tool === "number") {
+    // Each stamp takes the number after the largest one on the image: ①, ②, ③ …
+    const n = Math.max(0, ...state.items.filter((i) => i.type === "number").map((i) => i.n)) + 1;
+    const it = { type: "number", x, y, n, color: state.color, mul: state.mul };
+    state.items.push(it);
+    state.selected = it;
+    drag = { mode: "move", last: [x, y] };
+    render();
+    updateButtons();
   } else {
     const it = { type: state.tool, color: state.color, mul: state.mul };
     if (TWO_POINT.has(state.tool)) Object.assign(it, { x1: x, y1: y, x2: x, y2: y, fill: state.fill });
@@ -541,7 +618,9 @@ els.canvas.addEventListener("pointermove", (e) => {
     els.canvas.classList.toggle("over-item", !!over);
     return;
   }
-  if (drag.mode === "move") {
+  if (drag.mode === "crop") {
+    dragCrop(x, y);
+  } else if (drag.mode === "move") {
     const dx = x - drag.last[0];
     const dy = y - drag.last[1];
     drag.last = [x, y];
@@ -588,6 +667,31 @@ function dragSecondPoint(e, x, y) {
   it.y2 = ny;
 }
 
+const clampX = (x) => Math.max(0, Math.min(state.W, x));
+const clampY = (y) => Math.max(0, Math.min(state.H, y));
+
+// Moves the far corner of the crop, keeping the chosen proportions inside the image.
+function dragCrop(x, y) {
+  const c = state.crop;
+  let x2 = clampX(x);
+  let y2 = clampY(y);
+  const ratio = RATIOS[els.cropRatio.value];
+  if (ratio) {
+    const sx = Math.sign(x2 - c.x1) || 1;
+    const sy = Math.sign(y2 - c.y1) || 1;
+    // The largest box of that shape that fits both the drag and the image.
+    const roomX = sx > 0 ? state.W - c.x1 : c.x1;
+    const roomY = sy > 0 ? state.H - c.y1 : c.y1;
+    let w = Math.min(Math.max(Math.abs(x2 - c.x1), Math.abs(y2 - c.y1) * ratio), roomX, roomY * ratio);
+    w = Math.max(0, w);
+    x2 = c.x1 + sx * w;
+    y2 = c.y1 + sy * (w / ratio);
+  }
+  c.x2 = x2;
+  c.y2 = y2;
+  updateButtons();
+}
+
 // A line or box drawn by a slip of the pointer, too small to be meant.
 function isTooSmall(it) {
   if (!TWO_POINT.has(it.type)) return false;
@@ -598,6 +702,12 @@ function isTooSmall(it) {
 
 function endDrag() {
   if (!drag) return;
+  if (drag.mode === "crop") {
+    drag = null;
+    render();
+    updateButtons();
+    return;
+  }
   if (drag.mode === "draw") {
     const it = drag.item;
     if (isTooSmall(it)) {
@@ -633,7 +743,7 @@ function moveItem(it, dx, dy) {
     it.x2 += dx;
     it.y1 += dy;
     it.y2 += dy;
-  } else if (it.type === "text") {
+  } else if (it.type === "text" || it.type === "number") {
     it.x += dx;
     it.y += dy;
   } else {
@@ -716,6 +826,12 @@ function setTool(tool) {
   closeEditor(true);
   state.tool = tool;
   els.stage.dataset.tool = tool;
+  els.cropBar.hidden = tool !== "crop";
+  if (tool !== "crop" && state.crop) {
+    state.crop = null;
+    render();
+  }
+  if (tool === "crop") showStatus("残したい所をドラッグで囲んで「切り抜く」を押してください", { ms: 4000 });
   for (const b of els.tools) {
     b.classList.toggle("selected", b.dataset.tool === tool);
     b.setAttribute("aria-checked", b.dataset.tool === tool);
@@ -773,8 +889,85 @@ els.deleteBtn.addEventListener("click", deleteSelected);
 els.undoBtn.addEventListener("click", undo);
 els.redoBtn.addEventListener("click", redo);
 
+/* ---------- cropping and turning ---------- */
+
+// Every kind of item, with each of its points passed through `map(x, y) → [x, y]`.
+function mapItems(map) {
+  for (const it of state.items) {
+    if (TWO_POINT.has(it.type)) {
+      [it.x1, it.y1] = map(it.x1, it.y1);
+      [it.x2, it.y2] = map(it.x2, it.y2);
+    } else if (it.type === "text" || it.type === "number") {
+      [it.x, it.y] = map(it.x, it.y);
+    } else {
+      it.points = it.points.map(([x, y]) => map(x, y));
+    }
+  }
+}
+
+// A new version of the image becomes the base; the old one stays for undo.
+function replaceBase(canvas, map) {
+  closeEditor(true);
+  mapItems(map);
+  state.bases.push(canvas);
+  setBase(canvas);
+  state.selected = null;
+  state.crop = null;
+  recordChange();
+  render();
+  updateButtons();
+}
+
+function applyCrop() {
+  if (!state.crop) return;
+  const b = box(state.crop);
+  const x = Math.round(b.x);
+  const y = Math.round(b.y);
+  const w = Math.round(b.w);
+  const h = Math.round(b.h);
+  if (w < 4 || h < 4) {
+    showStatus("残したい所をドラッグで囲んでください", { error: true });
+    return;
+  }
+  const out = document.createElement("canvas");
+  out.width = w;
+  out.height = h;
+  out.getContext("2d").drawImage(state.base, -x, -y);
+  replaceBase(out, (px, py) => [px - x, py - y]);
+  setTool("select");
+  showStatus("切り抜きました（元に戻すで戻せます）");
+}
+
+// Turns the image a quarter turn: clockwise when `right`. Drawings turn with it; text and
+// number stamps stay upright.
+function rotate(right) {
+  if (!state.base) return;
+  const { W, H } = state;
+  const out = document.createElement("canvas");
+  out.width = H;
+  out.height = W;
+  const c = out.getContext("2d");
+  c.translate(right ? H : 0, right ? 0 : W);
+  c.rotate(((right ? 90 : -90) * Math.PI) / 180);
+  c.drawImage(state.base, 0, 0);
+  replaceBase(out, right ? (x, y) => [H - y, x] : (x, y) => [y, W - x]);
+}
+
+els.cropApply.addEventListener("click", applyCrop);
+els.cropCancel.addEventListener("click", () => setTool("select"));
+els.cropRatio.addEventListener("change", () => {
+  if (!state.crop) return;
+  dragCrop(state.crop.x2, state.crop.y2);
+  render();
+});
+els.rotateLeft.addEventListener("click", () => rotate(false));
+els.rotateRight.addEventListener("click", () => rotate(true));
+
 function updateButtons() {
   const open = !!state.base;
+  els.cropApply.disabled = !state.crop || Math.abs(state.crop.x2 - state.crop.x1) < 4 || Math.abs(state.crop.y2 - state.crop.y1) < 4;
+  els.rotateLeft.disabled = !open;
+  els.rotateRight.disabled = !open;
   els.undoBtn.disabled = !history.canUndo;
   els.redoBtn.disabled = !history.canRedo;
   els.deleteBtn.disabled = !state.selected;
@@ -837,7 +1030,10 @@ onFileDrop((files) => {
 
 /* ---------- keyboard ---------- */
 
-const TOOL_KEYS = { v: "select", a: "arrow", t: "text", r: "rect", o: "ellipse", l: "line", p: "pen", m: "marker", b: "mosaic" };
+const TOOL_KEYS = {
+  v: "select", a: "arrow", t: "text", r: "rect", o: "ellipse", l: "line", p: "pen", m: "marker", b: "mosaic",
+  n: "number", c: "crop",
+};
 
 document.addEventListener("keydown", (e) => {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
@@ -859,6 +1055,10 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Delete" || e.key === "Backspace") {
     e.preventDefault();
     deleteSelected();
+  } else if (e.key === "Enter" && state.crop) {
+    applyCrop();
+  } else if (e.key === "Escape" && state.tool === "crop") {
+    setTool("select");
   } else if (e.key === "Escape") {
     state.selected = null;
     render();
@@ -887,7 +1087,7 @@ window.addEventListener("beforeunload", (e) => {
 els.stage.dataset.tool = state.tool;
 
 // For the automated checks in tests/.
-window.__imageAnnotate = { state, undo, redo };
+window.__imageAnnotate = { state, undo, redo, rotate, applyCrop };
 
 // Keeps this tool working without a network once it has been opened.
 registerOffline(["./", "index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest"]);
