@@ -15,6 +15,8 @@
   <svg class="sprite" aria-hidden="true">
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
     <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><path d="M3 5h18v14H3z"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></symbol>
     <symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 9h11v11H9z"/><path d="M5 15H4V4h11v1"/></symbol>
   </svg>
   <header class="toolbar">
@@ -22,13 +24,18 @@
       <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
       <span class="app-title">QRコード作成</span>
     </div>
-    <div class="group end">
+    <div class="group tabs" role="tablist" aria-label="すること">
+      <button class="btn tab" role="tab" data-pane="make" aria-selected="true">作る</button>
+      <button class="btn tab" role="tab" data-pane="batch" aria-selected="false">まとめて作る</button>
+      <button class="btn tab" role="tab" data-pane="read" aria-selected="false">読み取る</button>
+    </div>
+    <div id="make-actions" class="group end">
       <button id="copy-btn" class="btn" disabled title="画像をコピーして、ドキュメントやスライドに貼り付ける"><svg class="i" aria-hidden="true"><use href="#i-copy"/></svg>コピー</button>
       <button id="save-btn" class="btn primary" disabled><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>PNGで保存</button>
     </div>
   </header>
 
-  <main class="layout">
+  <main id="make-pane" class="layout pane">
     <section class="form" aria-label="QRコードの中身">
       <label class="label" for="text">URLや文字</label>
       <textarea id="text" rows="4" spellcheck="false" placeholder="https://classroom.google.com/…&#10;Googleフォームの回答URLや、配りたい文章を入れます"></textarea>
@@ -60,6 +67,61 @@
     </section>
   </main>
 
+  <main id="batch-pane" class="layout pane" hidden>
+    <section class="form" aria-label="まとめて作るQRコード">
+      <label class="label" for="batch-text">1行に1つずつ（URLや文字）</label>
+      <textarea id="batch-text" rows="8" spellcheck="false" placeholder="https://example.com/1組&#10;https://example.com/2組"></textarea>
+      <p class="note">表計算ソフトから「下に入れる文字」と「URL」の2列をコピーして貼ると、1列目がQRコードの下に入ります。</p>
+      <div class="row">
+        <label class="field">読み取りやすさ
+          <select id="batch-ecc">
+            <option value="L">低（小さい）</option>
+            <option value="M" selected>ふつう</option>
+            <option value="Q">高</option>
+            <option value="H">最高（汚れに強い）</option>
+          </select>
+        </label>
+        <label class="field">1ページに
+          <select id="batch-grid">
+            <option value="2x3">6こ（大きめ）</option>
+            <option value="3x4" selected>12こ</option>
+            <option value="4x5">20こ（小さめ）</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <button id="batch-pdf" class="btn primary" disabled><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>印刷用のPDF（A4）</button>
+        <button id="batch-zip" class="btn" disabled><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>PNGをZIPで保存</button>
+      </div>
+    </section>
+    <section class="preview-wrap" aria-label="できあがり">
+      <p id="batch-info" class="info">左に1行に1つずつ入れると、ここに並びます。</p>
+      <div id="batch-list" class="batch-list"></div>
+    </section>
+  </main>
+
+  <main id="read-pane" class="read pane" hidden>
+    <section class="form read-form" aria-label="QRコードを読み取る">
+      <p id="read-unsupported" class="info error" hidden>この端末では読み取れません（Chromebook・Android・Mac の Chrome で使えます）。</p>
+      <div id="read-actions" class="row">
+        <button id="camera-btn" class="btn primary"><svg class="i" aria-hidden="true"><use href="#i-camera"/></svg>カメラで読む</button>
+        <label class="btn" for="read-file"><svg class="i" aria-hidden="true"><use href="#i-image"/></svg>画像から読む</label>
+        <input id="read-file" type="file" accept="image/*" hidden>
+      </div>
+      <video id="camera" class="camera" playsinline muted hidden></video>
+      <p class="note">QRコードの写った画像は、ドラッグや <kbd>Ctrl</kbd>+<kbd>V</kbd>（スクリーンショットの貼り付け）でも読めます。画像はどこにも送信されません。</p>
+      <div id="read-result" class="read-result" hidden>
+        <p class="label">読み取った中身</p>
+        <output id="read-text" class="read-text"></output>
+        <div class="row">
+          <a id="read-open" class="btn primary" target="_blank" rel="noopener noreferrer" hidden>開く</a>
+          <button id="read-copy" class="btn"><svg class="i" aria-hidden="true"><use href="#i-copy"/></svg>コピー</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="drop-overlay" class="drop-overlay" hidden>ここに画像をドロップ</div>
   <div id="status" class="status" role="status" aria-live="polite" hidden></div>
 
   <script type="module" src="app.js"></script>
