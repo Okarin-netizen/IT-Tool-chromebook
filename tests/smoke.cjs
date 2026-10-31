@@ -235,6 +235,14 @@ const TOOLS = {
       t.expectName(file, "写真入り_圧縮.pdf");
       await t.expectPdfPages(file, 2);
       t.expect(file.bytes.length < t.pdf("写真入り.pdf", 2, { image: true }).buffer.length, "小さくなっていない");
+
+      // A protected PDF can only be shrunk by turning its pages into pictures.
+      await t.setFiles("#file-input", [t.locked("鍵つき.pdf")]);
+      await t.enterPassword("1234");
+      await t.until(() => __pdfCompress.state.file?.encrypted);
+      await t.page.click("#compress-btn");
+      await t.until(() => __pdfCompress.state.result && !__pdfCompress.state.busy, 60000);
+      t.expect(await t.page.isChecked("input[name=method][value=raster]"), "保護されたPDFで「ページ全体を画像にする」が選ばれていない");
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.pdf("写真入り.pdf", 2, { image: true })]);
@@ -251,6 +259,12 @@ const TOOLS = {
       const [file] = await t.downloads(1);
       t.expectName(file, "スライド_画像.zip");
       t.expect(fixtures.zipNames(file.bytes).length === 3, "ZIPに画像が3枚ない");
+
+      // Giving up on the password says so, and keeps the PDF that was open.
+      await t.setFiles("#file-input", [t.locked("鍵つき.pdf")]);
+      await t.page.locator(".password-dialog[open] button[value=cancel]").click();
+      await t.page.locator("#status", { hasText: "パスワードが入力されなかったので開けませんでした" }).waitFor();
+      t.expect(await t.page.evaluate(() => __pdfImage.state.pages.length) === 3, "開いていたPDFが閉じられた");
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.pdf("スライド.pdf", 3)]);
@@ -721,7 +735,8 @@ function ocrFirstPage(t) {
 /* ---------- test harness ---------- */
 
 // Tesseract prints its own notes through console.error while OCR runs; they are not problems.
-const HARMLESS_CONSOLE = [/^Warning: Parameter not found/, /^Estimating resolution as/];
+// Tesseract's notes, and a password the test chose not to give (the tools log every failed open).
+const HARMLESS_CONSOLE = [/^Warning: Parameter not found/, /^Estimating resolution as/, /^PasswordException: password not given/];
 
 class ToolTest {
   constructor(name, page, server) {

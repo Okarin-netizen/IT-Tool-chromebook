@@ -1,8 +1,9 @@
-import { openPdf } from "../shared/js/pdf.js";
+import { openPdf, openPdfError, renderPage } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { createLazyRenderer, freeCanvas } from "../shared/js/lazy.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { loadScript } from "../shared/js/pdf-lib.js";
 import { pixelRatio } from "../shared/js/canvas.js";
 import { copyText } from "../shared/js/clipboard.js";
 
@@ -244,10 +245,7 @@ async function openFile(file) {
     }
   } catch (err) {
     console.error(err);
-    showStatus(
-      err?.name === "PasswordException" ? "パスワードが入力されなかったので開けませんでした" : "PDFを読み込めませんでした",
-      { error: true },
-    );
+    showStatus(openPdfError(err), { error: true });
   } finally {
     state.busy = false;
     updateUi();
@@ -368,28 +366,15 @@ async function renderPreview(view) {
 
 /* ---------- OCR ---------- */
 
-let tesseractLoaded = null;
-function loadTesseract() {
-  tesseractLoaded ??= new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "../shared/vendor/tesseract-7.0.0/tesseract.min.js";
-    s.onload = resolve;
-    s.onerror = () => {
-      tesseractLoaded = null;
-      reject(new Error("tesseract.js could not be loaded"));
-    };
-    document.head.append(s);
-  });
-  return tesseractLoaded;
-}
+const loadTesseract = () => loadScript("tesseract-7.0.0/tesseract.min.js", "Tesseract");
 
 let ocr = null; // { worker, lang }
 let ocrProgress = () => {};
 
 async function getOcrWorker(lang) {
-  await loadTesseract();
+  const Tesseract = await loadTesseract();
   if (!ocr) {
-    const worker = await window.Tesseract.createWorker(lang, 1, {
+    const worker = await Tesseract.createWorker(lang, 1, {
       workerPath: asset("../shared/vendor/tesseract-7.0.0/worker.min.js"),
       // Every Chrome on a Chromebook supports WebAssembly SIMD, so only this core is bundled.
       corePath: asset("../shared/vendor/tesseract-7.0.0/tesseract-core-simd-lstm.wasm.js"),
@@ -411,15 +396,7 @@ async function getOcrWorker(lang) {
 async function pageImage(num) {
   const page = await state.pdf.getPage(num);
   const base = page.getViewport({ scale: 1 });
-  const viewport = page.getViewport({ scale: Math.min(5, OCR_PX / Math.max(base.width, base.height)) });
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(viewport.width);
-  canvas.height = Math.round(viewport.height);
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  await page.render({ canvasContext: ctx, viewport }).promise;
-  return canvas;
+  return renderPage(page, Math.min(5, OCR_PX / Math.max(base.width, base.height)));
 }
 
 // Tesseract puts spaces between Japanese characters and separates paragraphs with

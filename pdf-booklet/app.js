@@ -1,4 +1,4 @@
-import { openPdf, rasterizePdf } from "../shared/js/pdf.js";
+import { openPdf, openPdfError, rasterizePdf, renderPage } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
@@ -228,7 +228,7 @@ async function openFiles(list) {
     pdf = await openPdf(bytes.slice(), { name: file.name }).promise;
   } catch (err) {
     console.error(err);
-    showStatus(err?.name === "PasswordException" ? "パスワードが入力されなかったので開けませんでした" : `PDFを開けませんでした: ${file.name}`, { error: true });
+    showStatus(openPdfError(err, `PDFを開けませんでした: ${file.name}`), { error: true });
     return;
   }
   const pages = [];
@@ -327,11 +327,7 @@ async function renderSide(side) {
     const at = fit(cell, size.width, size.height);
     try {
       const page = await state.file.pdf.getPage(index + 1);
-      const viewport = page.getViewport({ scale: at.k * scale });
-      const pic = document.createElement("canvas");
-      pic.width = Math.ceil(viewport.width);
-      pic.height = Math.ceil(viewport.height);
-      await page.render({ canvasContext: pic.getContext("2d"), viewport }).promise;
+      const pic = await renderPage(page, at.k * scale);
       if (generation !== state.generation || !side.rendered) return;
       ctx.drawImage(pic, at.x * scale, (layout.height - at.y - at.h) * scale, at.w * scale, at.h * scale);
       pic.width = pic.height = 0;
@@ -434,22 +430,17 @@ async function renderThumb(thumb) {
   thumb.rendered = true;
   const file = state.file;
   const page = await file.pdf.getPage(thumb.index + 1);
-  const viewport = page.getViewport({ scale: (THUMB_PX * pixelRatio()) / state.pages[thumb.index].width });
-  const pic = document.createElement("canvas");
-  pic.width = Math.ceil(viewport.width);
-  pic.height = Math.ceil(viewport.height);
+  let pic;
   try {
-    await page.render({ canvasContext: pic.getContext("2d"), viewport }).promise;
+    pic = await renderPage(page, (THUMB_PX * pixelRatio()) / state.pages[thumb.index].width);
   } catch (err) {
     console.error(err);
+    return;
   }
   if (state.file !== file || !thumb.rendered) return;
   thumb.canvas.width = pic.width;
   thumb.canvas.height = pic.height;
-  const ctx = thumb.canvas.getContext("2d");
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, pic.width, pic.height);
-  ctx.drawImage(pic, 0, 0);
+  thumb.canvas.getContext("2d").drawImage(pic, 0, 0);
   pic.width = pic.height = 0;
 }
 

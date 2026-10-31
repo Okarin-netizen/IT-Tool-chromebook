@@ -1,4 +1,4 @@
-import { openPdf } from "../shared/js/pdf.js";
+import { openPdf, openPdfError, renderPage, addPageImage } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
@@ -6,7 +6,7 @@ import { loadText, saveText } from "../shared/js/storage.js";
 import { createLazyRenderer, freeCanvas } from "../shared/js/lazy.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
-import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
+import { pixelRatio } from "../shared/js/canvas.js";
 
 const THUMB_SIZES = { small: 110, medium: 150, large: 220 }; // longest side of a thumbnail, in CSS pixels
 const HISTORY_LIMIT = 50;
@@ -92,7 +92,7 @@ async function addFiles(fileList) {
       if (!entry.doc) protectedNames.push(entry.name);
     } catch (err) {
       console.error(err);
-      failed.push({ name: file.name, reason: describeLoadError(err) });
+      failed.push({ name: file.name, reason: openPdfError(err) });
     }
   }
   state.loading = false;
@@ -106,11 +106,6 @@ async function addFiles(fileList) {
     hideStatus();
     showStatus(`${added}ページを追加しました`);
   }
-}
-
-function describeLoadError(err) {
-  if (err?.name === "PasswordException") return "パスワードが入力されなかったので開けませんでした";
-  return "PDFを読み込めませんでした";
 }
 
 async function addFile(file) {
@@ -362,13 +357,9 @@ async function renderThumb(view) {
     const base = page.getViewport({ scale: 1, rotation });
     const dpr = pixelRatio();
     const scale = (state.thumbPx / Math.max(base.width, base.height)) * dpr;
-    const viewport = page.getViewport({ scale, rotation });
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.ceil(viewport.width);
-    canvas.height = Math.ceil(viewport.height);
-    canvas.style.width = `${viewport.width / dpr}px`;
-    canvas.style.height = `${viewport.height / dpr}px`;
-    await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+    const canvas = await renderPage(page, scale, { rotation });
+    canvas.style.width = `${canvas.width / dpr}px`;
+    canvas.style.height = `${canvas.height / dpr}px`;
     if (token !== view.renderToken) return; // rotated again while rendering
     view.el.querySelector(".thumb").replaceChildren(canvas);
     view.canvas = canvas;
@@ -689,13 +680,9 @@ async function renderPreview() {
     const box = els.previewStage.getBoundingClientRect();
     const fit = Math.min(box.width / base.width, box.height / base.height);
     const dpr = pixelRatio();
-    const viewport = page.getViewport({ scale: fit * dpr, rotation });
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.floor(viewport.width);
-    canvas.height = Math.floor(viewport.height);
-    canvas.style.width = `${viewport.width / dpr}px`;
-    canvas.style.height = `${viewport.height / dpr}px`;
-    await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+    const canvas = await renderPage(page, fit * dpr, { rotation });
+    canvas.style.width = `${canvas.width / dpr}px`;
+    canvas.style.height = `${canvas.height / dpr}px`;
     if (token !== previewToken) return; // moved on to another page meanwhile
     els.previewStage.replaceChildren(canvas);
   } catch (err) {
@@ -777,7 +764,11 @@ async function buildPdf(views, { nup = 1 } = {}) {
     while (j < views.length && views[j].file === file) j++;
     const run = views.slice(i, j);
     if (!file.doc) {
-      for (const view of run) await addRasterPage(out, view);
+      // A protected PDF: each page becomes a picture of itself, already turned upright.
+      for (const view of run) {
+        const page = await view.file.pdf.getPage(view.index + 1);
+        await addPageImage(out, page, { scale: RASTER_SCALE, rotation: (view.baseRotation + view.rotation) % 360 });
+      }
       i = j;
       continue;
     }
@@ -847,25 +838,6 @@ async function placeOnSheets(src, n) {
     });
   });
   return out;
-}
-
-// Draws a page of a protected PDF as an image, the same as printing it, already turned upright.
-async function addRasterPage(out, view) {
-  const page = await view.file.pdf.getPage(view.index + 1);
-  const rotation = (view.baseRotation + view.rotation) % 360;
-  const size = page.getViewport({ scale: 1, rotation });
-  const viewport = page.getViewport({ scale: RASTER_SCALE, rotation });
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.floor(viewport.width);
-  canvas.height = Math.floor(viewport.height);
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  await page.render({ canvasContext: ctx, viewport }).promise;
-  const blob = await canvasToBlob(canvas, "image/jpeg", 0.9);
-  canvas.width = canvas.height = 0;
-  const image = await out.embedJpg(new Uint8Array(await blob.arrayBuffer()));
-  out.addPage([size.width, size.height]).drawImage(image, { x: 0, y: 0, width: size.width, height: size.height });
 }
 
 function outputName(suffix) {

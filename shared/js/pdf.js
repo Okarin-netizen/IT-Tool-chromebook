@@ -56,28 +56,49 @@ export function openPdf(data, { name } = {}) {
   return { promise, destroy: () => task.destroy() };
 }
 
+export const isPasswordCancelled = (err) => err?.name === "PasswordException";
+
+// The message shown when openPdf fails. `fallback` covers everything except a password the
+// user did not give, so each tool can keep its own wording for a broken file.
+export function openPdfError(err, fallback = "PDFを読み込めませんでした") {
+  return isPasswordCancelled(err) ? "パスワードが入力されなかったので開けませんでした" : fallback;
+}
+
+// Draws a page on a new canvas and returns it. The paper is painted white first, because
+// pdf.js leaves it transparent, which turns black in a JPEG.
+// `rotation` defaults to the page's own; `annotationMode` is passed on to pdf.js.
+export async function renderPage(page, scale, { rotation, annotationMode } = {}) {
+  const viewport = page.getViewport({ scale, rotation });
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  await page.render({ canvasContext: ctx, viewport, annotationMode }).promise;
+  return canvas;
+}
+
+// Adds a pdf.js page to the pdf-lib `doc` as a JPEG picture of itself, at its own size.
+export async function addPageImage(doc, page, { scale = 2, quality = 0.9, rotation, annotationMode } = {}) {
+  const canvas = await renderPage(page, scale, { rotation, annotationMode });
+  const blob = await canvasToBlob(canvas, "image/jpeg", quality);
+  canvas.width = canvas.height = 0;
+  const image = await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
+  const { width, height } = page.getViewport({ scale: 1, rotation });
+  doc.addPage([width, height]).drawImage(image, { x: 0, y: 0, width, height });
+}
+
 // pdf-lib cannot decrypt, so a protected (encrypted) PDF is rebuilt from page images
 // rendered by pdf.js, the same as printing it. `onPage(num, count)` reports progress.
-export async function rasterizePdf(pdf, { scale = 2, onPage } = {}) {
+export async function rasterizePdf(pdf, { scale = 2, quality = 0.9, annotationMode, onPage } = {}) {
   const { PDFDocument } = await loadPdfLib();
   const doc = await PDFDocument.create();
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
   for (let num = 1; num <= pdf.numPages; num++) {
     onPage?.(num, pdf.numPages);
     const page = await pdf.getPage(num);
-    const viewport = page.getViewport({ scale });
-    canvas.width = Math.floor(viewport.width);
-    canvas.height = Math.floor(viewport.height);
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    await page.render({ canvasContext: ctx, viewport }).promise;
-    const blob = await canvasToBlob(canvas, "image/jpeg", 0.9);
-    const image = await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
-    const { width, height } = page.getViewport({ scale: 1 });
-    doc.addPage([width, height]).drawImage(image, { x: 0, y: 0, width, height });
+    await addPageImage(doc, page, { scale, quality, annotationMode });
     page.cleanup();
   }
-  canvas.width = canvas.height = 0;
   return doc;
 }

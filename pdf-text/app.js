@@ -1,4 +1,4 @@
-import { pdfjsLib, openPdf, rasterizePdf } from "../shared/js/pdf.js";
+import { pdfjsLib, openPdf, openPdfError, rasterizePdf } from "../shared/js/pdf.js";
 import { createPageViewer, clampScale } from "../shared/js/page-viewer.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, download, onFileDrop } from "../shared/js/files.js";
@@ -107,10 +107,7 @@ async function openFile(file) {
     preloadForSaving();
   } catch (err) {
     console.error(err);
-    const msg = err?.name === "PasswordException"
-      ? "パスワードが入力されなかったので開けませんでした"
-      : "PDFを開けませんでした";
-    showStatus(msg, { error: true });
+    showStatus(openPdfError(err, "PDFを開けませんでした"), { error: true });
   }
 }
 
