@@ -50,7 +50,13 @@ function readSettings() {
 function restoreSettings() {
   const saved = loadJson(SETTINGS_KEY, null);
   if (!saved) return;
-  for (const [el, value] of [[els.maxSide, saved.maxSide], [els.format, saved.format], [els.mode, saved.mode], [els.targetKb, saved.targetKb]]) {
+  const fields = [
+    [els.maxSide, saved.maxSide],
+    [els.format, saved.format],
+    [els.mode, saved.mode],
+    [els.targetKb, saved.targetKb],
+  ];
+  for (const [el, value] of fields) {
     if (value === undefined) continue;
     if (el.tagName === "SELECT" && ![...el.options].some((o) => o.value === String(value))) continue;
     el.value = String(value);
@@ -193,30 +199,11 @@ async function shrinkToTarget(item, { maxSide, format, targetKb }, token) {
   let smallest = null;
   for (let pass = 0; pass < 6; pass++) {
     const canvas = render(item, width, height, format);
-    let best = null;
-    if (format === "image/png") {
-      const blob = await canvasToBlob(canvas, format);
-      if (blob.size <= bytes) best = { blob, width, height };
-      if (!smallest || blob.size < smallest.blob.size) smallest = { blob, width, height };
-    } else {
-      let lo = 0.35;
-      let hi = 0.95;
-      for (let probe = 0; probe < 7; probe++) {
-        if (token !== runToken) return null;
-        const quality = (lo + hi) / 2;
-        const blob = await canvasToBlob(canvas, format, quality);
-        if (!smallest || blob.size < smallest.blob.size) smallest = { blob, width, height };
-        if (blob.size > bytes) {
-          hi = quality;
-        } else {
-          if (!best || blob.size > best.blob.size) best = { blob, width, height };
-          if (blob.size > bytes * 0.9) break; // close enough
-          lo = quality;
-        }
-      }
-    }
+    const found = await encodeUnder(canvas, format, bytes, token);
     canvas.width = canvas.height = 0;
-    if (best) return { ...best, hit: true };
+    if (!found) return null; // cancelled
+    if (!smallest || found.smallest.size < smallest.blob.size) smallest = { blob: found.smallest, width, height };
+    if (found.best) return { blob: found.best, width, height, hit: true };
     if (token !== runToken) return null;
     const longSide = Math.max(width, height);
     if (longSide <= MIN_SIDE) break;
@@ -231,6 +218,34 @@ async function shrinkToTarget(item, { maxSide, format, targetKb }, token) {
     }
   }
   return { ...smallest, hit: false };
+}
+
+// Encodes `canvas` as large as fits under `bytes`, trying qualities between 0.35 and 0.95.
+// Returns { best, smallest }: the largest file that fits (null when none does) and the
+// smallest one made, or null when the run was cancelled.
+async function encodeUnder(canvas, format, bytes, token) {
+  if (format === "image/png") {
+    const blob = await canvasToBlob(canvas, format);
+    return { best: blob.size <= bytes ? blob : null, smallest: blob };
+  }
+  let best = null;
+  let smallest = null;
+  let lo = 0.35;
+  let hi = 0.95;
+  for (let probe = 0; probe < 7; probe++) {
+    if (token !== runToken) return null;
+    const quality = (lo + hi) / 2;
+    const blob = await canvasToBlob(canvas, format, quality);
+    if (!smallest || blob.size < smallest.size) smallest = blob;
+    if (blob.size > bytes) {
+      hi = quality;
+    } else {
+      if (!best || blob.size > best.size) best = blob;
+      if (blob.size > bytes * 0.9) break; // close enough
+      lo = quality;
+    }
+  }
+  return { best, smallest };
 }
 
 async function shrink(item, settings, token) {

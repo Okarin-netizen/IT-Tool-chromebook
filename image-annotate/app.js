@@ -188,56 +188,51 @@ function drawItem(c, it) {
   c.lineJoin = "round";
   c.strokeStyle = it.color;
   c.fillStyle = it.color;
-  switch (it.type) {
-    case "line":
-      c.lineWidth = strokeWidth(it);
-      c.beginPath();
-      c.moveTo(it.x1, it.y1);
-      c.lineTo(it.x2, it.y2);
-      c.stroke();
-      break;
-    case "arrow":
-      drawArrow(c, it);
-      break;
-    case "rect": {
-      const b = box(it);
-      if (it.fill) c.fillRect(b.x, b.y, b.w, b.h);
-      else {
-        c.lineWidth = strokeWidth(it);
-        c.strokeRect(b.x, b.y, b.w, b.h);
-      }
-      break;
-    }
-    case "ellipse": {
-      const b = box(it);
-      c.beginPath();
-      c.ellipse(b.x + b.w / 2, b.y + b.h / 2, b.w / 2, b.h / 2, 0, 0, Math.PI * 2);
-      if (it.fill) c.fill();
-      else {
-        c.lineWidth = strokeWidth(it);
-        c.stroke();
-      }
-      break;
-    }
-    case "pen":
-      c.lineWidth = strokeWidth(it);
-      strokePath(c, it.points);
-      break;
-    case "marker":
-      c.globalAlpha = 0.4;
-      c.globalCompositeOperation = "multiply";
-      c.lineCap = "butt";
-      c.lineWidth = markerWidth(it);
-      strokePath(c, it.points);
-      break;
-    case "mosaic":
-      drawMosaic(c, it);
-      break;
-    case "text":
-      drawText(c, it);
-      break;
-  }
+  DRAW[it.type](c, it);
 }
+
+// How each kind of item is drawn, once its color is set.
+const DRAW = {
+  line(c, it) {
+    c.lineWidth = strokeWidth(it);
+    c.beginPath();
+    c.moveTo(it.x1, it.y1);
+    c.lineTo(it.x2, it.y2);
+    c.stroke();
+  },
+  arrow: (c, it) => drawArrow(c, it),
+  rect(c, it) {
+    const b = box(it);
+    if (it.fill) c.fillRect(b.x, b.y, b.w, b.h);
+    else {
+      c.lineWidth = strokeWidth(it);
+      c.strokeRect(b.x, b.y, b.w, b.h);
+    }
+  },
+  ellipse(c, it) {
+    const b = box(it);
+    c.beginPath();
+    c.ellipse(b.x + b.w / 2, b.y + b.h / 2, b.w / 2, b.h / 2, 0, 0, Math.PI * 2);
+    if (it.fill) c.fill();
+    else {
+      c.lineWidth = strokeWidth(it);
+      c.stroke();
+    }
+  },
+  pen(c, it) {
+    c.lineWidth = strokeWidth(it);
+    strokePath(c, it.points);
+  },
+  marker(c, it) {
+    c.globalAlpha = 0.4;
+    c.globalCompositeOperation = "multiply";
+    c.lineCap = "butt";
+    c.lineWidth = markerWidth(it);
+    strokePath(c, it.points);
+  },
+  mosaic: (c, it) => drawMosaic(c, it),
+  text: (c, it) => drawText(c, it),
+};
 
 function drawArrow(c, it) {
   const lw = strokeWidth(it);
@@ -347,8 +342,12 @@ function bounds(it) {
   return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
 }
 
+function isLine(it) {
+  return it.type === "arrow" || it.type === "line";
+}
+
 function handles(it) {
-  if (it.type === "arrow" || it.type === "line") {
+  if (isLine(it)) {
     return [
       { x: it.x1, y: it.y1, kx: "x1", ky: "y1" },
       { x: it.x2, y: it.y2, kx: "x2", ky: "y2" },
@@ -365,14 +364,21 @@ function handles(it) {
   return [];
 }
 
+// The width of a pen or marker stroke; 0 for other items.
+function freehandWidth(it) {
+  if (it.type === "pen") return strokeWidth(it);
+  if (it.type === "marker") return markerWidth(it);
+  return 0;
+}
+
 function drawSelection(c, it) {
   const r = pxRatio();
   c.save();
   c.lineWidth = 1.5 * r;
   c.strokeStyle = "#2563eb";
-  if (it.type !== "arrow" && it.type !== "line") {
+  if (!isLine(it)) {
     const b = bounds(it);
-    const pad = (it.type === "pen" ? strokeWidth(it) : it.type === "marker" ? markerWidth(it) : 0) / 2 + 4 * r;
+    const pad = freehandWidth(it) / 2 + 4 * r;
     c.setLineDash([5 * r, 4 * r]);
     c.strokeRect(b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2);
     c.setLineDash([]);
@@ -541,50 +547,60 @@ els.canvas.addEventListener("pointermove", (e) => {
     drag.last = [x, y];
     moveItem(state.selected, dx, dy);
   } else if (drag.mode === "handle") {
-    const it = state.selected;
-    let [nx, ny] = [x, y];
-    if (e.shiftKey && (it.type === "arrow" || it.type === "line")) {
-      const ox = drag.handle.kx === "x1" ? it.x2 : it.x1;
-      const oy = drag.handle.ky === "y1" ? it.y2 : it.y1;
-      [nx, ny] = snapAngle(ox, oy, x, y);
-    }
-    it[drag.handle.kx] = nx;
-    it[drag.handle.ky] = ny;
-    drag.handle.x = nx;
-    drag.handle.y = ny;
+    dragHandle(e, x, y);
+  } else if (TWO_POINT.has(drag.item.type)) {
+    dragSecondPoint(e, x, y);
   } else {
-    const it = drag.item;
-    if (TWO_POINT.has(it.type)) {
-      let [nx, ny] = [x, y];
-      if (e.shiftKey) {
-        if (it.type === "arrow" || it.type === "line") [nx, ny] = snapAngle(it.x1, it.y1, x, y);
-        else {
-          const s = Math.max(Math.abs(x - it.x1), Math.abs(y - it.y1));
-          nx = it.x1 + Math.sign(x - it.x1 || 1) * s;
-          ny = it.y1 + Math.sign(y - it.y1 || 1) * s;
-        }
-      }
-      it.x2 = nx;
-      it.y2 = ny;
-    } else {
-      const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
-      for (const ev of events.length ? events : [e]) it.points.push(toImage(ev));
-    }
+    const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    for (const ev of events.length ? events : [e]) drag.item.points.push(toImage(ev));
   }
   renderSoon();
 });
+
+// Moves the handle being dragged to (x, y). With Shift, a line keeps to steps of 45°.
+function dragHandle(e, x, y) {
+  const it = state.selected;
+  let [nx, ny] = [x, y];
+  if (e.shiftKey && isLine(it)) {
+    const ox = drag.handle.kx === "x1" ? it.x2 : it.x1;
+    const oy = drag.handle.ky === "y1" ? it.y2 : it.y1;
+    [nx, ny] = snapAngle(ox, oy, x, y);
+  }
+  it[drag.handle.kx] = nx;
+  it[drag.handle.ky] = ny;
+  drag.handle.x = nx;
+  drag.handle.y = ny;
+}
+
+// Moves the end of the line or box being drawn to (x, y). With Shift, a line keeps to steps
+// of 45° and a box becomes a square.
+function dragSecondPoint(e, x, y) {
+  const it = drag.item;
+  let [nx, ny] = [x, y];
+  if (e.shiftKey && isLine(it)) {
+    [nx, ny] = snapAngle(it.x1, it.y1, x, y);
+  } else if (e.shiftKey) {
+    const side = Math.max(Math.abs(x - it.x1), Math.abs(y - it.y1));
+    nx = it.x1 + Math.sign(x - it.x1 || 1) * side;
+    ny = it.y1 + Math.sign(y - it.y1 || 1) * side;
+  }
+  it.x2 = nx;
+  it.y2 = ny;
+}
+
+// A line or box drawn by a slip of the pointer, too small to be meant.
+function isTooSmall(it) {
+  if (!TWO_POINT.has(it.type)) return false;
+  const tiny = HIT_PX * pxRatio();
+  if (isLine(it)) return Math.hypot(it.x2 - it.x1, it.y2 - it.y1) < tiny;
+  return Math.abs(it.x2 - it.x1) < tiny / 2 || Math.abs(it.y2 - it.y1) < tiny / 2;
+}
 
 function endDrag() {
   if (!drag) return;
   if (drag.mode === "draw") {
     const it = drag.item;
-    const tiny = HIT_PX * pxRatio();
-    const tooSmall = TWO_POINT.has(it.type)
-      ? (it.type === "arrow" || it.type === "line"
-        ? Math.hypot(it.x2 - it.x1, it.y2 - it.y1) < tiny
-        : Math.abs(it.x2 - it.x1) < tiny / 2 || Math.abs(it.y2 - it.y1) < tiny / 2)
-      : false;
-    if (tooSmall) {
+    if (isTooSmall(it)) {
       state.items.pop();
     } else if (it.type !== "pen" && it.type !== "marker") {
       state.selected = it;

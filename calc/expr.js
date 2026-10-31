@@ -25,7 +25,11 @@ const FUNCS = {
 const CONSTS = { pi: Math.PI, e: Math.E };
 
 // Names typed or shown with symbols are mapped to plain names first.
-const ALIASES = { "π": "pi", "√": "sqrt", "∛": "cbrt", "×": "*", "÷": "/", "−": "-", "–": "-", "＊": "*", "／": "/", "＋": "+", "＾": "^" };
+const ALIASES = {
+  "π": "pi", "√": "sqrt", "∛": "cbrt",
+  "×": "*", "÷": "/", "−": "-", "–": "-",
+  "＊": "*", "／": "/", "＋": "+", "＾": "^",
+};
 
 export class ExprError extends Error {}
 
@@ -139,7 +143,7 @@ function parse(tokens) {
       if (exp) node = { op: "^", a: node, b: exp };
       return node;
     }
-    throw new ExprError(tok.t === ")" ? "「(」が足りません" : `「${tok.t}」の位置がおかしいです`);
+    throw unexpected(tok);
   }
   // Argument without parentheses: a run of implicitly multiplied powers, e.g. "sin 2x".
   function implicitArg() {
@@ -150,11 +154,14 @@ function parse(tokens) {
 
   if (!tokens.length) throw new ExprError("式を入力してください");
   const tree = sum();
-  if (pos < tokens.length) {
-    const tok = tokens[pos];
-    throw new ExprError(tok.t === ")" ? "「(」が足りません" : `「${tok.t}」の位置がおかしいです`);
-  }
+  if (pos < tokens.length) throw unexpected(tokens[pos]);
   return tree;
+}
+
+// The error for a token that cannot stand where it is.
+function unexpected(tok) {
+  if (tok.t === ")") return new ExprError("「(」が足りません");
+  return new ExprError(`「${tok.t}」の位置がおかしいです`);
 }
 
 // Gamma function (Lanczos), so 0.5! and similar also work.

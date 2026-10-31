@@ -188,62 +188,16 @@ function sortTasks(a, b) {
   return a.created - b.created;
 }
 
+// Which tasks each filter tab shows.
+const FILTERS = {
+  all: () => true,
+  open: (t) => !t.done,
+  done: (t) => t.done,
+};
+
 function renderTasks() {
-  const list = $("task-list");
-  list.textContent = "";
-  const shown = state.tasks
-    .filter((t) => filter === "all" || (filter === "done" ? t.done : !t.done))
-    .sort(sortTasks);
-
-  for (const t of shown) {
-    const li = document.createElement("li");
-    li.className = "task";
-    li.dataset.id = t.id;
-    let urgency = "";
-    if (!t.done && t.due) {
-      const n = daysUntil(t.due);
-      if (n < 0) urgency = "overdue";
-      else if (n <= 1) urgency = "soon";
-    }
-    if (urgency) li.classList.add(urgency);
-    if (t.done) li.classList.add("done");
-
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.checked = t.done;
-    cb.setAttribute("aria-label", "完了");
-
-    const body = document.createElement("div");
-    body.className = "task-body";
-    const title = document.createElement("div");
-    title.className = "task-title";
-    title.textContent = t.title;
-    const meta = document.createElement("div");
-    meta.className = "task-meta";
-    if (t.subject) {
-      const tag = document.createElement("span");
-      tag.className = "tag";
-      tag.textContent = t.subject;
-      meta.appendChild(tag);
-    }
-    if (t.due) {
-      const due = document.createElement("span");
-      due.className = "due " + urgency;
-      due.textContent = t.done ? dueLabel(t.due).split(" ・ ")[0] : dueLabel(t.due);
-      meta.appendChild(due);
-    }
-    body.append(title, meta);
-
-    const del = document.createElement("button");
-    del.className = "task-del";
-    del.textContent = "✕";
-    del.title = "削除";
-    del.setAttribute("aria-label", "削除");
-
-    li.append(cb, body, del);
-    list.appendChild(li);
-  }
-
+  const shown = state.tasks.filter(FILTERS[filter]).sort(sortTasks);
+  $("task-list").replaceChildren(...shown.map(taskItem));
   const open = state.tasks.filter((t) => !t.done).length;
   const done = state.tasks.length - open;
   const empty = $("task-empty");
@@ -253,6 +207,64 @@ function renderTasks() {
     : "課題はまだありません。上の欄から追加してください。";
   $("task-count").textContent = state.tasks.length ? `未完了 ${open}件 ・ 完了 ${done}件` : "";
   $("clear-done").hidden = done === 0;
+}
+
+// "overdue" past the deadline, "soon" with a day or less left, or "" for an unfinished task.
+function urgencyOf(t) {
+  if (t.done || !t.due) return "";
+  const n = daysUntil(t.due);
+  if (n < 0) return "overdue";
+  if (n <= 1) return "soon";
+  return "";
+}
+
+function taskItem(t) {
+  const urgency = urgencyOf(t);
+  const li = document.createElement("li");
+  li.className = "task";
+  li.dataset.id = t.id;
+  if (urgency) li.classList.add(urgency);
+  if (t.done) li.classList.add("done");
+
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.checked = t.done;
+  cb.setAttribute("aria-label", "完了");
+
+  const title = document.createElement("div");
+  title.className = "task-title";
+  title.textContent = t.title;
+  const body = document.createElement("div");
+  body.className = "task-body";
+  body.append(title, taskMeta(t, urgency));
+
+  const del = document.createElement("button");
+  del.className = "task-del";
+  del.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-close"/></svg>';
+  del.title = "削除";
+  del.setAttribute("aria-label", "削除");
+
+  li.append(cb, body, del);
+  return li;
+}
+
+// The subject and the deadline under the task's title.
+function taskMeta(t, urgency) {
+  const meta = document.createElement("div");
+  meta.className = "task-meta";
+  if (t.subject) {
+    const tag = document.createElement("span");
+    tag.className = "tag";
+    tag.textContent = t.subject;
+    meta.appendChild(tag);
+  }
+  if (t.due) {
+    const due = document.createElement("span");
+    due.className = "due " + urgency;
+    due.textContent = t.done ? dueLabel(t.due).split(" ・ ")[0] : dueLabel(t.due);
+    meta.appendChild(due);
+  }
+  return meta;
 }
 
 $("task-form").addEventListener("submit", (e) => {
@@ -287,7 +299,7 @@ $("task-list").addEventListener("change", (e) => {
 });
 
 $("task-list").addEventListener("click", (e) => {
-  if (!e.target.classList.contains("task-del")) return;
+  if (!e.target.closest(".task-del")) return;
   const id = e.target.closest(".task").dataset.id;
   const t = state.tasks.find((x) => x.id === id);
   if (!t || !confirm(`「${t.title}」を削除しますか？`)) return;

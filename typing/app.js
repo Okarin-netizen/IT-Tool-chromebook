@@ -96,7 +96,8 @@ function customWords(lang) {
 
 function wordList() {
   if (settings.source === "custom") return customWords(settings.lang);
-  return settings.lang === "ja" ? WORDS_JA.map(([shown, reading]) => ({ shown, reading })) : WORDS_EN.map((w) => ({ shown: w, reading: w }));
+  if (settings.lang === "ja") return WORDS_JA.map(([shown, reading]) => ({ shown, reading }));
+  return WORDS_EN.map((w) => ({ shown: w, reading: w }));
 }
 
 // English is matched key for key, capitals and punctuation included.
@@ -232,7 +233,10 @@ function finish() {
   $("r-misses").textContent = game.misses;
   $("r-words").textContent = game.wordsDone;
   const weak = [...game.missedKeys].sort((a, b) => b[1] - a[1]).slice(0, 5);
-  $("r-keys").textContent = weak.length ? `まちがえやすいキー: ${weak.map(([k, n]) => `${k === " " ? "スペース" : k}（${n}回）`).join("、")}` : "ミスなし！";
+  const keyName = (k) => (k === " " ? "スペース" : k);
+  $("r-keys").textContent = weak.length
+    ? `まちがえやすいキー: ${weak.map(([k, n]) => `${keyName(k)}（${n}回）`).join("、")}`
+    : "ミスなし！";
 
   const bests = loadJson(BEST_KEY, {});
   const old = bests[bestKey()];

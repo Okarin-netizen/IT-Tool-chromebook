@@ -40,7 +40,11 @@ function loadStore() {
   if (!s || !Array.isArray(s.lists) || !s.lists.length) {
     return { lists: [{ title: "クラス1", names: "", picked: [] }], current: 0, noRepeat: true };
   }
-  s.lists = s.lists.map((l) => ({ title: String(l.title ?? "クラス"), names: String(l.names ?? ""), picked: Array.isArray(l.picked) ? l.picked : [] }));
+  s.lists = s.lists.map((l) => ({
+    title: String(l.title ?? "クラス"),
+    names: String(l.names ?? ""),
+    picked: Array.isArray(l.picked) ? l.picked : [],
+  }));
   s.current = Math.min(Math.max(0, s.current | 0), s.lists.length - 1);
   s.noRepeat = s.noRepeat !== false;
   return s;
