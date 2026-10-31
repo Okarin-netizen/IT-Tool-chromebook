@@ -1,4 +1,4 @@
-import { openPdf, rasterizePdf } from "../shared/js/pdf.js";
+import { openPdf, isPasswordCancelled, rasterizePdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
@@ -283,7 +283,7 @@ async function openFiles(list) {
       opened.push({ name: file.name || "document.pdf", bytes, pdf, views: [] });
     } catch (err) {
       console.error(err);
-      failed.push(err?.name === "PasswordException" ? `${file.name}（パスワードが入力されませんでした）` : file.name);
+      failed.push(isPasswordCancelled(err) ? `${file.name}（パスワードが入力されませんでした）` : file.name);
     }
   }
   if (!opened.length) {

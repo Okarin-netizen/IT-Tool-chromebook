@@ -1,4 +1,4 @@
-import { openPdf, rasterizePdf } from "../shared/js/pdf.js";
+import { openPdf, isPasswordCancelled, rasterizePdf } from "../shared/js/pdf.js";
 import { createPageViewer, clampScale } from "../shared/js/page-viewer.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
@@ -251,7 +251,7 @@ async function addPdfs(pdfs, skipped = 0) {
       added++;
     } catch (err) {
       console.error(err);
-      failed.push(err?.name === "PasswordException" ? `${src.name}（パスワード付き）` : src.name);
+      failed.push(isPasswordCancelled(err) ? `${src.name}（パスワード付き）` : src.name);
     }
   }
 

@@ -1,4 +1,4 @@
-import { openPdf } from "../shared/js/pdf.js";
+import { openPdf, openPdfError, renderPage } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
@@ -49,7 +49,7 @@ async function openFile(file) {
     pdf = await openPdf(new Uint8Array(await file.arrayBuffer()), { name: file.name }).promise;
   } catch (err) {
     console.error(err);
-    showStatus(err?.name === "PasswordException" ? "パスワードが入力されなかったので開けませんでした" : "PDFを読み込めませんでした", { error: true });
+    showStatus(openPdfError(err), { error: true });
     return;
   }
 
@@ -126,12 +126,7 @@ async function renderThumb(view) {
   try {
     const page = await pdf.getPage(view.index + 1);
     const base = page.getViewport({ scale: 1 });
-    const scale = (THUMB_PX / Math.max(base.width, base.height)) * pixelRatio();
-    const canvas = document.createElement("canvas");
-    const viewport = page.getViewport({ scale });
-    canvas.width = Math.ceil(viewport.width);
-    canvas.height = Math.ceil(viewport.height);
-    await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+    const canvas = await renderPage(page, (THUMB_PX / Math.max(base.width, base.height)) * pixelRatio());
     if (pdf !== state.pdf || !view.rendered) return; // another PDF was opened, or scrolled far away
     view.el.querySelector(".thumb").replaceChildren(canvas);
   } catch (err) {
@@ -185,20 +180,13 @@ function settings() {
   return { type, ext: type === "image/jpeg" ? "jpg" : "png", dpi: Number(els.dpi.value) };
 }
 
-async function renderPage(index, dpi) {
+async function pageCanvas(index, dpi) {
   const page = await state.pdf.getPage(index + 1);
   let scale = dpi / 72;
   const base = page.getViewport({ scale: 1 });
   const pixels = base.width * base.height * scale * scale;
   if (pixels > MAX_PIXELS) scale *= Math.sqrt(MAX_PIXELS / pixels);
-  const viewport = page.getViewport({ scale });
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.ceil(viewport.width);
-  canvas.height = Math.ceil(viewport.height);
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#fff"; // JPG has no transparency; keep the paper white either way
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  await page.render({ canvasContext: ctx, viewport }).promise;
+  const canvas = await renderPage(page, scale);
   page.cleanup();
   return canvas;
 }
@@ -228,7 +216,7 @@ function saveViews(views) {
     const { type, ext, dpi } = settings();
     if (views.length === 1) {
       showStatus("画像を作成中…", { sticky: true });
-      const blob = await canvasToBlob(await renderPage(views[0].index, dpi), type, JPEG_QUALITY);
+      const blob = await canvasToBlob(await pageCanvas(views[0].index, dpi), type, JPEG_QUALITY);
       download(blob, pageFileName(views[0].index, ext));
       hideStatus();
       showStatus("画像を保存しました");
@@ -237,7 +225,7 @@ function saveViews(views) {
     const files = [];
     for (const [i, view] of views.entries()) {
       showStatus(`画像を作成中…（${i + 1}/${views.length}）`, { sticky: true });
-      const blob = await canvasToBlob(await renderPage(view.index, dpi), type, JPEG_QUALITY);
+      const blob = await canvasToBlob(await pageCanvas(view.index, dpi), type, JPEG_QUALITY);
       files.push({ name: pageFileName(view.index, ext), bytes: new Uint8Array(await blob.arrayBuffer()) });
     }
     download(makeZip(files), `${baseName(state.name)}_画像.zip`);
@@ -255,7 +243,7 @@ function copyPage(view) {
   return withBusy(async () => {
     showStatus("コピー中…", { sticky: true });
     // The clipboard only takes PNG.
-    const png = renderPage(view.index, Number(els.dpi.value)).then((canvas) => canvasToBlob(canvas, "image/png"));
+    const png = pageCanvas(view.index, Number(els.dpi.value)).then((canvas) => canvasToBlob(canvas, "image/png"));
     const copied = await copyImage(png);
     hideStatus();
     if (copied) showStatus(`${view.index + 1}ページをコピーしました。Ctrl+V で貼り付けできます`);
@@ -309,4 +297,4 @@ registerOffline([
 updateUi();
 
 // Hook for automated tests.
-window.__pdfImage = { state, openFile, renderPage, makeZip };
+window.__pdfImage = { state, openFile, pageCanvas, makeZip };

@@ -1,9 +1,10 @@
 // pdf-lib and fontkit are large and only needed when a PDF is saved (or its pages are read),
 // so they are loaded the first time a tool asks for them instead of when the page opens.
+// loadScript does the same for any other library in shared/vendor that sets a global.
 const VENDOR = new URL("../vendor/", import.meta.url).href;
 const loading = new Map();
 
-function loadScript(path, name) {
+export function loadScript(path, name) {
   if (window[name]) return Promise.resolve(window[name]);
   if (!loading.has(path)) {
     loading.set(path, new Promise((resolve, reject) => {
