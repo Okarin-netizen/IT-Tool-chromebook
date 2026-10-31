@@ -758,6 +758,38 @@ const TOOLS = {
       await t.page.click("#redo-btn");
       await t.page.keyboard.press("Control+y");
       t.expect(await items() === moved, "やり直しで矢印が戻らない");
+      // Number stamps count up with each click.
+      await t.page.click("[data-tool='number']");
+      for (const [x, y] of [[60, 60], [120, 60], [180, 60]]) await t.page.mouse.click(...(await t.page.locator("#canvas").boundingBox().then((b) => [b.x + x, b.y + y])));
+      const numbers = await t.page.evaluate(() => __imageAnnotate.state.items.filter((i) => i.type === "number").map((i) => i.n).join());
+      t.expect(numbers === "1,2,3", `番号が進まない: ${numbers}`);
+      // Turning right swaps width and height and carries the drawings along; crop keeps a part.
+      const size = () => t.page.evaluate(() => `${__imageAnnotate.state.W}x${__imageAnnotate.state.H}`);
+      const first = () => t.page.evaluate(() => {
+        const n = __imageAnnotate.state.items.find((i) => i.type === "number");
+        return `${Math.round(n.x)},${Math.round(n.y)}`;
+      });
+      const before = await first();
+      await t.page.click("#rotate-right");
+      t.expect(await size() === "500x800", `右に回しても縦横が入れかわらない: ${await size()}`);
+      const [bx, by] = before.split(",").map(Number);
+      t.expect(await first() === `${500 - by},${bx}`, `回したとき番号がついてこない: ${before} → ${await first()}`);
+      await t.page.click("[data-tool='crop']");
+      await t.page.selectOption("#crop-ratio", "1:1");
+      await t.drag(t.page.locator("#canvas"), [[20, 20], [100, 60], [200, 120]]);
+      await t.shot("crop");
+      await t.page.click("#crop-apply");
+      const cropped = await size();
+      const [cw, ch] = cropped.split("x").map(Number);
+      t.expect(cw === ch && cw > 50, `正方形に切り抜けない: ${cropped}`);
+      await t.page.click("#undo-btn");
+      t.expect(await size() === "500x800", "元に戻すで切り抜きが戻らない");
+      await t.page.click("#undo-btn");
+      t.expect(await size() === "800x500", "元に戻すで回転が戻らない");
+      t.expect(await first() === before, "元に戻すで番号の位置が戻らない");
+      await t.page.click("#redo-btn");
+      await t.page.click("#redo-btn");
+      t.expect(await size() === cropped, "やり直しで切り抜きが戻らない");
       await t.page.click("#save-btn");
       const [file] = await t.downloads(1);
       t.expectName(file, "画面_書き込み.png");
