@@ -5,6 +5,7 @@ import { isImage, isHeic, readableImage } from "../shared/js/heic.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
+import { createSortable } from "../shared/js/sortable.js";
 import { detectCorners, scanLook, warp } from "./straighten.js";
 
 const MAX_IMAGE_PX = 2400; // longest side kept per photo; enough to read handwriting, keeps PDFs small
@@ -31,6 +32,7 @@ const els = {
   fileName: $("file-name"),
   saveBtn: $("save-btn"),
   welcome: $("welcome"),
+  viewer: $("viewer"),
   grid: $("grid"),
   camera: $("camera"),
   cameraVideo: $("camera-video"),
@@ -52,6 +54,7 @@ const state = {
   // { id, name, bytes, url, width, height, rotation }; after straightening also source (the photo
   // as added: { bytes, width, height }) and corners (where the paper's corners are on it)
   images: [],
+  cards: [], // { img, el } for each card in the grid, in order
   nextId: 1,
   dirty: false,
   busy: false,
@@ -150,13 +153,14 @@ function render() {
   els.sortBtn.disabled = state.images.length < 2;
   els.clearBtn.disabled = !has;
 
-  els.grid.replaceChildren(...state.images.map((img, i) => card(img, i, opts)));
+  state.cards = state.images.map((img, i) => ({ img, el: card(img, i, opts) }));
+  els.grid.replaceChildren(...state.cards.map((c) => c.el));
+  for (const c of state.cards) sortable.attach(c.el, c);
 }
 
 function card(img, index, opts) {
   const li = document.createElement("li");
   li.className = "card";
-  li.draggable = true;
   li.dataset.id = img.id;
 
   const { pw, ph, w, h } = layout(img, opts);
@@ -174,6 +178,7 @@ function card(img, index, opts) {
   const pic = document.createElement("img");
   pic.src = img.url;
   pic.alt = img.name;
+  pic.draggable = false; // the card is dragged, not the picture
   pic.style.width = `${(turned ? h : w) * k}px`;
   pic.style.height = `${(turned ? w : h) * k}px`;
   pic.style.transform = `rotate(${img.rotation}deg)`;
@@ -240,56 +245,28 @@ function remove(id) {
   render();
 }
 
-// Drag a card onto another to reorder. Uses its own data type so it is not
-// mistaken for files dropped from outside.
-const CARD_TYPE = "application/x-image-pdf-card";
-let dragId = 0;
-
-els.grid.addEventListener("dragstart", (e) => {
-  const li = e.target.closest(".card");
-  if (!li) return;
-  dragId = Number(li.dataset.id);
-  e.dataTransfer.effectAllowed = "move";
-  e.dataTransfer.setData(CARD_TYPE, li.dataset.id);
-  li.classList.add("dragging");
-});
-
-els.grid.addEventListener("dragend", () => {
-  dragId = 0;
-  clearDropMarks();
-  els.grid.querySelector(".dragging")?.classList.remove("dragging");
-});
-
-function dropSide(e, li) {
-  const r = li.getBoundingClientRect();
-  return e.clientX < r.left + r.width / 2 ? "before" : "after";
-}
-
-function clearDropMarks() {
-  els.grid.querySelectorAll(".drop-before, .drop-after").forEach((el) => el.classList.remove("drop-before", "drop-after"));
-}
-
-els.grid.addEventListener("dragover", (e) => {
-  if (!dragId) return;
-  const li = e.target.closest(".card");
-  e.preventDefault();
-  e.stopPropagation();
-  clearDropMarks();
-  if (li && Number(li.dataset.id) !== dragId) li.classList.add(`drop-${dropSide(e, li)}`);
-});
-
-els.grid.addEventListener("drop", (e) => {
-  if (!dragId) return;
-  e.preventDefault();
-  e.stopPropagation();
-  const li = e.target.closest(".card");
-  clearDropMarks();
-  if (!li || Number(li.dataset.id) === dragId) return;
-  const [img] = state.images.splice(indexOf(dragId), 1);
-  const target = indexOf(Number(li.dataset.id));
-  state.images.splice(dropSide(e, li) === "before" ? target : target + 1, 0, img);
-  state.dirty = true;
-  render();
+// Drag a card onto another to reorder (mouse, touch and pen).
+const sortable = createSortable({
+  scroller: els.viewer,
+  items: () => state.cards,
+  canStart: (e) => !e.target.closest("button") && !state.busy,
+  ghost: ({ img }) => {
+    const pic = new Image();
+    pic.src = img.url;
+    const turned = img.rotation % 180 !== 0;
+    const k = 90 / Math.max(img.width, img.height);
+    pic.style.width = `${(turned ? img.height : img.width) * k}px`;
+    pic.style.height = `${(turned ? img.width : img.height) * k}px`;
+    pic.style.transform = `rotate(${img.rotation}deg)`;
+    return [pic];
+  },
+  onDrop: ([{ img }], target, after) => {
+    if (img === target.img) return;
+    state.images.splice(state.images.indexOf(img), 1);
+    state.images.splice(state.images.indexOf(target.img) + (after ? 1 : 0), 0, img);
+    state.dirty = true;
+    render();
+  },
 });
 
 /* ---------- straightening ---------- */

@@ -100,6 +100,12 @@ const TOOLS = {
       const { width, height } = sheetDoc.getPage(0).getSize();
       t.expect(width > height, "2in1の紙が横向きになっていない");
       await t.page.selectOption("#nup", "1");
+
+      // A long press with a finger picks a page up; dropping it in front of the first page moves it there.
+      await t.until(() => __pdfPages.state.pages.every((p) => p.rendered));
+      await t.touchDrag(t.page.locator("#grid .card").nth(2), t.page.locator("#grid .card").nth(0));
+      const dragged = await t.page.evaluate(() => __pdfPages.state.pages.map((p) => (p.file.blank ? "白" : p.index + 1)).join(","));
+      t.expect(dragged === "2,3,白,2", `指で並べかえた順が違う: ${dragged}`);
       await t.page.evaluate(() => __pdfPages.removePages(__pdfPages.state.pages.slice()));
       await t.setFiles("#file-input", [t.pdf("表.pdf", 3), t.pdf("裏.pdf", 2)]);
       await t.until(() => __pdfPages.state.pages.length === 5);
@@ -480,6 +486,10 @@ const TOOLS = {
       const [file] = await t.downloads(1);
       t.expectName(file, "アルバム.pdf");
       await t.expectPdfPages(file, 2);
+      // Dragging the second card in front of the first swaps them.
+      await t.drag(t.page.locator(".card").nth(1), [[60, 60], [20, 60], [-120, 60]]);
+      const names = await t.page.evaluate(() => __imagePdf.state.images.map((img) => img.name).join(","));
+      t.expect(names === "写真2.png,写真1.png", `ドラッグで並べかえられない: ${names}`);
       // iPhone photos (HEIC) are turned into JPEG before they are added.
       await t.setFiles("#file-input", [t.heic("iPhone.heic")]);
       await t.until(() => __imagePdf.state.images.length === 3, 30000);
@@ -810,6 +820,20 @@ class ToolTest {
     await this.page.mouse.down();
     for (const [x, y] of rest) await this.page.mouse.move(box.x + x, box.y + y, { steps: 5 });
     await this.page.mouse.up();
+  }
+
+  // A long press with a finger on `from`, then a slide to the left edge of `to`. Touch pointer
+  // events are sent by hand, since the browser here has no touch screen.
+  async touchDrag(from, to) {
+    const a = await from.boundingBox();
+    const b = await to.boundingBox();
+    await from.dispatchEvent("pointerdown", { pointerType: "touch", pointerId: 7, isPrimary: true, button: 0, clientX: a.x + a.width / 2, clientY: a.y + a.height / 2 });
+    await this.page.waitForTimeout(500);
+    await this.page.evaluate(([x, y]) => {
+      const opts = { pointerType: "touch", pointerId: 7, isPrimary: true, bubbles: true, clientX: x, clientY: y };
+      window.dispatchEvent(new PointerEvent("pointermove", opts));
+      window.dispatchEvent(new PointerEvent("pointerup", opts));
+    }, [b.x + 5, b.y + b.height / 2]);
   }
 
   // Files the page handed to <a download>, captured by the init script below.

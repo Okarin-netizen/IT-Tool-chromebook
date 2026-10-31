@@ -91,10 +91,29 @@ body {
   box-shadow: 0 1px 3px rgba(0,0,0,.15);
   cursor: grab;
   position: relative;
+  touch-action: manipulation;
 }
 .card.dragging { opacity: .4; }
 .card.drop-before { border-left-color: var(--select); }
 .card.drop-after { border-right-color: var(--select); }
+body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
+.drag-ghost {
+  position: fixed;
+  left: 0; top: 0;
+  margin: -20px 0 0 -20px;
+  padding: 6px;
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.3);
+  pointer-events: none;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 90px;
+  min-height: 90px;
+}
+.drag-ghost img { display: block; }
 
 /* A page-shaped box so the preview shows how the image sits on the paper. */
 .sheet {

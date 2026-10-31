@@ -4,15 +4,14 @@ import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { loadText, saveText } from "../shared/js/storage.js";
 import { createLazyRenderer, freeCanvas } from "../shared/js/lazy.js";
+import { createSortable } from "../shared/js/sortable.js";
+import { embedPages, placePage } from "../shared/js/imposition.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { pixelRatio } from "../shared/js/canvas.js";
 
 const THUMB_SIZES = { small: 110, medium: 150, large: 220 }; // longest side of a thumbnail, in CSS pixels
 const HISTORY_LIMIT = 50;
-const LONG_PRESS_MS = 350; // touch: hold this long before a page starts to drag
-const DRAG_SLOP = 8; // px the pointer may wander before a press counts as a drag (or a scroll)
-const SCROLL_EDGE = 60; // px from the top/bottom of the page list where dragging scrolls it
 const SPLIT_CONFIRM = 10; // ask before downloading more files than this at once
 const RASTER_SCALE = 2; // 144 dpi page images for protected PDFs
 
@@ -166,7 +165,7 @@ function createCard(view) {
   view.el = li;
 
   li.addEventListener("click", (e) => {
-    if (suppressClick) return;
+    if (sortable.dragged) return; // the end of a drag, not a click
     const act = e.target.closest("[data-act]")?.dataset.act;
     if (act === "zoom") openPreview(view);
     else if (act === "left") movePage(view, -1);
@@ -191,142 +190,36 @@ function createCard(view) {
   li.addEventListener("dblclick", (e) => {
     if (!e.target.closest("[data-act]")) openPreview(view);
   });
-  li.addEventListener("pointerdown", (e) => pressCard(e, view));
-  li.addEventListener("contextmenu", (e) => {
-    if (press?.touch || drag) e.preventDefault(); // long press on a touch screen
-  });
+  sortable.attach(li, view);
 
   thumbs.add(view);
 }
 
 /* ---------- dragging pages (mouse, touch and pen) ---------- */
 
-let press = null; // { view, pointerId, x, y, touch, timer } while a button/finger is down on a card
-let drag = null; // { views, ghost, target, after, x, y, raf } once the press has become a drag
-let suppressClick = false; // the click that ends a drag must not toggle the selection
-
-function pressCard(e, view) {
-  suppressClick = false;
-  if (!e.isPrimary || e.button !== 0 || e.target.closest("[data-act]") || state.busy) return;
-  const touch = e.pointerType !== "mouse";
-  press = { view, pointerId: e.pointerId, x: e.clientX, y: e.clientY, touch, timer: 0 };
-  // On a touch screen a quick swipe scrolls the list; holding still first picks the page up.
-  if (touch) press.timer = setTimeout(() => startDrag(press.x, press.y), LONG_PRESS_MS);
-}
-
-function endPress() {
-  if (press) clearTimeout(press.timer);
-  press = null;
-}
-
-window.addEventListener("pointermove", (e) => {
-  if (!press || e.pointerId !== press.pointerId) return;
-  if (!drag) {
-    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < DRAG_SLOP) return;
-    if (press.touch) return endPress(); // moved before the long press: it's a scroll
-    startDrag(e.clientX, e.clientY);
-  }
-  moveDrag(e.clientX, e.clientY);
-});
-window.addEventListener("pointerup", (e) => {
-  if (!press || e.pointerId !== press.pointerId) return;
-  if (drag) finishDrag();
-  endPress();
-});
-window.addEventListener("pointercancel", (e) => {
-  if (!press || e.pointerId !== press.pointerId) return;
-  cancelDrag();
-  endPress();
-});
-// Keep the page list from scrolling under a finger that is dragging a page.
-els.grid.addEventListener("touchmove", (e) => {
-  if (drag) e.preventDefault();
-}, { passive: false });
-
-function startDrag(x, y) {
-  clearTimeout(press.timer);
-  const { view } = press;
+const sortable = createSortable({
+  scroller: els.viewer,
+  items: () => state.pages,
+  canStart: (e) => !e.target.closest("[data-act]") && !state.busy,
   // Dragging a selected page carries all the selected pages along.
-  const views = view.selected ? state.pages.filter((p) => p.selected) : [view];
-  const ghost = document.createElement("div");
-  ghost.className = "drag-ghost";
-  if (view.canvas) {
-    const copy = document.createElement("canvas");
-    const k = 90 / Math.max(view.canvas.width, view.canvas.height);
-    copy.width = Math.round(view.canvas.width * k);
-    copy.height = Math.round(view.canvas.height * k);
-    copy.getContext("2d").drawImage(view.canvas, 0, 0, copy.width, copy.height);
-    ghost.append(copy);
-  }
-  if (views.length > 1) {
-    ghost.append(Object.assign(document.createElement("span"), { className: "badge", textContent: `${views.length}ページ` }));
-  }
-  document.body.append(ghost);
-  for (const v of views) v.el.classList.add("dragging");
-  document.body.classList.add("is-dragging");
-  drag = { views, ghost, target: null, after: false, x, y, raf: 0 };
-  suppressClick = true;
-  if (press.touch) navigator.vibrate?.(15);
-  moveDrag(x, y);
-  drag.raf = requestAnimationFrame(autoScroll);
-}
-
-function moveDrag(x, y) {
-  drag.x = x;
-  drag.y = y;
-  drag.ghost.style.transform = `translate(${x}px, ${y}px)`;
-  const hit = dropTarget(x, y);
-  clearDropMarks();
-  drag.target = hit?.view ?? null;
-  drag.after = hit?.after ?? false;
-  if (hit) hit.view.el.classList.add(hit.after ? "drop-after" : "drop-before");
-}
-
-// The card nearest the pointer, preferring the row it is on, and which side of it to drop on.
-function dropTarget(x, y) {
-  let best = null;
-  let bestDist = Infinity;
-  for (const view of state.pages) {
-    const r = view.el.getBoundingClientRect();
-    const dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0;
-    const dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
-    const dist = dy * 4 + dx;
-    if (dist < bestDist) {
-      bestDist = dist;
-      best = { view, after: x > r.left + r.width / 2 };
+  carry: (view) => (view.selected ? state.pages.filter((p) => p.selected) : [view]),
+  ghost: (view, views) => {
+    const parts = [];
+    if (view.canvas) {
+      const copy = document.createElement("canvas");
+      const k = 90 / Math.max(view.canvas.width, view.canvas.height);
+      copy.width = Math.round(view.canvas.width * k);
+      copy.height = Math.round(view.canvas.height * k);
+      copy.getContext("2d").drawImage(view.canvas, 0, 0, copy.width, copy.height);
+      parts.push(copy);
     }
-  }
-  return best;
-}
-
-function autoScroll() {
-  if (!drag) return;
-  const r = els.viewer.getBoundingClientRect();
-  let dy = 0;
-  if (drag.y < r.top + SCROLL_EDGE) dy = -(r.top + SCROLL_EDGE - drag.y);
-  else if (drag.y > r.bottom - SCROLL_EDGE) dy = drag.y - (r.bottom - SCROLL_EDGE);
-  if (dy) {
-    els.viewer.scrollTop += Math.max(-20, Math.min(20, dy / 3));
-    moveDrag(drag.x, drag.y);
-  }
-  drag.raf = requestAnimationFrame(autoScroll);
-}
-
-function cancelDrag() {
-  if (!drag) return;
-  cancelAnimationFrame(drag.raf);
-  drag.ghost.remove();
-  for (const v of drag.views) v.el.classList.remove("dragging");
-  document.body.classList.remove("is-dragging");
-  clearDropMarks();
-  drag = null;
-}
-
-function finishDrag() {
-  const { views, target, after } = drag;
-  cancelDrag();
-  if (target) placePages(views, target, after);
-}
+    if (views.length > 1) {
+      parts.push(Object.assign(document.createElement("span"), { className: "badge", textContent: `${views.length}ページ` }));
+    }
+    return parts;
+  },
+  onDrop: placePages,
+});
 
 // Moves the pages, keeping their order, to just before or after the target page.
 function placePages(views, target, after) {
@@ -340,12 +233,6 @@ function placePages(views, target, after) {
   state.pages = next;
   state.dirty = true;
   syncOrder();
-}
-
-function clearDropMarks() {
-  for (const el of els.grid.querySelectorAll(".drop-before, .drop-after")) {
-    el.classList.remove("drop-before", "drop-after");
-  }
 }
 
 async function renderThumb(view) {
@@ -611,14 +498,14 @@ function restore(snap) {
 }
 
 function undo() {
-  if (!state.history.length || state.busy || state.loading || drag) return;
+  if (!state.history.length || state.busy || state.loading || sortable.dragging) return;
   state.future.push(snapshot());
   restore(state.history.pop());
   showStatus("元に戻しました");
 }
 
 function redo() {
-  if (!state.future.length || state.busy || state.loading || drag) return;
+  if (!state.future.length || state.busy || state.loading || sortable.dragging) return;
   state.history.push(snapshot());
   restore(state.future.pop());
   showStatus("やり直しました");
@@ -787,20 +674,11 @@ async function buildPdf(views, { nup = 1 } = {}) {
 // (left to right, then top to bottom). The sheet is the first page's size, turned sideways
 // for 2 pages, so 2 A4 pages land on one landscape A4. Each page keeps its look, scaled down.
 async function placeOnSheets(src, n) {
-  const { PDFDocument, degrees } = await loadPdfLib();
+  const { PDFDocument } = await loadPdfLib();
   const out = await PDFDocument.create();
-  const pages = src.getPages();
-  // A page with nothing on it (no content stream, like a blank page) cannot be embedded; its
-  // place on the sheet is left empty.
-  const embedded = [];
-  for (const page of pages) embedded.push(page.node.Contents() ? await out.embedPage(page) : null);
-  const shown = pages.map((page) => {
-    const angle = ((page.getRotation().angle % 360) + 360) % 360;
-    const { width, height } = page.getSize();
-    return { angle, width: angle % 180 ? height : width, height: angle % 180 ? width : height };
-  });
+  const pages = await embedPages(out, src);
   const [cols, rows] = n === 2 ? [2, 1] : [2, 2];
-  const first = shown[0];
+  const first = pages[0];
   let sheetW = Math.min(first.width, first.height);
   let sheetH = Math.max(first.width, first.height);
   if (n === 2) [sheetW, sheetH] = [sheetH, sheetW];
@@ -809,33 +687,13 @@ async function placeOnSheets(src, n) {
   const cellW = (sheetW - margin * 2 - gap * (cols - 1)) / cols;
   const cellH = (sheetH - margin * 2 - gap * (rows - 1)) / rows;
   let sheet = null;
-  embedded.forEach((page, i) => {
+  pages.forEach((page, i) => {
     const slot = i % n;
     if (slot === 0) sheet = out.addPage([sheetW, sheetH]);
-    if (!page) return;
-    const { angle, width, height } = shown[i];
-    const k = Math.min(cellW / width, cellH / height);
-    const w = width * k;
-    const h = height * k;
     const col = slot % cols;
     const row = Math.floor(slot / cols);
-    const x = margin + col * (cellW + gap) + (cellW - w) / 2;
-    const y = sheetH - margin - (row + 1) * cellH - row * gap + (cellH - h) / 2;
-    // A page turned by /Rotate (clockwise) is drawn turned the same way. pdf-lib turns the
-    // drawing counterclockwise around its lower left corner, so that corner moves.
-    const at = {
-      0: [x, y],
-      90: [x, y + h],
-      180: [x + w, y + h],
-      270: [x + w, y],
-    }[angle];
-    sheet.drawPage(page, {
-      x: at[0],
-      y: at[1],
-      xScale: k,
-      yScale: k,
-      rotate: degrees(-angle),
-    });
+    const cell = { x: margin + col * (cellW + gap), y: sheetH - margin - (row + 1) * cellH - row * gap, w: cellW, h: cellH };
+    placePage(sheet, page, cell);
   });
   return out;
 }
@@ -964,11 +822,6 @@ window.addEventListener("keydown", (e) => {
       e.preventDefault();
       return redo();
     }
-  }
-  if (drag && e.key === "Escape") {
-    cancelDrag();
-    endPress();
-    return;
   }
   if (!els.preview.hidden) {
     if (e.key === "Escape") closePreview();

@@ -4,6 +4,8 @@ import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { createLazyRenderer } from "../shared/js/lazy.js";
+import { createSortable } from "../shared/js/sortable.js";
+import { embedPages, fitInCell, placePage } from "../shared/js/imposition.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { hexToRgb } from "../shared/js/color.js";
@@ -16,9 +18,6 @@ const PREVIEW_PX = 340; // preview width of a sideways sheet, in CSS pixels
 const A4 = { width: 595, height: 842 }; // shown in the help before a PDF is opened
 const ACCENT = "#8a6236"; // the tool's color, for the cover tags on the preview
 const THUMB_PX = 72; // width of a page in the page order list, in CSS pixels
-const LONG_PRESS_MS = 350; // touch: hold this long before a page starts to drag
-const DRAG_SLOP = 8; // px the pointer may wander before a press counts as a drag (or a scroll)
-const SCROLL_EDGE = 60; // px from the top/bottom of the viewer where dragging scrolls it
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -157,14 +156,6 @@ function sheetLayout(first, paper) {
     ? [{ x: 0, y: sheetH / 2, w: sheetW, h: sheetH / 2 }, { x: 0, y: 0, w: sheetW, h: sheetH / 2 }]
     : [{ x: 0, y: 0, w: sheetW / 2, h: sheetH }, { x: sheetW / 2, y: 0, w: sheetW / 2, h: sheetH }];
   return { stacked, width: sheetW, height: sheetH, cells };
-}
-
-// Where a page of the shown size lands in a cell: as large as fits, in the middle.
-function fit(cell, width, height) {
-  const k = Math.min(cell.w / width, cell.h / height);
-  const w = width * k;
-  const h = height * k;
-  return { k, x: cell.x + (cell.w - w) / 2, y: cell.y + (cell.h - h) / 2, w, h };
 }
 
 // The line on the spine, like on entrance exam booklets: bands printed across the fold of the
@@ -324,7 +315,7 @@ async function renderSide(side) {
       continue;
     }
     const size = state.pages[index];
-    const at = fit(cell, size.width, size.height);
+    const at = fitInCell(cell, size.width, size.height);
     try {
       const page = await state.file.pdf.getPage(index + 1);
       const pic = await renderPage(page, at.k * scale);
@@ -406,10 +397,7 @@ function buildThumbs() {
     num.className = "num";
     el.append(canvas, num);
     const thumb = { index, el, canvas, num, rendered: false };
-    el.addEventListener("pointerdown", (e) => pressThumb(e, thumb));
-    el.addEventListener("contextmenu", (e) => {
-      if (press?.touch || drag) e.preventDefault(); // long press on a touch screen
-    });
+    sortable.attach(el, thumb);
     el.addEventListener("keydown", (e) => {
       if (!e.altKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
       e.preventDefault();
@@ -466,135 +454,22 @@ function setOrder(next) {
 
 /* ---------- dragging pages (mouse, touch and pen) ---------- */
 
-let press = null; // { thumb, pointerId, x, y, touch, timer } while a button/finger is down on a page
-let drag = null; // { thumb, ghost, target, after, x, y, raf } once the press has become a drag
-
-function pressThumb(e, thumb) {
-  if (!e.isPrimary || e.button !== 0 || state.busy) return;
-  const touch = e.pointerType !== "mouse";
-  press = { thumb, pointerId: e.pointerId, x: e.clientX, y: e.clientY, touch, timer: 0 };
-  // On a touch screen a quick swipe scrolls; holding still first picks the page up.
-  if (touch) press.timer = setTimeout(() => startDrag(press.x, press.y), LONG_PRESS_MS);
-}
-
-function endPress() {
-  if (press) clearTimeout(press.timer);
-  press = null;
-}
-
-window.addEventListener("pointermove", (e) => {
-  if (!press || e.pointerId !== press.pointerId) return;
-  if (!drag) {
-    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < DRAG_SLOP) return;
-    if (press.touch) return endPress(); // moved before the long press: it's a scroll
-    startDrag(e.clientX, e.clientY);
-  }
-  moveDrag(e.clientX, e.clientY);
-});
-window.addEventListener("pointerup", (e) => {
-  if (!press || e.pointerId !== press.pointerId) return;
-  if (drag) finishDrag();
-  endPress();
-});
-window.addEventListener("pointercancel", (e) => {
-  if (!press || e.pointerId !== press.pointerId) return;
-  cancelDrag();
-  endPress();
-});
-window.addEventListener("keydown", (e) => {
-  if (drag && e.key === "Escape") {
-    cancelDrag();
-    endPress();
-  }
-});
-// Keep the viewer from scrolling under a finger that is dragging a page.
-els.viewer.addEventListener("touchmove", (e) => {
-  if (drag) e.preventDefault();
-}, { passive: false });
-
-function startDrag(x, y) {
-  clearTimeout(press.timer);
-  const { thumb } = press;
-  const ghost = document.createElement("div");
-  ghost.className = "drag-ghost";
-  if (thumb.canvas.width) {
+const sortable = createSortable({
+  scroller: els.viewer,
+  items: () => state.thumbs,
+  canStart: () => !state.busy,
+  ghost: (thumb) => {
+    if (!thumb.canvas.width) return [];
     const copy = document.createElement("canvas");
     copy.width = thumb.canvas.width;
     copy.height = thumb.canvas.height;
     copy.style.width = thumb.canvas.style.width;
     copy.style.height = thumb.canvas.style.height;
     copy.getContext("2d").drawImage(thumb.canvas, 0, 0);
-    ghost.append(copy);
-  }
-  document.body.append(ghost);
-  thumb.el.classList.add("dragging");
-  document.body.classList.add("is-dragging");
-  drag = { thumb, ghost, target: null, after: false, x, y, raf: 0 };
-  if (press.touch) navigator.vibrate?.(15);
-  moveDrag(x, y);
-  drag.raf = requestAnimationFrame(autoScroll);
-}
-
-function moveDrag(x, y) {
-  drag.x = x;
-  drag.y = y;
-  drag.ghost.style.transform = `translate(${x}px, ${y}px)`;
-  const hit = dropTarget(x, y);
-  clearDropMarks();
-  drag.target = hit?.thumb ?? null;
-  drag.after = hit?.after ?? false;
-  if (hit) hit.thumb.el.classList.add(hit.after ? "drop-after" : "drop-before");
-}
-
-// The page nearest the pointer, preferring the row it is on, and which side of it to drop on.
-function dropTarget(x, y) {
-  let best = null;
-  let bestDist = Infinity;
-  for (const thumb of state.thumbs) {
-    const r = thumb.el.getBoundingClientRect();
-    const dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0;
-    const dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
-    const dist = dy * 4 + dx;
-    if (dist < bestDist) {
-      bestDist = dist;
-      best = { thumb, after: x > r.left + r.width / 2 };
-    }
-  }
-  return best;
-}
-
-function clearDropMarks() {
-  for (const el of els.thumbs.querySelectorAll(".drop-before, .drop-after")) el.classList.remove("drop-before", "drop-after");
-}
-
-function autoScroll() {
-  if (!drag) return;
-  const r = els.viewer.getBoundingClientRect();
-  let dy = 0;
-  if (drag.y < r.top + SCROLL_EDGE) dy = -(r.top + SCROLL_EDGE - drag.y);
-  else if (drag.y > r.bottom - SCROLL_EDGE) dy = drag.y - (r.bottom - SCROLL_EDGE);
-  if (dy) {
-    els.viewer.scrollTop += Math.max(-20, Math.min(20, dy / 3));
-    moveDrag(drag.x, drag.y);
-  }
-  drag.raf = requestAnimationFrame(autoScroll);
-}
-
-function cancelDrag() {
-  if (!drag) return;
-  cancelAnimationFrame(drag.raf);
-  drag.ghost.remove();
-  drag.thumb.el.classList.remove("dragging");
-  document.body.classList.remove("is-dragging");
-  clearDropMarks();
-  drag = null;
-}
-
-function finishDrag() {
-  const { thumb, target, after } = drag;
-  cancelDrag();
-  if (target) movePage(thumb.index, target.index, after);
-}
+    return [copy];
+  },
+  onDrop: ([thumb], target, after) => movePage(thumb.index, target.index, after),
+});
 
 // Moves a page to just before or after another one.
 function movePage(index, target, after) {
@@ -642,7 +517,7 @@ function update() {
 /* ---------- saving ---------- */
 
 async function buildPdf(settings) {
-  const { PDFDocument, degrees, rgb } = await loadPdfLib();
+  const { PDFDocument, rgb } = await loadPdfLib();
   let src = await PDFDocument.load(state.file.bytes, { ignoreEncryption: true });
   const rebuilt = src.isEncrypted;
   if (rebuilt) {
@@ -651,28 +526,13 @@ async function buildPdf(settings) {
     showStatus("PDFを作成中…", { sticky: true });
   }
   const out = await PDFDocument.create();
-  const pages = src.getPages();
-  // A page with nothing on it (no content stream, like a blank page) cannot be embedded; its
-  // half of the sheet is left empty.
-  const embedded = [];
-  for (const page of pages) embedded.push(page.node.Contents() ? await out.embedPage(page) : null);
-  const shown = pages.map((page) => {
-    const angle = ((page.getRotation().angle % 360) + 360) % 360;
-    const { width, height } = page.getSize();
-    return { angle, width: angle % 180 ? height : width, height: angle % 180 ? width : height };
-  });
-  const layout = sheetLayout(shown[state.order[0]], settings.paper);
+  const pages = await embedPages(out, src);
+  const layout = sheetLayout(pages[state.order[0]], settings.paper);
   const bands = spineBands(layout, settings.spine);
   for (const [i, slots] of bookletSides(settings).entries()) {
     const sheet = out.addPage([layout.width, layout.height]);
     slots.forEach((index, slot) => {
-      if (index === null || !embedded[index]) return;
-      const { angle, width, height } = shown[index];
-      const { k, x, y, w, h } = fit(layout.cells[slot], width, height);
-      // A page turned by /Rotate (clockwise) is drawn turned the same way. pdf-lib turns the
-      // drawing counterclockwise around its lower left corner, so that corner moves.
-      const at = { 0: [x, y], 90: [x, y + h], 180: [x + w, y + h], 270: [x + w, y] }[angle];
-      sheet.drawPage(embedded[index], { x: at[0], y: at[1], xScale: k, yScale: k, rotate: degrees(-angle) });
+      if (index !== null) placePage(sheet, pages[index], layout.cells[slot]);
     });
     // Drawn over the pages, so it shows even where a cover is printed right up to the fold.
     if (i === 0) {
