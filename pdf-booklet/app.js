@@ -108,7 +108,9 @@ function bookletSides(settings) {
 
 // What a page of the finished booklet is called: 表紙, 2, 3, …, 裏表紙.
 function placeName(place, total) {
-  return place === 0 ? "表紙" : place === total - 1 ? "裏表紙" : `${place + 1}`;
+  if (place === 0) return "表紙";
+  if (place === total - 1) return "裏表紙";
+  return `${place + 1}`;
 }
 
 // Saddle stitching: every sheet holds 4 pages, 2 on each side, and the sheets are stacked and
@@ -195,7 +197,15 @@ function spineBands(layout, spine) {
     : { x: layout.width / 2 - width / 2, y: layout.height - from - length, w: width, h: length }));
 }
 
-const PAPER_NAMES = [["A3", 842, 1191], ["A4", 595, 842], ["A5", 420, 595], ["B4", 729, 1032], ["B5", 516, 729], ["レター", 612, 792]];
+// Paper sizes by name: [name, short side, long side] in points.
+const PAPER_NAMES = [
+  ["A3", 842, 1191],
+  ["A4", 595, 842],
+  ["A5", 420, 595],
+  ["B4", 729, 1032],
+  ["B5", 516, 729],
+  ["レター", 612, 792],
+];
 
 function paperName(width, height, { turn = true } = {}) {
   const [short, long] = width < height ? [width, height] : [height, width];
@@ -255,46 +265,56 @@ function rebuildPreview(settings) {
   state.sides = [];
   if (!state.file) return;
   const layout = sheetLayout(state.pages[state.order[0]], settings.paper);
-  const sides = bookletSides(settings);
-  const { places, total } = planBooklet(state.order.length, settings);
+  const plan = planBooklet(state.order.length, settings);
   const cssW = layout.width > layout.height ? PREVIEW_PX : PREVIEW_PX * 0.7;
-  const cssH = (cssW * layout.height) / layout.width;
-  sides.forEach((slots, i) => {
-    const el = document.createElement("li");
-    el.className = "side";
-    const canvas = document.createElement("canvas");
-    canvas.style.width = `${cssW}px`;
-    canvas.style.height = `${cssH}px`;
-    canvas.width = canvas.height = 0;
-    const label = document.createElement("div");
-    label.className = "label";
-    const sheet = Math.floor(i / 2) + 1;
-    // Each half by its page of the booklet, with the page of the PDF when it was moved.
-    const names = slots.map((p, slot) => {
-      const name = placeName(places[i][slot], total);
-      if (p === null) return `${name}（白紙）`;
-      return state.order.indexOf(p) !== p ? `${name}（元の${p + 1}）` : name;
-    });
-    const nums = names.join(layout.stacked ? "／" : "｜");
-    label.innerHTML = `<b>${sheet}枚目の${i % 2 ? "裏" : "表"}</b>　`;
-    label.append(nums);
-    el.append(canvas, label);
-    els.sheets.append(el);
-    const bands = i === 0 ? spineBands(layout, settings.spine) : [];
-    // With two lines, the preview also outlines every place a line can go, as a key.
-    const guides = i === 0 && settings.spine.on && settings.spine.mode === "pair"
-      ? Array.from({ length: 9 }, (_, n) => spineBands(layout, { ...settings.spine, subject: n, grade: n % 3 })).flat()
-      : [];
-    const badges = places[i].map((place) => placeName(place, total));
-    const side = { sheet, back: i % 2 === 1, slots, badges, layout, bands, guides, bandColor: settings.spine.color, el, canvas, cssW, rendered: false };
+  bookletSides(settings).forEach((slots, i) => {
+    const side = previewSide(i, slots, layout, plan, settings);
+    side.cssW = cssW;
+    side.canvas.style.width = `${cssW}px`;
+    side.canvas.style.height = `${(cssW * layout.height) / layout.width}px`;
+    els.sheets.append(side.el);
     state.sides.push(side);
     previews.add(side);
+  });
+}
+
+// The preview of side `i` (the front of sheet 1, its back, the front of sheet 2 …), drawn
+// later by renderSide.
+function previewSide(i, slots, layout, { places, total }, settings) {
+  const el = document.createElement("li");
+  el.className = "side";
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 0;
+  const sheet = Math.floor(i / 2) + 1;
+  const back = i % 2 === 1;
+  const label = document.createElement("div");
+  label.className = "label";
+  label.innerHTML = `<b>${sheet}枚目の${back ? "裏" : "表"}</b>　`;
+  label.append(halfNames(slots, places[i], total).join(layout.stacked ? "／" : "｜"));
+  el.append(canvas, label);
+  const { spine } = settings;
+  const bands = i === 0 ? spineBands(layout, spine) : [];
+  // With two lines, the preview also outlines every place a line can go, as a key.
+  const guides = i === 0 && spine.on && spine.mode === "pair"
+    ? Array.from({ length: 9 }, (_, n) => spineBands(layout, { ...spine, subject: n, grade: n % 3 })).flat()
+    : [];
+  const badges = places[i].map((place) => placeName(place, total));
+  return { sheet, back, slots, badges, layout, bands, guides, bandColor: spine.color, el, canvas, rendered: false };
+}
+
+// Each half by its page of the booklet, with the page of the PDF when it was moved.
+function halfNames(slots, places, total) {
+  return slots.map((index, slot) => {
+    const name = placeName(places[slot], total);
+    if (index === null) return `${name}（白紙）`;
+    return state.order.indexOf(index) !== index ? `${name}（元の${index + 1}）` : name;
   });
 }
 
 async function renderSide(side) {
   side.rendered = true;
   const generation = state.generation;
+  const stale = () => generation !== state.generation || !side.rendered;
   const { layout, canvas } = side;
   const scale = (side.cssW * pixelRatio()) / layout.width;
   const out = document.createElement("canvas");
@@ -303,15 +323,26 @@ async function renderSide(side) {
   const ctx = out.getContext("2d");
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, out.width, out.height);
+  // Sizes are in PDF points with the origin at the lower left; this turns a box into pixels.
+  const toPixels = ({ x, y, w, h }) => [x * scale, (layout.height - y - h) * scale, w * scale, h * scale];
+  await drawHalves(ctx, side, scale, toPixels, stale);
+  if (stale()) return;
+  drawFold(ctx, layout.stacked);
+  drawSpine(ctx, side, toPixels);
+  drawBadges(ctx, side, toPixels);
+  canvas.width = out.width;
+  canvas.height = out.height;
+  canvas.getContext("2d").drawImage(out, 0, 0);
+  out.width = out.height = 0;
+}
+
+// The pages of the PDF on each half of the side.
+async function drawHalves(ctx, side, scale, toPixels, stale) {
+  const { layout } = side;
   for (const [slot, index] of side.slots.entries()) {
     const cell = layout.cells[slot];
     if (index === null) {
-      // An added blank page: a faint note, so it is clear the space is meant to be empty.
-      ctx.fillStyle = "#b8bec8";
-      ctx.font = `${Math.round(14 * pixelRatio())}px system-ui, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("白紙", (cell.x + cell.w / 2) * scale, (layout.height - cell.y - cell.h / 2) * scale);
+      drawBlankNote(ctx, toPixels(cell));
       continue;
     }
     const size = state.pages[index];
@@ -319,46 +350,65 @@ async function renderSide(side) {
     try {
       const page = await state.file.pdf.getPage(index + 1);
       const pic = await renderPage(page, at.k * scale);
-      if (generation !== state.generation || !side.rendered) return;
-      ctx.drawImage(pic, at.x * scale, (layout.height - at.y - at.h) * scale, at.w * scale, at.h * scale);
+      if (stale()) return;
+      ctx.drawImage(pic, ...toPixels(at));
       pic.width = pic.height = 0;
     } catch (err) {
       console.error(err);
     }
   }
-  if (generation !== state.generation || !side.rendered) return;
-  // The fold.
+}
+
+// An added blank page: a faint note, so it is clear the space is meant to be empty.
+function drawBlankNote(ctx, [x, y, w, h]) {
+  ctx.fillStyle = "#b8bec8";
+  ctx.font = `${Math.round(14 * pixelRatio())}px system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("白紙", x + w / 2, y + h / 2);
+}
+
+function drawFold(ctx, stacked) {
+  const { width, height } = ctx.canvas;
   ctx.strokeStyle = "#c5cad3";
   ctx.setLineDash([6, 6]);
   ctx.beginPath();
-  if (layout.stacked) {
-    ctx.moveTo(0, out.height / 2);
-    ctx.lineTo(out.width, out.height / 2);
+  if (stacked) {
+    ctx.moveTo(0, height / 2);
+    ctx.lineTo(width, height / 2);
   } else {
-    ctx.moveTo(out.width / 2, 0);
-    ctx.lineTo(out.width / 2, out.height);
+    ctx.moveTo(width / 2, 0);
+    ctx.lineTo(width / 2, height);
   }
   ctx.stroke();
   ctx.setLineDash([]);
+}
+
+// The line on the spine, and (with two lines) the outlines of where the lines can go.
+function drawSpine(ctx, { guides, bands, bandColor }, toPixels) {
   ctx.strokeStyle = "#c5cad3";
   ctx.lineWidth = 1;
-  for (const g of side.guides) ctx.strokeRect(g.x * scale + 0.5, (layout.height - g.y - g.h) * scale + 0.5, g.w * scale - 1, g.h * scale - 1);
-  ctx.fillStyle = side.bandColor;
-  for (const band of side.bands) {
-    ctx.fillRect(band.x * scale, (layout.height - band.y - band.h) * scale, band.w * scale, band.h * scale);
+  for (const guide of guides) {
+    const [x, y, w, h] = toPixels(guide);
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
   }
-  // Which page of the finished booklet each half is: a tag at the bottom of the half, only on
-  // the screen (it is not printed). The cover and back cover stand out in the tool's color.
+  ctx.fillStyle = bandColor;
+  for (const band of bands) ctx.fillRect(...toPixels(band));
+}
+
+// Which page of the finished booklet each half is: a tag at the bottom of the half, only on
+// the screen (it is not printed). The cover and back cover stand out in the tool's color.
+function drawBadges(ctx, { badges, layout }, toPixels) {
   const dpr = pixelRatio();
   ctx.font = `600 ${Math.round(12 * dpr)}px system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  side.badges.forEach((name, slot) => {
-    const cell = layout.cells[slot];
+  badges.forEach((name, slot) => {
+    const [cellX, cellY, cellW, cellH] = toPixels(layout.cells[slot]);
     const w = ctx.measureText(name).width + 16 * dpr;
     const h = 20 * dpr;
-    const x = (cell.x + cell.w / 2) * scale - w / 2;
-    const y = (layout.height - cell.y) * scale - h - 8 * dpr;
+    const x = cellX + cellW / 2 - w / 2;
+    const y = cellY + cellH - h - 8 * dpr;
     const cover = name === "表紙" || name === "裏表紙";
     ctx.fillStyle = cover ? ACCENT : "rgba(31, 35, 41, .72)";
     ctx.beginPath();
@@ -367,10 +417,6 @@ async function renderSide(side) {
     ctx.fillStyle = "#fff";
     ctx.fillText(name, x + w / 2, y + h / 2 + dpr / 2);
   });
-  canvas.width = out.width;
-  canvas.height = out.height;
-  canvas.getContext("2d").drawImage(out, 0, 0);
-  out.width = out.height = 0;
 }
 
 /* ---------- the page order list ---------- */
@@ -535,8 +581,9 @@ async function buildPdf(settings) {
       if (index !== null) placePage(sheet, pages[index], layout.cells[slot]);
     });
     // Drawn over the pages, so it shows even where a cover is printed right up to the fold.
-    if (i === 0) {
-      for (const band of bands) sheet.drawRectangle({ x: band.x, y: band.y, width: band.w, height: band.h, color: hexToRgb(settings.spine.color, rgb) });
+    if (i === 0 && bands.length) {
+      const color = hexToRgb(settings.spine.color, rgb);
+      for (const { x, y, w, h } of bands) sheet.drawRectangle({ x, y, width: w, height: h, color });
     }
   }
   return { bytes: await out.save(), rebuilt };
@@ -602,7 +649,11 @@ els.saveBtn.addEventListener("click", save);
 els.printBtn.addEventListener("click", openForPrint);
 els.orderReset.addEventListener("click", () => setOrder(state.pages.map((_, i) => i)));
 addNextTool({ saveBtn: els.saveBtn, save, kind: "pdf" });
-for (const el of [...bindingInputs, els.paper, els.backCover, els.spineOn, els.spineMode, els.spinePos, els.spineSubject, els.spineGrade, els.spineColor, els.spineWidth]) el.addEventListener("change", update);
+const settingInputs = [
+  ...bindingInputs, els.paper, els.backCover,
+  els.spineOn, els.spineMode, els.spinePos, els.spineSubject, els.spineGrade, els.spineColor, els.spineWidth,
+];
+for (const el of settingInputs) el.addEventListener("change", update);
 // Touching a setting of the spine line switches it on.
 els.spineOpts.addEventListener("change", () => (els.spineOn.checked = true), true);
 

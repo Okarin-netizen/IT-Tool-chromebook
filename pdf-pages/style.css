@@ -207,6 +207,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 .mini:hover:not(:disabled) { background: var(--soft); }
 .mini:disabled { opacity: .35; cursor: default; }
 .mini.danger { color: #c0392b; }
+.mini .i { width: 16px; height: 16px; }
 
 .preview {
   position: fixed; inset: 0;
@@ -252,6 +253,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   line-height: 1;
   cursor: pointer;
 }
+.preview-nav .i { width: 32px; height: 32px; stroke-width: 2.2; }
 .preview-nav:hover:not(:disabled) { background: rgba(255,255,255,.3); }
 .preview-nav:disabled { opacity: .25; cursor: default; }
 

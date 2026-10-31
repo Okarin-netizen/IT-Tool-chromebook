@@ -105,8 +105,8 @@ export function createSortable({ scroller, items, canStart = () => true, carry =
     let bestDist = Infinity;
     for (const item of items()) {
       const r = item.el.getBoundingClientRect();
-      const dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0;
-      const dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+      const dx = distanceOutside(x, r.left, r.right);
+      const dy = distanceOutside(y, r.top, r.bottom);
       const dist = dy * 4 + dx;
       if (dist < bestDist) {
         bestDist = dist;
@@ -114,6 +114,13 @@ export function createSortable({ scroller, items, canStart = () => true, carry =
       }
     }
     return best;
+  }
+
+  // How far `v` lies outside the range from `low` to `high` (0 inside it).
+  function distanceOutside(v, low, high) {
+    if (v < low) return low - v;
+    if (v > high) return v - high;
+    return 0;
   }
 
   function clearDropMarks() {

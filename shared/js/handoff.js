@@ -5,25 +5,13 @@
 import { captureDownloads, currentTool } from "./files.js";
 import { kvSet } from "./kv.js";
 import { showStatus } from "./status.js";
+import { TOOLS } from "./tools.js";
 import { readZip } from "./unzip.js";
 
 export const HANDOFF_KEY = "handoff";
 
-const PDF_TOOLS = [
-  ["pdf-pages", "PDF結合・分割・回転"],
-  ["pdf-text", "PDF文字入れ"],
-  ["pdf-sign", "PDFに手書き・署名"],
-  ["pdf-stamp", "ページ番号・透かし入れ"],
-  ["pdf-booklet", "冊子印刷"],
-  ["pdf-compress", "PDF圧縮"],
-  ["pdf-image", "PDF→画像"],
-  ["pdf-extract", "PDF文字取り出し"],
-];
-const IMAGE_TOOLS = [
-  ["image-pdf", "画像→PDF"],
-  ["image-resize", "画像を小さく"],
-  ["image-annotate", "画像に書き込み"],
-];
+// The type each file in a ZIP gets, by its extension; the next tools sort files by type.
+const TYPES = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp" };
 
 // ZIPs (several pages or images) are opened up, since the next tools take the files themselves.
 async function unpack(files) {
@@ -34,8 +22,9 @@ async function unpack(files) {
       continue;
     }
     for (const entry of await readZip(await file.arrayBuffer())) {
-      const type = /\.pdf$/i.test(entry.name) ? "application/pdf" : /\.png$/i.test(entry.name) ? "image/png" : /\.jpe?g$/i.test(entry.name) ? "image/jpeg" : /\.webp$/i.test(entry.name) ? "image/webp" : "";
-      out.push(new File([entry.bytes], entry.name.split("/").at(-1), { type }));
+      const name = entry.name.split("/").at(-1);
+      const ext = name.split(".").at(-1).toLowerCase();
+      out.push(new File([entry.bytes], name, { type: TYPES[ext] ?? "" }));
     }
   }
   return out;
@@ -62,16 +51,8 @@ async function sendTo(tool, save) {
 // return a promise that settles after download(). `kind` is what it saves: "pdf" or "image".
 export function addNextTool({ saveBtn, save, kind }) {
   const here = currentTool();
-  const targets = (kind === "pdf" ? PDF_TOOLS : IMAGE_TOOLS).filter(([dir]) => dir !== here);
-  const wrap = document.createElement("div");
-  wrap.className = "next-wrap";
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "btn next-btn";
-  btn.title = "保存せずに、できたファイルを別のツールで開く";
-  btn.setAttribute("aria-haspopup", "menu");
-  btn.setAttribute("aria-expanded", "false");
-  btn.innerHTML = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6"/></svg>次のツールで開く';
+  const targets = TOOLS.filter((tool) => tool.takes === kind && tool.id !== here);
+  const btn = menuButton();
   const menu = document.createElement("div");
   menu.className = "next-menu";
   menu.setAttribute("role", "menu");
@@ -79,27 +60,19 @@ export function addNextTool({ saveBtn, save, kind }) {
   const title = document.createElement("div");
   title.className = "next-title";
   title.textContent = "保存せずに次のツールで開く";
-  menu.append(title);
-  for (const [dir, name] of targets) {
-    const item = document.createElement("button");
-    item.type = "button";
-    item.className = "next-item";
-    item.setAttribute("role", "menuitem");
-    item.dataset.tool = dir;
-    item.textContent = name;
-    item.addEventListener("click", () => {
-      close();
-      sendTo(dir, save);
-    });
-    menu.append(item);
-  }
+  menu.append(title, ...targets.map(({ id, name }) => menuItem(id, name, () => {
+    close();
+    sendTo(id, save);
+  })));
+  const wrap = document.createElement("div");
+  wrap.className = "next-wrap";
   wrap.append(btn, menu);
   saveBtn.after(wrap);
 
-  const close = () => {
+  function close() {
     menu.hidden = true;
     btn.setAttribute("aria-expanded", "false");
-  };
+  }
   btn.addEventListener("click", () => {
     menu.hidden = !menu.hidden;
     btn.setAttribute("aria-expanded", String(!menu.hidden));
@@ -118,4 +91,26 @@ export function addNextTool({ saveBtn, save, kind }) {
   const sync = () => (btn.disabled = saveBtn.disabled);
   new MutationObserver(sync).observe(saveBtn, { attributes: true, attributeFilter: ["disabled"] });
   sync();
+}
+
+function menuButton() {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn next-btn";
+  btn.title = "保存せずに、できたファイルを別のツールで開く";
+  btn.setAttribute("aria-haspopup", "menu");
+  btn.setAttribute("aria-expanded", "false");
+  btn.innerHTML = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6"/></svg>次のツールで開く';
+  return btn;
+}
+
+function menuItem(id, name, onClick) {
+  const item = document.createElement("button");
+  item.type = "button";
+  item.className = "next-item";
+  item.setAttribute("role", "menuitem");
+  item.dataset.tool = id;
+  item.textContent = name;
+  item.addEventListener("click", onClick);
+  return item;
 }

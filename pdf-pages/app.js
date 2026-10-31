@@ -155,10 +155,10 @@ function createCard(view) {
     <div class="thumb"><div class="placeholder"></div></div>
     <div class="label"></div>
     <div class="card-actions">
-      <button class="mini" data-act="left" title="前へ移動" aria-label="前へ移動">◀</button>
-      <button class="mini" data-act="rotate" title="右に90°回転" aria-label="右に90°回転">⟳</button>
-      <button class="mini" data-act="right" title="後ろへ移動" aria-label="後ろへ移動">▶</button>
-      <button class="mini danger" data-act="delete" title="このページを外す" aria-label="このページを外す">✕</button>
+      <button class="mini" data-act="left" title="前へ移動" aria-label="前へ移動"><svg class="i" aria-hidden="true"><use href="#i-left"/></svg></button>
+      <button class="mini" data-act="rotate" title="右に90°回転" aria-label="右に90°回転"><svg class="i" aria-hidden="true"><use href="#i-rotate"/></svg></button>
+      <button class="mini" data-act="right" title="後ろへ移動" aria-label="後ろへ移動"><svg class="i" aria-hidden="true"><use href="#i-right"/></svg></button>
+      <button class="mini danger" data-act="delete" title="このページを外す" aria-label="このページを外す"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg></button>
     </div>`;
   view.el = li;
 
@@ -591,6 +591,11 @@ function syncOrder() {
   updateUi();
 }
 
+// "3 / 10ページ選択中", or "全10ページ" when none is chosen.
+function countText(chosen, total) {
+  return chosen ? `${chosen} / ${total}ページ選択中` : `全${total}ページ`;
+}
+
 function updateUi() {
   const total = state.pages.length;
   const selected = state.pages.filter((p) => p.selected).length;
@@ -610,7 +615,7 @@ function updateUi() {
   });
 
   els.welcome.hidden = total > 0;
-  els.count.textContent = total ? (selected ? `${selected} / ${total}ページ選択中` : `全${total}ページ`) : "";
+  els.count.textContent = total ? countText(selected, total) : "";
   const none = total === 0 || state.busy;
   for (const btn of [els.selectAll, els.selectNone, els.rotateLeft, els.rotateRight, els.clearBtn, els.splitBtn, els.saveBtn]) {
     btn.disabled = none;
@@ -789,7 +794,13 @@ els.moreBtn.addEventListener("click", () => {
 document.addEventListener("pointerdown", (e) => {
   if (!e.target.closest(".menu-wrap")) closeMenu();
 });
-for (const [btn, fn] of [[els.blankBtn, insertBlank], [els.duplicateBtn, duplicatePages], [els.reverseBtn, reversePages], [els.interleaveBtn, openInterleave]]) {
+const menuActions = [
+  [els.blankBtn, insertBlank],
+  [els.duplicateBtn, duplicatePages],
+  [els.reverseBtn, reversePages],
+  [els.interleaveBtn, openInterleave],
+];
+for (const [btn, fn] of menuActions) {
   btn.addEventListener("click", () => {
     closeMenu();
     if (!state.busy) fn();

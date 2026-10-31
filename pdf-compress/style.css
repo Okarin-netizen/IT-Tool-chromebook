@@ -143,6 +143,7 @@ body {
 }
 .mini:hover:not(:disabled) { background: var(--soft); }
 .mini:disabled { opacity: .35; cursor: default; }
+.mini .i { width: 16px; height: 16px; }
 
 @media (max-width: 640px) {
   .viewer { padding: 8px 8px 64px; }

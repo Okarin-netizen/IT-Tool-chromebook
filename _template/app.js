@@ -1,3 +1,5 @@
+// The starting point for a new tool: open a file, keep a setting, save a result.
+// It is written the way docs/開発の手引き.md (書き方の決まり) asks every tool to be.
 import { showStatus } from "../shared/js/status.js";
 import { download, onFileDrop } from "../shared/js/files.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
@@ -8,21 +10,30 @@ import { registerOffline } from "../shared/js/offline.js";
 const SETTINGS_KEY = "new-tool-settings-v1";
 
 const $ = (id) => document.getElementById(id);
-const settings = loadJson(SETTINGS_KEY, { opened: 0 });
-let file = null;
 
-function openFile(f) {
-  if (!f) return;
-  file = f;
+const settings = loadJson(SETTINGS_KEY, { opened: 0 });
+const state = {
+  file: null, // the file being worked on
+};
+
+function openFile(file) {
+  if (!file) return;
+  state.file = file;
   settings.opened++;
   saveJson(SETTINGS_KEY, settings);
-  $("save-btn").disabled = false;
-  showStatus(`${f.name} を開きました`);
+  render();
+  showStatus(`${file.name} を開きました`);
+}
+
+// Brings the screen in line with `state`.
+function render() {
+  $("save-btn").disabled = !state.file;
 }
 
 function save() {
-  if (!file) return;
-  download(new Blob([`${file.name}: ${file.size} bytes\n`], { type: "text/plain" }), "結果.txt");
+  if (!state.file) return;
+  const { name, size } = state.file;
+  download(new Blob([`${name}: ${size} bytes\n`], { type: "text/plain" }), "結果.txt");
   showStatus("保存しました");
 }
 
@@ -32,6 +43,7 @@ $("file-input").addEventListener("change", (e) => {
 });
 $("save-btn").addEventListener("click", save);
 onFileDrop((files) => openFile(files[0]));
+render();
 
 // Keeps this tool working without a network once it has been opened.
 registerOffline(["./", "index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest"]);

@@ -191,31 +191,25 @@ function card(img, index, opts) {
   const bar = document.createElement("div");
   bar.className = "card-bar";
   bar.append(
-    button("◀", "前へ移動", () => move(img.id, -1), index === 0),
-    button("▶", "後ろへ移動", () => move(img.id, 1), index === state.images.length - 1),
-    button("⟳", "右に90°回転", () => rotate(img.id)),
-    iconButton("i-straighten", "まっすぐにする（ななめに撮ったプリントを長方形に直す）", () => openStraighten(img.id), img.corners ? "on" : ""),
-    button("✕", "このページを消す", () => remove(img.id), false, "del"),
+    iconButton("i-left", "前へ移動", () => move(img.id, -1), index === 0),
+    iconButton("i-right", "後ろへ移動", () => move(img.id, 1), index === state.images.length - 1),
+    iconButton("i-rotate", "右に90°回転", () => rotate(img.id)),
+    iconButton("i-straighten", "まっすぐにする（ななめに撮ったプリントを長方形に直す）", () => openStraighten(img.id), false, img.corners ? "on" : ""),
+    iconButton("i-close", "このページを消す", () => remove(img.id), false, "del"),
   );
 
   li.append(num, sheet, bar);
   return li;
 }
 
-function button(label, title, onClick, disabled = false, extra = "") {
+function iconButton(icon, title, onClick, disabled = false, extra = "") {
   const b = document.createElement("button");
   b.className = `btn ${extra}`.trim();
-  b.textContent = label;
+  b.innerHTML = `<svg class="i" aria-hidden="true"><use href="#${icon}"/></svg>`;
   b.title = title;
   b.setAttribute("aria-label", title);
   b.disabled = disabled;
   b.addEventListener("click", onClick);
-  return b;
-}
-
-function iconButton(icon, title, onClick, extra = "") {
-  const b = button("", title, onClick, false, extra);
-  b.innerHTML = `<svg class="i" aria-hidden="true"><use href="#${icon}"/></svg>`;
   return b;
 }
 

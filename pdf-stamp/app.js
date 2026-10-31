@@ -189,80 +189,109 @@ function pageInfo(view, settings) {
 // top-left origin as the page is seen on screen. `y` is the text baseline and
 // `angle` is counter-clockwise degrees. Images are { image, x, y, w, h, angle, opacity } with
 // (x, y) at their lower left corner. `measure(text, size)` gives text width.
-function layoutPage({ index, count, file }, width, height, settings, measure) {
-  const draws = [];
+function layoutPage(info, width, height, settings, measure) {
+  const page = { ...info, width, height, measure };
   const { num, hf, wm } = settings;
+  const shows = (part) => part.on && !(part.skipFirst && info.index === 0);
+  return [
+    ...(shows(num) ? layoutNumber(page, num) : []),
+    ...(shows(hf) ? layoutHeaderFooter(page, hf) : []),
+    ...(shows(wm) ? layoutWatermark(page, wm) : []),
+  ];
+}
 
-  if (num.on && !(num.skipFirst && index === 0)) {
-    const first = num.skipFirst ? 1 : 0;
-    const n = num.start + index - first;
-    const total = num.start + (count - first) - 1;
-    const text = num.format.replaceAll("{n}", n).replaceAll("{total}", total);
-    if (text.trim()) {
-      const w = measure(text, num.size);
-      const [v, h] = num.pos.split("-");
-      const x = h === "left" ? num.margin : h === "right" ? width - num.margin - w : (width - w) / 2;
-      const y = v === "top" ? num.margin + num.size * ASCENT : height - num.margin;
-      draws.push({ text, x, y, angle: 0, size: num.size, color: num.color, opacity: 1 });
-    }
-  }
+// Where a line of text `w` wide starts, at the left or right margin or in the middle.
+function alignX(align, w, width, margin) {
+  if (align === "left") return margin;
+  if (align === "right") return width - margin - w;
+  return (width - w) / 2;
+}
 
-  if (hf.on && !(hf.skipFirst && index === 0)) {
-    const fill = (t) => t.replaceAll("{n}", index + 1).replaceAll("{total}", count)
-      .replaceAll("{date}", dateText(new Date(), "/")).replaceAll("{file}", baseName(file)).trim();
-    for (const [row, texts] of [["top", hf.top], ["bottom", hf.bottom]]) {
-      texts.forEach((raw, col) => {
-        const text = fill(raw);
-        if (!text) return;
-        const w = measure(text, hf.size);
-        const x = col === 0 ? hf.margin : col === 2 ? width - hf.margin - w : (width - w) / 2;
-        const y = row === "top" ? hf.margin + hf.size * ASCENT : height - hf.margin;
-        draws.push({ text, x, y, angle: 0, size: hf.size, color: hf.color, opacity: 1 });
-      });
-    }
-  }
+// The baseline of a line at the top or bottom margin.
+function alignY(align, size, height, margin) {
+  return align === "top" ? margin + size * ASCENT : height - margin;
+}
 
-  if (wm.on && !(wm.skipFirst && index === 0)) {
-    const angle = wm.angle === "diagonal" ? (Math.atan2(height, width) * 180) / Math.PI : Number(wm.angle);
-    const rad = (angle * Math.PI) / 180;
-    const cos = Math.cos(rad);
-    const sin = Math.sin(rad);
-    const image = wm.image;
-    // An image is as wide as `imageSize` of the page; text is `size` points tall.
-    const w = image ? width * wm.imageSize : measure(wm.text, wm.size);
-    const h = image ? (w * image.img.naturalHeight) / image.img.naturalWidth : wm.size;
-    // Screen y grows downward, so "counter-clockwise" flips the sign of sin.
-    // Text is placed by the left end of its baseline, an image by its lower left corner.
-    const place = (cx, cy) => {
-      const lx = -w / 2;
-      const ly = image ? h / 2 : wm.size * MID;
-      return { x: cx + lx * cos + ly * sin, y: cy - lx * sin + ly * cos };
-    };
-    const stamp = (cx, cy) => draws.push(image
-      ? { image, ...place(cx, cy), w, h, angle, opacity: wm.opacity }
-      : { text: wm.text, ...place(cx, cy), angle, size: wm.size, color: wm.color, opacity: wm.opacity });
+function layoutNumber({ index, count, width, height, measure }, num) {
+  const first = num.skipFirst ? 1 : 0;
+  const n = num.start + index - first;
+  const total = num.start + (count - first) - 1;
+  const text = num.format.replaceAll("{n}", n).replaceAll("{total}", total);
+  if (!text.trim()) return [];
+  const w = measure(text, num.size);
+  const [v, h] = num.pos.split("-");
+  const x = alignX(h, w, width, num.margin);
+  const y = alignY(v, num.size, height, num.margin);
+  return [{ text, x, y, angle: 0, size: num.size, color: num.color, opacity: 1 }];
+}
 
-    if (wm.layout === "tile") {
-      const stepX = w + (image ? w * 0.4 : wm.size * 1.5); // along the text
-      const stepY = image ? h * 1.6 : wm.size * 3; // across the lines
-      const reach = Math.hypot(width, height) / 2 + w;
-      const cols = Math.ceil(reach / stepX) + 1;
-      const rows = Math.ceil(reach / stepY) + 1;
-      for (let j = -rows; j <= rows; j++) {
-        for (let i = -cols; i <= cols; i++) {
-          const a = (i + (j & 1) / 2) * stepX;
-          const b = j * stepY;
-          const cx = width / 2 + a * cos + b * sin;
-          const cy = height / 2 - a * sin + b * cos;
-          if (cx < -w / 2 || cx > width + w / 2 || cy < -w / 2 || cy > height + w / 2) continue;
-          stamp(cx, cy);
-        }
-      }
-    } else {
-      stamp(width / 2, height / 2);
-    }
+// Header and footer: three texts (left, middle, right) at the top and three at the bottom.
+function layoutHeaderFooter({ index, count, file, width, height, measure }, hf) {
+  const fill = (text) => text
+    .replaceAll("{n}", index + 1)
+    .replaceAll("{total}", count)
+    .replaceAll("{date}", dateText(new Date(), "/"))
+    .replaceAll("{file}", baseName(file))
+    .trim();
+  const draws = [];
+  for (const [row, texts] of [["top", hf.top], ["bottom", hf.bottom]]) {
+    texts.forEach((raw, col) => {
+      const text = fill(raw);
+      if (!text) return;
+      const w = measure(text, hf.size);
+      const x = alignX(["left", "center", "right"][col], w, width, hf.margin);
+      const y = alignY(row, hf.size, height, hf.margin);
+      draws.push({ text, x, y, angle: 0, size: hf.size, color: hf.color, opacity: 1 });
+    });
   }
   return draws;
+}
+
+function layoutWatermark({ width, height, measure }, wm) {
+  const angle = wm.angle === "diagonal" ? (Math.atan2(height, width) * 180) / Math.PI : Number(wm.angle);
+  const rad = (angle * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const image = wm.image;
+  // An image is as wide as `imageSize` of the page; text is `size` points tall.
+  const w = image ? width * wm.imageSize : measure(wm.text, wm.size);
+  const h = image ? (w * image.img.naturalHeight) / image.img.naturalWidth : wm.size;
+  // Screen y grows downward, so "counter-clockwise" flips the sign of sin.
+  // Text is placed by the left end of its baseline, an image by its lower left corner.
+  const place = (cx, cy) => {
+    const lx = -w / 2;
+    const ly = image ? h / 2 : wm.size * MID;
+    return { x: cx + lx * cos + ly * sin, y: cy - lx * sin + ly * cos };
+  };
+  const stamp = ([cx, cy]) => (image
+    ? { image, ...place(cx, cy), w, h, angle, opacity: wm.opacity }
+    : { text: wm.text, ...place(cx, cy), angle, size: wm.size, color: wm.color, opacity: wm.opacity });
+  if (wm.layout !== "tile") return [stamp([width / 2, height / 2])];
+  const step = {
+    along: w + (image ? w * 0.4 : wm.size * 1.5), // along the text
+    across: image ? h * 1.6 : wm.size * 3, // across the lines
+  };
+  return tileCenters(width, height, w, step, cos, sin).map(stamp);
+}
+
+// The centres of the copies of a tiled watermark `w` wide: rows turned by the angle whose
+// cos and sin are given, every other row shifted by half a step, all that touch the page.
+function tileCenters(width, height, w, step, cos, sin) {
+  const reach = Math.hypot(width, height) / 2 + w;
+  const cols = Math.ceil(reach / step.along) + 1;
+  const rows = Math.ceil(reach / step.across) + 1;
+  const centers = [];
+  for (let j = -rows; j <= rows; j++) {
+    for (let i = -cols; i <= cols; i++) {
+      const a = (i + (j & 1) / 2) * step.along;
+      const b = j * step.across;
+      const cx = width / 2 + a * cos + b * sin;
+      const cy = height / 2 - a * sin + b * cos;
+      const onPage = cx >= -w / 2 && cx <= width + w / 2 && cy >= -w / 2 && cy <= height + w / 2;
+      if (onPage) centers.push([cx, cy]);
+    }
+  }
+  return centers;
 }
 
 /* ---------- opening a PDF ---------- */

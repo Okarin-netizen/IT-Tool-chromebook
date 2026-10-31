@@ -60,6 +60,11 @@ function cleanLine(s) {
 // each line starts and ends so paragraphs can be found later.
 async function readTextLines(page) {
   const content = await page.getTextContent();
+  return describeLines(groupLines(content).filter((l) => l.text.trim()));
+}
+
+// The pieces of text joined into lines, each with the box it covers.
+function groupLines(content) {
   const lines = [];
   let cur = null;
   for (const item of content.items) {
@@ -78,32 +83,38 @@ async function readTextLines(page) {
       cur = { text: item.str, x, y, size, vertical, minX: x, maxX: x, minY: y, maxY: y, endX: x };
       lines.push(cur);
     }
-    if (!blank) {
-      // Vertical fonts measure along the column: the piece runs down from (x, y).
-      const down = vertical ? item.height || size : 0;
-      cur.lastX = x;
-      cur.lastY = y - down;
-      cur.lastW = vertical ? size : item.width;
-      cur.endX = Math.max(cur.endX, x + cur.lastW);
-      cur.minX = Math.min(cur.minX, x);
-      cur.maxX = Math.max(cur.maxX, x + cur.lastW);
-      cur.minY = Math.min(cur.minY, y - down);
-      cur.maxY = Math.max(cur.maxY, y);
-    }
+    if (!blank) growLine(cur, item, x, y, size, vertical);
   }
   for (const l of lines) {
     // A one-character line can't tell its own direction; it follows its neighbours.
     l.start = l.vertical ? l.maxY : l.minX;
     l.end = l.vertical ? l.minY : l.maxX;
   }
+  return lines;
+}
 
-  const kept = lines.filter((l) => l.text.trim());
-  const gaps = kept.slice(1).map((l, i) => (l.vertical ? kept[i].x - l.x : kept[i].y - l.y));
+// Widens the box of line `cur` to take in a piece of text at (x, y).
+function growLine(cur, item, x, y, size, vertical) {
+  // Vertical fonts measure along the column: the piece runs down from (x, y).
+  const down = vertical ? item.height || size : 0;
+  cur.lastX = x;
+  cur.lastY = y - down;
+  cur.lastW = vertical ? size : item.width;
+  cur.endX = Math.max(cur.endX, x + cur.lastW);
+  cur.minX = Math.min(cur.minX, x);
+  cur.maxX = Math.max(cur.maxX, x + cur.lastW);
+  cur.minY = Math.min(cur.minY, y - down);
+  cur.maxY = Math.max(cur.maxY, y);
+}
+
+// Each line's text, whether it starts a new block, and how much room is left after it.
+function describeLines(lines) {
+  const gaps = lines.slice(1).map((l, i) => (l.vertical ? lines[i].x - l.x : lines[i].y - l.y));
   const usual = median(gaps.filter((g) => g > 0));
-  return kept.map((l, i) => {
+  return lines.map((l, i) => {
     const gap = i ? gaps[i - 1] : 0;
     // How far a full line of this column reaches: the farthest end among lines that start in the same place.
-    const peers = kept.filter((o) => o.vertical === l.vertical && Math.abs(o.start - l.start) < l.size * 3);
+    const peers = lines.filter((o) => o.vertical === l.vertical && Math.abs(o.start - l.start) < l.size * 3);
     const edge = l.vertical ? Math.min(...peers.map((o) => o.end)) : Math.max(...peers.map((o) => o.end));
     return {
       text: cleanLine(l.text),
@@ -134,7 +145,15 @@ function median(values) {
 
 /* ---------- formatting ---------- */
 
-const LIST_START = /^([・●○■□◆◇▪▶►※＊*\-–—]|[0-9０-９]+[.．、)）]|[（(][0-9０-９a-zA-Zａ-ｚア-ン一-十]+[)）]|[①-⑳⑴-⒇❶-❿]|第[0-9０-９一-十百]+[章節条項回問]|問[0-9０-９一-十]+)/;
+// How a list item or a numbered heading begins; such a line always starts a new paragraph.
+const LIST_START = new RegExp(`^(${[
+  "[・●○■□◆◇▪▶►※＊*\\-–—]", // a bullet
+  "[0-9０-９]+[.．、)）]", // 1. 1、 1)
+  "[（(][0-9０-９a-zA-Zａ-ｚア-ン一-十]+[)）]", // (1) (a) (ア)
+  "[①-⑳⑴-⒇❶-❿]", // ① ⑴ ❶
+  "第[0-9０-９一-十百]+[章節条項回問]", // 第1章
+  "問[0-9０-９一-十]+", // 問1
+].join("|")})`);
 
 // Width of the first word of a line, in characters (Latin letters are about half as wide).
 function firstWordWidth(text) {
@@ -222,33 +241,44 @@ async function openFile(file) {
 
     for (let num = 1; num <= pdf.numPages; num++) {
       if (pdf.numPages > 5) showStatus(`文字を取り出し中…（${num}/${pdf.numPages}ページ）`, { sticky: true });
-      const page = await pdf.getPage(num);
-      const view = { num, lines: [], ocr: false, edited: false, rendered: false };
-      try {
-        view.lines = await readTextLines(page);
-      } catch (err) {
-        console.error(err);
-      }
-      createPageRow(view);
-      state.pages.push(view);
-      els.pages.append(view.el);
-      formatPage(view);
+      await addPage(pdf, num);
     }
-    const empty = state.pages.filter(isEmpty).length;
-    if (empty === state.pages.length) {
-      showStatus("文字が入っていないPDFです（スキャンした画像など）。「文字のないページを読み取る」でOCRできます", { ms: 9000 });
-    } else if (empty) {
-      showStatus(`${state.pages.length}ページ中${empty}ページは文字が入っていません。「文字のないページを読み取る」でOCRできます`, { ms: 7000 });
-    } else {
-      hideStatus();
-      showStatus(`${state.pages.length}ページの文字を取り出しました`);
-    }
+    reportOpened();
   } catch (err) {
     console.error(err);
     showStatus(openPdfError(err), { error: true });
   } finally {
     state.busy = false;
     updateUi();
+  }
+}
+
+// Reads the text of page `num` and adds its row to the list.
+async function addPage(pdf, num) {
+  const page = await pdf.getPage(num);
+  const view = { num, lines: [], ocr: false, edited: false, rendered: false };
+  try {
+    view.lines = await readTextLines(page);
+  } catch (err) {
+    console.error(err);
+  }
+  createPageRow(view);
+  state.pages.push(view);
+  els.pages.append(view.el);
+  formatPage(view);
+}
+
+// Says how many pages had text, and suggests OCR for those without.
+function reportOpened() {
+  const count = state.pages.length;
+  const empty = state.pages.filter(isEmpty).length;
+  if (empty === count) {
+    showStatus("文字が入っていないPDFです（スキャンした画像など）。「文字のないページを読み取る」でOCRできます", { ms: 9000 });
+  } else if (empty) {
+    showStatus(`${count}ページ中${empty}ページは文字が入っていません。「文字のないページを読み取る」でOCRできます`, { ms: 7000 });
+  } else {
+    hideStatus();
+    showStatus(`${count}ページの文字を取り出しました`);
   }
 }
 
@@ -283,31 +313,6 @@ function createPageRow(view) {
   view.canvas.setAttribute("aria-hidden", "true");
   preview.append(view.canvas);
 
-  const body = document.createElement("div");
-  body.className = "page-body";
-
-  const head = document.createElement("div");
-  head.className = "page-head";
-  const title = document.createElement("h2");
-  title.textContent = `${view.num}ページ`;
-  view.badge = document.createElement("span");
-  view.badge.className = "badge";
-  view.badge.hidden = true;
-  title.append(" ", view.badge);
-
-  const actions = document.createElement("div");
-  actions.className = "page-actions";
-  view.copyBtn = miniButton("コピー", "このページの文字をコピー", () => copyWithMessage(view.textarea.value, `${view.num}ページをコピーしました`));
-  view.ocrBtn = miniButton("画像から読み取る（OCR）", "このページを画像として文字を読み取ります", () => ocrPages([view], { confirmReplace: true }));
-  view.resetBtn = miniButton("元に戻す", "書き直す前の文字に戻します", () => {
-    view.edited = false;
-    formatPage(view);
-    updateUi();
-  });
-  view.resetBtn.hidden = true;
-  actions.append(view.copyBtn, view.ocrBtn, view.resetBtn);
-  head.append(title, actions);
-
   view.empty = document.createElement("p");
   view.empty.className = "empty-note";
   view.empty.textContent = "このページには文字が入っていません。スキャンした画像や写真のページは「画像から読み取る（OCR）」で読み取れます。";
@@ -321,10 +326,41 @@ function createPageRow(view) {
     updatePageUi(view);
   });
 
-  body.append(head, view.empty, view.textarea);
+  const body = document.createElement("div");
+  body.className = "page-body";
+  body.append(pageHead(view), view.empty, view.textarea);
   li.append(preview, body);
   view.el = li;
   previews.add(view);
+}
+
+// The page number with its badge (OCR, edited) and the page's buttons.
+function pageHead(view) {
+  const title = document.createElement("h2");
+  title.textContent = `${view.num}ページ`;
+  view.badge = document.createElement("span");
+  view.badge.className = "badge";
+  view.badge.hidden = true;
+  title.append(" ", view.badge);
+
+  const copy = () => copyWithMessage(view.textarea.value, `${view.num}ページをコピーしました`);
+  const reset = () => {
+    view.edited = false;
+    formatPage(view);
+    updateUi();
+  };
+  view.copyBtn = miniButton("コピー", "このページの文字をコピー", copy);
+  view.ocrBtn = miniButton("画像から読み取る（OCR）", "このページを画像として文字を読み取ります", () => ocrPages([view], { confirmReplace: true }));
+  view.resetBtn = miniButton("元に戻す", "書き直す前の文字に戻します", reset);
+  view.resetBtn.hidden = true;
+  const actions = document.createElement("div");
+  actions.className = "page-actions";
+  actions.append(view.copyBtn, view.ocrBtn, view.resetBtn);
+
+  const head = document.createElement("div");
+  head.className = "page-head";
+  head.append(title, actions);
+  return head;
 }
 
 function miniButton(label, title, onClick) {

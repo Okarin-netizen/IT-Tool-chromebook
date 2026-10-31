@@ -136,6 +136,7 @@ body {
   touch-action: none;
   z-index: 2;
 }
+.handle .i, .tdel .i { width: 14px; height: 14px; stroke-width: 2.2; }
 .handle { background: var(--select); color: #fff; cursor: move; }
 .tdel { background: #fff; color: #c0392b; border: 1px solid #eba59c; cursor: pointer; }
 .titem.active .handle, .titem.active .tdel, .titem:hover .handle { display: flex; }
