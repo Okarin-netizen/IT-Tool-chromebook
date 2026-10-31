@@ -17,8 +17,11 @@ import { pixelRatio } from "../shared/js/canvas.js";
 import { dateText } from "../shared/js/dates.js";
 
 const SCORE_H = 34; // height of a new score, in page points
+const QSCORE_H = 22; // … and of a question's score
 const OUT_SUFFIX = "_採点済";
-const STORE = { max: "pdf-grade-score-max" };
+const STORE = { max: "pdf-grade-score-max", comments: "pdf-grade-comments-v1" };
+// The comment bank until the user changes it.
+const DEFAULT_COMMENTS = ["よくできました", "おしい！", "単位をつけよう", "途中の式も書こう", "見直しをしよう"];
 const collator = new Intl.Collator("ja", { numeric: true, sensitivity: "base" });
 
 const $ = (id) => document.getElementById(id);
@@ -36,6 +39,13 @@ const els = {
   scoreMenu: $("score-menu"),
   scoreMax: $("score-max"),
   scoreUse: $("score-use"),
+  qNext: $("q-next"),
+  qscoreUse: $("qscore-use"),
+  commentBtn: $("comment-btn"),
+  commentMenu: $("comment-menu"),
+  commentList: $("comment-list"),
+  commentForm: $("comment-form"),
+  commentInput: $("comment-input"),
   swatches: document.querySelectorAll(".toolbar .swatch"),
   width: $("width"),
   textSize: $("text-size"),
@@ -69,11 +79,13 @@ const state = {
   // Strokes and stamps as described in shared/js/ink.js (`page` is a page view id, unique
   // across all files), plus
   // text:   { type, page, text, color, x, y, w, h }
-  // score:  { type, page, value, max, color, x, y, w, h }  (one per file)
+  // score:  { type, page, value, max, color, x, y, w, h }  (one per file; with question
+  //         scores, value is their total)
+  // qscore: { type, page, q, value, color, x, y, w, h }  (a question's score, q = 1, 2, …)
   items: [],
   selected: null,
   drawing: null, // stroke being drawn
-  editing: null, // { item, input, isNew } while a text or score is being typed
+  editing: null, // { item, input, isNew } while a text or a score is being typed
   current: null, // file shown at the top of the viewer
   tool: "pen",
   color: "#d11a1a",
@@ -81,6 +93,10 @@ const state = {
   textSize: 20,
   stamp: "ring",
   scoreMax: "",
+  nextQ: 1, // question number of the next question score
+  lastQFile: null, // the file the last question score went on; another file starts at 1
+  comments: [],
+  comment: "", // the comment the comment tool places
   scale: 1,
   dirty: false,
 };
@@ -105,6 +121,8 @@ const { stampDef, newStamp, renderChoices } = createStamps(STAMPS, state);
 const textFont = (h) => `${h * 0.85}px ${TEXT_FONT}`;
 const scoreFonts = (h) => [`bold ${h * 0.82}px ${TEXT_FONT}`, `bold ${h * 0.46}px ${TEXT_FONT}`];
 const scoreSuffix = (max) => (max ? ` / ${max}` : "点");
+const qscoreFonts = (h) => [`${h * 0.5}px ${TEXT_FONT}`, `bold ${h * 0.8}px ${TEXT_FONT}`];
+const qscoreLabel = (q) => `問${q}`;
 
 // Text and scores grow sideways with what is typed; their height sets the font size.
 function fitWidth(item) {
@@ -113,6 +131,9 @@ function fitWidth(item) {
   } else if (item.type === "score") {
     const [big, small] = scoreFonts(item.h);
     item.w = textWidth(item.value, big) + textWidth(scoreSuffix(item.max), small) + item.h * 0.3;
+  } else if (item.type === "qscore") {
+    const [label, value] = qscoreFonts(item.h);
+    item.w = textWidth(qscoreLabel(item.q), label) + Math.max(textWidth(item.value, value), item.h * 0.5) + item.h * 0.45;
   }
 }
 
@@ -149,6 +170,29 @@ function drawScore(ctx, item) {
   ctx.restore();
 }
 
+// A question's score: a small "問2" and the points, underlined.
+function drawQscore(ctx, item) {
+  const { x, y, h } = item;
+  const [labelFont, valueFont] = qscoreFonts(h);
+  ctx.save();
+  ctx.fillStyle = ctx.strokeStyle = item.color;
+  ctx.textBaseline = "alphabetic";
+  const base = y + h * 0.78;
+  ctx.font = labelFont;
+  const label = qscoreLabel(item.q);
+  ctx.fillText(label, x + h * 0.05, base);
+  const vx = x + h * 0.25 + ctx.measureText(label).width;
+  ctx.font = valueFont;
+  ctx.fillText(item.value, vx, base);
+  ctx.lineWidth = h * 0.06;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(vx - h * 0.05, y + h * 0.93);
+  ctx.lineTo(x + item.w - h * 0.05, y + h * 0.93);
+  ctx.stroke();
+  ctx.restore();
+}
+
 /* ---------- drawing items ---------- */
 
 function drawItem(ctx, item) {
@@ -156,6 +200,7 @@ function drawItem(ctx, item) {
   else if (item.type === "stamp") drawStamp(ctx, item, stampDef(item.kind));
   else if (item.type === "text") drawText(ctx, item);
   else if (item.type === "score") drawScore(ctx, item);
+  else if (item.type === "qscore") drawQscore(ctx, item);
 }
 
 const history = new History(state);
@@ -166,13 +211,42 @@ const editor = createInkEditor({
   allViews: () => state.pages,
   drawItem,
   updateUi,
-  onChange: () => refreshAllRows(),
+  onChange: () => {
+    // The totals follow the question scores within the same undo step.
+    if (syncTotals()) history.record(true);
+    refreshAllRows();
+  },
   beforeRestore: () => commitEditor(true),
 });
 const { renderInk, renderPageInk, select, commit, undo, redo } = editor;
 
 const fileItems = (file) => state.items.filter((i) => state.pages.get(i.page)?.file === file);
 const scoreOf = (file) => fileItems(file).find((i) => i.type === "score");
+const qscoresOf = (file) => fileItems(file).filter((i) => i.type === "qscore").sort((a, b) => a.q - b.q);
+
+// The sum of question scores, as text ("" when no question has a number).
+function sumOf(qscores) {
+  const points = qscores.map((i) => Number(i.value)).filter(Number.isFinite);
+  return points.length ? String(Math.round(points.reduce((a, b) => a + b, 0) * 100) / 100) : "";
+}
+
+// Puts each student's question total into their score. Returns true when anything changed.
+function syncTotals() {
+  let changed = false;
+  for (const file of state.files) {
+    const qscores = qscoresOf(file);
+    const score = scoreOf(file);
+    if (!qscores.length || !score) continue;
+    const total = sumOf(qscores);
+    if (total === score.value) continue;
+    const copy = history.edit(score);
+    copy.value = total;
+    fitWidth(copy);
+    renderPageInk(copy.page);
+    changed = true;
+  }
+  return changed;
+}
 
 /* ---------- opening PDFs ---------- */
 
@@ -469,14 +543,20 @@ function scoreLabel(item) {
   return item.max ? `${item.value}/${item.max}` : `${item.value}点`;
 }
 
-function refreshRow(file, items) {
+// The score shown in the list: the student's score, or the total of their question scores.
+function totalLabel(items) {
   const score = items.find((i) => i.type === "score");
+  if (score) return scoreLabel(score);
+  const total = sumOf(items.filter((i) => i.type === "qscore"));
+  return total ? `${total}点` : "";
+}
+
+function refreshRow(file, items) {
   const parts = [`${file.views.length}ページ`];
   if (items.length) parts.push(`書き込み${items.length}`);
   file.rowMeta.textContent = parts.join("・");
   file.row.classList.toggle("marked", items.length > 0);
-  file.row.dataset.score = score ? scoreLabel(score) : "";
-  file.headScore.textContent = score ? scoreLabel(score) : "";
+  file.row.dataset.score = file.headScore.textContent = totalLabel(items);
 }
 
 // Sorts the items into students once, instead of searching all items for every student.
@@ -578,11 +658,20 @@ function onPointerDown(e, view) {
       const h = state.textSize;
       openEditor({ type: "text", page: view.id, text: "", color: state.color, x, y: y - h / 2, w: 0, h }, true);
     }
+  } else if (state.tool === "comment") {
+    placeComment(view, x, y);
+  } else if (state.tool === "qscore") {
+    e.preventDefault();
+    const hit = editor.itemAt(view.id, x, y, tolerance, ["qscore"]);
+    if (hit) openEditor(hit);
+    else openEditor(newQscore(view, x, y), true);
   } else if (state.tool === "score") {
     e.preventDefault();
     const existing = scoreOf(view.file);
+    const total = qscoresOf(view.file).length ? sumOf(qscoresOf(view.file)) : null;
     if (existing && existing.page === view.id && hits(existing, x, y, tolerance)) {
-      openEditor(existing);
+      // With question scores the total is counted, not typed.
+      if (total === null) openEditor(existing);
     } else if (existing) {
       // One score per student: clicking somewhere else moves it there.
       const score = history.edit(existing);
@@ -591,7 +680,14 @@ function onPointerDown(e, view) {
       score.y = y - score.h / 2;
       commit();
       renderPageInk(existing.page);
-      openEditor(score);
+      if (total === null) openEditor(score);
+      else renderPageInk(score.page);
+    } else if (total !== null) {
+      const score = { type: "score", page: view.id, value: total, max: state.scoreMax, color: state.color, x, y: y - SCORE_H / 2, w: 0, h: SCORE_H };
+      fitWidth(score);
+      state.items.push(score);
+      commit();
+      renderPageInk(view.id);
     } else {
       openEditor({
         type: "score", page: view.id, value: "", max: state.scoreMax, color: state.color,
@@ -604,8 +700,63 @@ function onPointerDown(e, view) {
 function onDoubleClick(e, view) {
   if (state.tool !== "select") return;
   const [x, y] = editor.pagePoint(e, view);
-  const item = editor.itemAt(view.id, x, y, 4 / state.scale, ["text", "score"]);
-  if (item) openEditor(item);
+  const item = editor.itemAt(view.id, x, y, 4 / state.scale, ["text", "score", "qscore"]);
+  if (item && !(item.type === "score" && qscoresOf(view.file).length)) openEditor(item);
+}
+
+// A question score for the next question: the one after the last placed, or 問1 on another
+// student's PDF.
+function newQscore(view, x, y) {
+  if (view.file !== state.lastQFile && !qscoresOf(view.file).length) setNextQ(1);
+  return { type: "qscore", page: view.id, q: state.nextQ, value: "", color: state.color, x, y: y - QSCORE_H / 2, w: 0, h: QSCORE_H };
+}
+
+function setNextQ(q) {
+  state.nextQ = Math.max(1, Math.min(99, Math.round(q) || 1));
+  els.qNext.value = state.nextQ;
+}
+
+/* ---------- the comment bank ---------- */
+
+function placeComment(view, x, y) {
+  if (!state.comment) return;
+  const h = state.textSize;
+  const item = { type: "text", page: view.id, text: state.comment, color: state.color, x, y: y - h / 2, w: 0, h };
+  fitWidth(item);
+  state.items.push(item);
+  commit();
+  renderPageInk(view.id);
+}
+
+function renderComments() {
+  els.commentList.replaceChildren(...state.comments.map((text, i) => {
+    const pick = document.createElement("button");
+    pick.type = "button";
+    pick.className = "comment-choice";
+    pick.classList.toggle("selected", state.tool === "comment" && state.comment === text);
+    pick.textContent = text;
+    pick.addEventListener("click", () => {
+      state.comment = text;
+      closeMenus();
+      setTool("comment");
+    });
+    const del = rowButton("i-close", `「${text}」を一覧から消す`, () => {
+      state.comments.splice(i, 1);
+      saveJson(STORE.comments, state.comments);
+      renderComments();
+    });
+    const li = document.createElement("li");
+    li.append(pick, del);
+    return li;
+  }));
+}
+
+function addComment(text) {
+  text = text.trim();
+  if (!text) return;
+  state.comments = [...state.comments.filter((c) => c !== text), text];
+  saveJson(STORE.comments, state.comments);
+  renderComments();
 }
 
 /* ---------- typing text and scores ---------- */
@@ -619,24 +770,24 @@ function openEditor(item, isNew = false) {
   input.type = "text";
   input.className = `inline-edit ${item.type}`;
   input.autocomplete = "off";
-  if (item.type === "score") {
+  if (item.type === "score" || item.type === "qscore") {
     input.inputMode = "numeric";
     input.maxLength = 6;
-    input.placeholder = "点数";
+    input.placeholder = item.type === "qscore" ? qscoreLabel(item.q) : "点数";
     input.value = item.value;
   } else {
     input.placeholder = "文字を入力";
     input.value = item.text;
   }
   const s = state.scale;
-  const fontPx = (item.type === "score" ? item.h * 0.82 : item.h * 0.85) * s;
+  const fontPx = item.h * (item.type === "text" ? 0.85 : 0.82) * s;
   Object.assign(input.style, {
     left: `${item.x * s}px`,
     top: `${item.y * s}px`,
     height: `${item.h * s}px`,
     fontSize: `${fontPx}px`,
     color: item.color,
-    minWidth: `${item.type === "score" ? 3 * fontPx : 8 * fontPx}px`,
+    minWidth: `${item.type === "text" ? 8 * fontPx : 3 * fontPx}px`,
   });
   input.addEventListener("keydown", (e) => {
     if (e.isComposing) return;
@@ -665,7 +816,7 @@ function commitEditor(cancel = false) {
   const { input, isNew } = editing;
   input.remove();
   const value = input.value.trim();
-  const field = item.type === "score" ? "value" : "text";
+  const field = item.type === "text" ? "text" : "value";
   if (!cancel) {
     if (!value) {
       if (!isNew) {
@@ -678,6 +829,10 @@ function commitEditor(cancel = false) {
       if (item.type === "score" && isNew) item.max = state.scoreMax;
       fitWidth(item);
       if (isNew) state.items.push(item);
+      if (item.type === "qscore" && isNew) {
+        state.lastQFile = state.pages.get(item.page).file;
+        setNextQ(item.q + 1);
+      }
       commit();
     }
   }
@@ -694,7 +849,9 @@ function hintForTool() {
     case "eraser": return "消したい線や記号をなぞってください";
     case "stamp": return `押したい場所をクリックしてください（${stampDef(state.stamp).label}）`;
     case "text": return "文字を書きたい場所をクリックして入力し、Enter";
-    case "score": return "点数を入れたい場所をクリックして数字を入力し、Enter（1人に1つ）";
+    case "score": return "点数を入れたい場所をクリックして数字を入力し、Enter（1人に1つ。設問の点があるときは合計が入ります）";
+    case "qscore": return `設問の横をクリックして点を入力し、Enter（次は問${state.nextQ}）`;
+    case "comment": return `置きたい場所をクリックしてください（${state.comment}）`;
     default: return "書いたものをドラッグして動かせます。文字・点数はダブルクリックで書き直し";
   }
 }
@@ -706,6 +863,7 @@ function setTool(tool, { hint = true } = {}) {
   if (tool !== "select") select(null);
   if (tool === "marker" && state.color !== "#facc15") setColor("#facc15");
   else if (tool !== "marker" && tool !== "select" && tool !== "eraser" && state.color === "#facc15") setColor("#d11a1a");
+  renderComments();
   updateUi();
   if (hint && state.files.length) showStatus(hintForTool());
 }
@@ -721,6 +879,7 @@ function setColor(color) {
 function updateUi() {
   const open = state.files.length > 0;
   syncToolbar(els, state, history, open);
+  els.scoreBtn.classList.toggle("selected", state.tool === "score" || state.tool === "qscore");
   els.saveBtn.disabled = !open || saving;
   els.folderSaveBtn.disabled = !open || saving;
   scheduleAutosave();
@@ -728,7 +887,7 @@ function updateUi() {
 
 /* ---------- menus ---------- */
 
-const { close: closeMenus, toggle: toggleMenu } = createMenus(els.stampMenu, els.scoreMenu);
+const { close: closeMenus, toggle: toggleMenu } = createMenus(els.stampMenu, els.scoreMenu, els.commentMenu);
 
 function renderStampChoices() {
   renderChoices([[els.markList, false], [els.sealList, true]], {
@@ -793,11 +952,18 @@ function csvCell(value) {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+// One row per student. With question scores, a column for each question and the total.
 function scoreCsv(names) {
-  const rows = [["ファイル名", "点数", "満点", "書き込み数"]];
+  const questions = Math.max(0, ...state.items.filter((i) => i.type === "qscore").map((i) => i.q));
+  const qHeads = Array.from({ length: questions }, (_, i) => qscoreLabel(i + 1));
+  const rows = [["ファイル名", ...qHeads, questions ? "合計" : "点数", "満点", "書き込み数"]];
   state.files.forEach((file, i) => {
     const score = scoreOf(file);
-    rows.push([names[i], score?.value ?? "", score?.max ?? "", fileItems(file).length]);
+    const qscores = qscoresOf(file);
+    // Two scores for one question (placed twice by mistake) are added up.
+    const points = qHeads.map((_, q) => sumOf(qscores.filter((item) => item.q === q + 1)));
+    const total = score?.value ?? sumOf(qscores);
+    rows.push([names[i], ...points, total, score?.max ?? "", fileItems(file).length]);
   });
   // BOM so Excel opens the Japanese text correctly.
   return new TextEncoder().encode(`﻿${rows.map((r) => r.map(csvCell).join(",")).join("\r\n")}\r\n`);
@@ -816,7 +982,7 @@ async function buildAll(write) {
     if (rebuilt) rebuiltCount++;
     await write(names[i], bytes);
   }
-  const hasScores = state.files.some(scoreOf);
+  const hasScores = state.items.some((i) => i.type === "score" || i.type === "qscore");
   if (hasScores) await write(`点数一覧_${dateText(new Date(), "")}.csv`, scoreCsv(names));
   return { rebuiltCount, hasScores };
 }
@@ -892,7 +1058,7 @@ els.filesClose.addEventListener("click", () => toggleFiles(false));
 
 for (const btn of els.tools) {
   const tool = btn.dataset.tool;
-  if (tool === "stamp" || tool === "score") continue;
+  if (tool === "stamp" || tool === "score" || tool === "comment") continue;
   btn.addEventListener("click", () => {
     closeMenus();
     setTool(tool);
@@ -903,6 +1069,20 @@ els.scoreBtn.addEventListener("click", () => toggleMenu(els.scoreMenu));
 els.scoreUse.addEventListener("click", () => {
   closeMenus();
   setTool("score");
+});
+els.qscoreUse.addEventListener("click", () => {
+  closeMenus();
+  setTool("qscore");
+});
+els.qNext.addEventListener("change", () => {
+  setNextQ(Number(els.qNext.value));
+  state.lastQFile = state.current; // the number chosen here is used on the PDF being marked
+});
+els.commentBtn.addEventListener("click", () => toggleMenu(els.commentMenu));
+els.commentForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  addComment(els.commentInput.value);
+  els.commentInput.value = "";
 });
 document.addEventListener("pointerdown", (e) => {
   if (!e.target.closest(".menu-wrap")) closeMenus();
@@ -953,7 +1133,7 @@ els.viewer.addEventListener("scroll", () => {
   });
 });
 
-const SHORTCUTS = { v: "select", p: "pen", m: "marker", e: "eraser", h: "stamp", t: "text", s: "score" };
+const SHORTCUTS = { v: "select", p: "pen", m: "marker", e: "eraser", h: "stamp", t: "text", s: "score", q: "qscore", c: "comment" };
 document.addEventListener("keydown", (e) => {
   const typing = e.target.closest("input, textarea, select");
   const key = e.key.toLowerCase();
@@ -1011,6 +1191,8 @@ registerOffline([
 if (window.matchMedia("(max-width: 760px)").matches) toggleFiles(false);
 state.scoreMax = loadJson(STORE.max, "");
 els.scoreMax.value = state.scoreMax;
+state.comments = loadJson(STORE.comments, DEFAULT_COMMENTS);
+state.comment = state.comments[0] ?? "";
 renderStampChoices();
 refreshAllRows();
 setTool("pen", { hint: false });
@@ -1019,4 +1201,4 @@ document.fonts.ready.then(renderStampChoices);
 offerResume();
 
 // Hook for automated tests.
-window.__pdfGrade = { state, addFiles, buildPdf, saveZip, setScale, setTool, undo, redo, commit, renderInk, stepFile, autosave, resumeSession };
+window.__pdfGrade = { state, addFiles, buildPdf, saveZip, setScale, setTool, undo, redo, commit, renderInk, stepFile, autosave, resumeSession, scoreCsv };
