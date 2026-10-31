@@ -157,7 +157,7 @@ body {
 .tag { background: var(--soft); border-radius: 4px; padding: 0 6px; color: var(--text); }
 .due.overdue { color: var(--danger); font-weight: 600; }
 .due.soon { color: var(--warn); font-weight: 600; }
-.task-del {
+.task-edit, .task-del {
   flex: none;
   width: 30px; height: 30px;
   border: 0;
@@ -168,8 +168,12 @@ body {
   padding: 0;
   cursor: pointer;
 }
-.task-del .i { width: 16px; height: 16px; }
+.task-edit .i, .task-del .i { width: 16px; height: 16px; }
+.task-edit:hover { background: var(--soft); color: var(--text); }
 .task-del:hover { background: #fbe3df; color: var(--danger); }
+
+.task.editing { padding: 6px; }
+.task-edit-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 1; min-width: 0; }
 
 .empty { color: var(--muted); text-align: center; margin: 20px 0; font-size: 14px; }
 .list-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; min-height: 30px; }
