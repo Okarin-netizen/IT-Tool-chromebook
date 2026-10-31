@@ -308,6 +308,10 @@ const TOOLS = {
       await t.setFiles("#file-input", [t.pdf("学級通信.pdf", 3)]);
       await t.until(() => __pdfBooklet.state.sides.length === 2 && __pdfBooklet.state.sides.every((s) => s.canvas.width > 0));
       await t.shot("open");
+      // Each half says which page of the booklet it is.
+      const labels = await t.page.$$eval("#sheets .side .label", (els) => els.map((el) => el.textContent));
+      t.expect(labels.join(" / ") === "1枚目の表　裏表紙（白紙）｜表紙 / 1枚目の裏　2｜3", `紙の説明が違う: ${labels.join(" / ")}`);
+      t.expect(await t.page.textContent("#thumbs .thumb .num") === "表紙", "ページの順番の先頭が表紙になっていない");
       await t.page.click("#save-btn");
       const [file] = await t.downloads(1);
       t.expectName(file, "学級通信_冊子.pdf");
@@ -345,7 +349,7 @@ const TOOLS = {
       await t.until(() => __pdfBooklet.state.order.join() === "2,0,1");
       await t.until(() => __pdfBooklet.state.sides.every((s) => s.canvas.width > 0));
       await t.shot("reordered");
-      t.expect(await t.page.textContent("#sheets .side .label") === "1枚目の表　白紙｜3", `並べかえが紙に反映されない: ${await t.page.textContent("#sheets .side .label")}`);
+      t.expect(await t.page.textContent("#sheets .side .label") === "1枚目の表　裏表紙（白紙）｜表紙（元の3）", `並べかえが紙に反映されない: ${await t.page.textContent("#sheets .side .label")}`);
       const reordered = await t.page.evaluate(async () => {
         const { openPdf } = await import("../shared/js/pdf.js");
         const { bytes } = await __pdfBooklet.buildPdf({ binding: "left", paper: "same", backCover: false });
