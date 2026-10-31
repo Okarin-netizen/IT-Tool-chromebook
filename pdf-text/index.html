@@ -16,6 +16,7 @@
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
     <symbol id="i-image" viewBox="0 0 24 24"><path d="M3 5h18v14H3z"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></symbol>
+    <symbol id="i-white" viewBox="0 0 24 24"><path d="M4 7h6M4 12h4M4 17h6"/><rect x="11" y="5" width="9" height="14" rx="1"/></symbol>
     <symbol id="i-move" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></symbol>
     <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></symbol>
     <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 19V6a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v2"/><path d="M4 19l3-8h14l-3 8z"/></symbol>
@@ -34,6 +35,7 @@
     <div class="group">
       <button id="image-btn" class="btn" disabled title="写真や画像をPDFに貼る"><svg class="i" aria-hidden="true"><use href="#i-image"/></svg>写真を追加</button>
       <input id="image-input" type="file" accept="image/*" multiple hidden>
+      <button id="white-btn" class="btn tool" disabled aria-pressed="false" title="間違えた所などを白い四角で隠す（秘密の情報には「手書き・署名」の墨消しを使う）"><svg class="i" aria-hidden="true"><use href="#i-white"/></svg>白で消す</button>
     </div>
 
     <div class="group" role="group" aria-label="文字の設定">
@@ -56,7 +58,7 @@
         <button class="swatch" data-color="#1d4ed8" style="--c:#1d4ed8" aria-label="青"></button>
         <button class="swatch" data-color="#15803d" style="--c:#15803d" aria-label="緑"></button>
       </div>
-      <button id="delete-btn" class="btn" disabled title="選んでいる文字や写真を消す"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>削除</button>
+      <button id="delete-btn" class="btn" disabled title="選んでいる文字・写真・白い四角を消す"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>削除</button>
       <button id="undo-btn" class="btn icon" disabled title="元に戻す (Ctrl+Z)" aria-label="元に戻す"><svg class="i" aria-hidden="true"><use href="#i-undo"/></svg></button>
       <button id="redo-btn" class="btn icon" disabled title="やり直す (Ctrl+Y)" aria-label="やり直す"><svg class="i" aria-hidden="true"><use href="#i-redo"/></svg></button>
     </div>

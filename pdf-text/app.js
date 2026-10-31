@@ -13,12 +13,14 @@ import { History } from "../shared/js/history.js";
 const FONT_FAMILY = "PdfTextJP";
 const LINE_HEIGHT = 1.25; // must match .tbox line-height in style.css
 const MAX_IMAGE_PX = 2000; // longest side of a placed photo; keeps saved PDFs small
+const MIN_WHITE = 4; // smallest side of a white box, in points; a plain click draws none
 
 const $ = (id) => document.getElementById(id);
 const els = {
   fileInput: $("file-input"),
   imageBtn: $("image-btn"),
   imageInput: $("image-input"),
+  whiteBtn: $("white-btn"),
   fontSize: $("font-size"),
   deleteBtn: $("delete-btn"),
   undoBtn: $("undo-btn"),
@@ -38,13 +40,16 @@ const state = {
   pdf: null, // pdf.js document
   pages: [], // { num, viewport (scale 1), el, canvas, layer, formLayer, rendered, task }
   hasForm: false, // the PDF has fill-in fields (AcroForm), shown as real input boxes
-  items: [], // text: { type, page, x, y, size, color, text, el, box }  image: { type, page, x, y, w, h, bytes, format, url, el, box }
+  // text: { type, page, x, y, size, color, text, el, box }  image: { type, page, x, y, w, h, bytes, format, url, el, box }
+  // white (a white box hiding what is under it): { type, page, x, y, w, h, el, box }
+  items: [],
   active: null,
   scale: 1,
   size: 12,
   color: "#000000",
   baselineRatio: 1.0, // first-line baseline / font size, measured from the real font
   dirty: false,
+  whiteMode: false, // dragging on a page draws a white box instead of starting a text
 };
 
 /* ---------- font ---------- */
@@ -101,6 +106,7 @@ async function openFile(file) {
     els.welcome.hidden = true;
     els.saveBtn.disabled = false;
     els.imageBtn.disabled = false;
+    els.whiteBtn.disabled = false;
     setScale(viewer.fitWidthScale());
     els.viewer.scrollTop = 0;
     hideStatus();
@@ -146,6 +152,7 @@ function createPageView(num, viewport) {
   layer.addEventListener("pointerdown", (e) => {
     if (e.target !== layer || e.button !== 0) return;
     e.preventDefault();
+    if (state.whiteMode) return drawWhite(view, e);
     const rect = layer.getBoundingClientRect();
     const x = (e.clientX - rect.left) / state.scale;
     const y = (e.clientY - rect.top) / state.scale - (state.size * LINE_HEIGHT) / 2;
@@ -320,7 +327,7 @@ function layoutItem(item) {
   const s = state.scale;
   item.box.style.left = `${item.x * s}px`;
   item.box.style.top = `${item.y * s}px`;
-  if (item.type === "image") {
+  if (item.type !== "text") {
     item.el.style.width = `${item.w * s}px`;
     item.el.style.height = `${item.h * s}px`;
     item.box.querySelector(".tdel").style.left = `${item.w * s + 4}px`;
@@ -352,7 +359,7 @@ function removeItem(item) {
   state.items.splice(i, 1);
   item.box.remove();
   if (state.active === item) setActive(null);
-  if (item.type === "image" || item.text.trim()) state.dirty = true;
+  if (item.type !== "text" || item.text.trim()) state.dirty = true;
   recordChange();
 }
 
@@ -362,7 +369,7 @@ function removeItem(item) {
 // Empty text boxes (just opened, nothing typed yet) are left out.
 const history = new History(state, {
   take: () => state.items
-    .filter((item) => item.type === "image" || item.text.trim())
+    .filter((item) => item.type !== "text" || item.text.trim())
     .map((item) => item.type === "text"
       ? { item, x: item.x, y: item.y, size: item.size, color: item.color, text: item.text }
       : { item, x: item.x, y: item.y, w: item.w, h: item.h }),
@@ -463,7 +470,7 @@ function enableDrag(item, handle) {
 }
 
 function focusItem(item) {
-  (item.type === "image" ? item.box : item.el).focus();
+  (item.type === "text" ? item.el : item.box).focus();
 }
 
 /* ---------- photos ---------- */
@@ -585,13 +592,14 @@ function addImageItem(view, img, x, y, w, h) {
   return item;
 }
 
-function enableResize(item, handle) {
+// Photos keep their proportions; a white box (`free`) takes any shape.
+function enableResize(item, handle, { free = false } = {}) {
   let start = null;
   handle.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     e.stopPropagation();
     handle.setPointerCapture(e.pointerId);
-    start = { px: e.clientX, py: e.clientY, w: item.w, aspect: item.h / item.w };
+    start = { px: e.clientX, py: e.clientY, w: item.w, h: item.h, aspect: item.h / item.w };
     setActive(item);
   });
   handle.addEventListener("pointermove", (e) => {
@@ -599,8 +607,13 @@ function enableResize(item, handle) {
     // Follow whichever direction the pointer moved further, keeping the photo's proportions.
     const dw = (e.clientX - start.px) / state.scale;
     const dh = (e.clientY - start.py) / state.scale / start.aspect;
-    item.w = Math.max(10, start.w + (Math.abs(dw) > Math.abs(dh) ? dw : dh));
-    item.h = item.w * start.aspect;
+    if (free) {
+      item.w = Math.max(MIN_WHITE, start.w + dw);
+      item.h = Math.max(MIN_WHITE, start.h + dh * start.aspect);
+    } else {
+      item.w = Math.max(10, start.w + (Math.abs(dw) > Math.abs(dh) ? dw : dh));
+      item.h = item.w * start.aspect;
+    }
     layoutItem(item);
     state.dirty = true;
   });
@@ -612,6 +625,100 @@ function enableResize(item, handle) {
   };
   handle.addEventListener("pointerup", end);
   handle.addEventListener("pointercancel", end);
+}
+
+/* ---------- white boxes ---------- */
+
+// A white box only covers what is under it: the text stays in the PDF and can still be copied
+// out. That is fine for a mistake or a blank to fill in again, not for a secret, so the tool says
+// to use 墨消し in 手書き・署名, which turns the page into a picture.
+function setWhiteMode(on) {
+  state.whiteMode = on;
+  els.whiteBtn.classList.toggle("selected", on);
+  els.whiteBtn.setAttribute("aria-pressed", on);
+  els.pages.classList.toggle("white-mode", on);
+  if (on) {
+    showStatus("消したい所をドラッグで囲んでください。白い四角は上に重ねるだけで、下の文字はPDFに残ります。" +
+      "名前などの秘密の情報は「手書き・署名」の墨消しを使ってください", { ms: 8000 });
+  } else hideStatus();
+}
+
+// Drags out a white box on `view`, from the pointer that went down in `down`.
+function drawWhite(view, down) {
+  const layer = view.layer;
+  const rect = layer.getBoundingClientRect();
+  const at = (e) => [
+    Math.min(Math.max(0, (e.clientX - rect.left) / state.scale), view.viewport.width),
+    Math.min(Math.max(0, (e.clientY - rect.top) / state.scale), view.viewport.height),
+  ];
+  const [x0, y0] = at(down);
+  const ghost = document.createElement("div");
+  ghost.className = "wghost";
+  layer.append(ghost);
+  let box = { x: x0, y: y0, w: 0, h: 0 };
+  const show = () => Object.assign(ghost.style, {
+    left: `${box.x * state.scale}px`, top: `${box.y * state.scale}px`,
+    width: `${box.w * state.scale}px`, height: `${box.h * state.scale}px`,
+  });
+  show();
+  layer.setPointerCapture(down.pointerId);
+  const move = (e) => {
+    const [x1, y1] = at(e);
+    box = { x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0) };
+    show();
+  };
+  const end = () => {
+    layer.removeEventListener("pointermove", move);
+    layer.removeEventListener("pointerup", end);
+    layer.removeEventListener("pointercancel", end);
+    ghost.remove();
+    if (box.w >= MIN_WHITE && box.h >= MIN_WHITE) addWhiteItem(view, box.x, box.y, box.w, box.h);
+  };
+  layer.addEventListener("pointermove", move);
+  layer.addEventListener("pointerup", end);
+  layer.addEventListener("pointercancel", end);
+}
+
+function addWhiteItem(view, x, y, w, h) {
+  const item = { id: nextItemId++, type: "white", page: view.num, x, y, w, h };
+  const box = document.createElement("div");
+  box.className = "titem witem";
+  box.style.position = "absolute";
+  box.tabIndex = 0;
+  box.setAttribute("aria-label", "白い四角");
+  const el = document.createElement("div");
+  el.className = "wrect";
+  el.title = "ドラッグで移動";
+  const del = document.createElement("div");
+  del.className = "tdel";
+  del.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-close"/></svg>';
+  del.title = "削除";
+  const resize = document.createElement("div");
+  resize.className = "resize";
+  resize.title = "ドラッグで大きさを変える";
+  box.append(el, del, resize);
+  view.layer.append(box);
+  Object.assign(item, { el, box });
+  state.items.push(item);
+  state.dirty = true;
+  layoutItem(item);
+  recordChange();
+
+  box.addEventListener("focus", () => setActive(item));
+  box.addEventListener("keydown", (e) => {
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      removeItem(item);
+    }
+  });
+  del.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    removeItem(item);
+  });
+  enableDrag(item, el);
+  enableResize(item, resize, { free: true });
+  box.focus();
+  return item;
 }
 
 /* ---------- saving ---------- */
@@ -659,9 +766,21 @@ async function buildPdf() {
       ? { toPdf: (x, y) => [x, viewport.height - y], rotate: degrees(0) }
       : { toPdf: (x, y) => viewport.convertToPdfPoint(x, y), rotate: degrees(viewport.rotation) };
   };
+  await drawWhites(doc, placement);
   await drawImages(doc, placement);
   await drawTexts(doc, placement);
   return { bytes: await doc.save(), rebuilt };
+}
+
+// White boxes go first, so photos and texts can be put on top of them.
+async function drawWhites(doc, placement) {
+  const { rgb } = await loadPdfLib();
+  for (const item of state.items) {
+    if (item.type !== "white") continue;
+    const { toPdf, rotate } = placement(item.page);
+    const [x, y] = toPdf(item.x, item.y + item.h);
+    doc.getPage(item.page - 1).drawRectangle({ x, y, width: item.w, height: item.h, color: rgb(1, 1, 1), rotate });
+  }
 }
 
 async function drawImages(doc, placement) {
@@ -731,6 +850,8 @@ els.imageInput.addEventListener("change", async () => {
   els.imageInput.value = "";
 });
 
+els.whiteBtn.addEventListener("click", () => setWhiteMode(!state.whiteMode));
+
 els.deleteBtn.addEventListener("pointerdown", (e) => e.preventDefault());
 els.deleteBtn.addEventListener("click", () => state.active && removeItem(state.active));
 els.undoBtn.addEventListener("click", undo);
@@ -742,6 +863,7 @@ els.saveBtn.addEventListener("click", save);
 addNextTool({ saveBtn: els.saveBtn, save: save, kind: "pdf" });
 
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && state.whiteMode && !e.target.closest("textarea, input, select")) setWhiteMode(false);
   if (!e.ctrlKey && !e.metaKey) return;
   const key = e.key.toLowerCase();
   if (key === "s") {
@@ -788,4 +910,4 @@ registerOffline([
 ]);
 
 // Hook for automated tests.
-window.__pdfText = { state, openFile, addItem, addImageFile, save, setScale, fontReady, undo, redo };
+window.__pdfText = { state, openFile, addItem, addImageFile, save, setScale, fontReady, undo, redo, buildPdf };

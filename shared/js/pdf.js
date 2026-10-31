@@ -2,7 +2,7 @@
 import * as pdfjsLib from "../vendor/pdfjs-4.10.38/pdf.min.mjs";
 import { loadPdfLib } from "./pdf-lib.js";
 import { askPassword } from "./password.js";
-import { canvasToBlob } from "./canvas.js";
+import { canvasToBlob, grayscale } from "./canvas.js";
 
 const PDFJS = new URL("../vendor/pdfjs-4.10.38/", import.meta.url).href;
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.mjs";
@@ -80,8 +80,10 @@ export async function renderPage(page, scale, { rotation, annotationMode } = {})
 }
 
 // Adds a pdf.js page to the pdf-lib `doc` as a JPEG picture of itself, at its own size.
-export async function addPageImage(doc, page, { scale = 2, quality = 0.9, rotation, annotationMode } = {}) {
+// `gray` makes the picture black and white (shades of gray).
+export async function addPageImage(doc, page, { scale = 2, quality = 0.9, rotation, annotationMode, gray = false } = {}) {
   const canvas = await renderPage(page, scale, { rotation, annotationMode });
+  if (gray) grayscale(canvas.getContext("2d"), canvas.width, canvas.height);
   const blob = await canvasToBlob(canvas, "image/jpeg", quality);
   canvas.width = canvas.height = 0;
   const image = await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
@@ -91,13 +93,13 @@ export async function addPageImage(doc, page, { scale = 2, quality = 0.9, rotati
 
 // pdf-lib cannot decrypt, so a protected (encrypted) PDF is rebuilt from page images
 // rendered by pdf.js, the same as printing it. `onPage(num, count)` reports progress.
-export async function rasterizePdf(pdf, { scale = 2, quality = 0.9, annotationMode, onPage } = {}) {
+export async function rasterizePdf(pdf, { scale = 2, quality = 0.9, annotationMode, onPage, gray } = {}) {
   const { PDFDocument } = await loadPdfLib();
   const doc = await PDFDocument.create();
   for (let num = 1; num <= pdf.numPages; num++) {
     onPage?.(num, pdf.numPages);
     const page = await pdf.getPage(num);
-    await addPageImage(doc, page, { scale, quality, annotationMode });
+    await addPageImage(doc, page, { scale, quality, annotationMode, gray });
     page.cleanup();
   }
   return doc;

@@ -31,6 +31,7 @@ const els = {
   fileInfo: $("file-info"),
   targetRow: $("target-row"),
   targetMb: $("target-mb"),
+  gray: $("gray"),
   compressBtn: $("compress-btn"),
   result: $("result"),
   sizeBefore: $("size-before"),
@@ -97,16 +98,17 @@ async function openFile(file) {
 /* ---------- the two ways to compress ---------- */
 
 // "画像だけ軽くする" lives in images.js, which needs pdf-lib; it is imported on first use.
-async function compressImages(bytes, level, onProgress) {
+async function compressImages(bytes, level, onProgress, options) {
   const images = await import("./images.js");
-  return images.compressImages(bytes, level, onProgress);
+  return images.compressImages(bytes, level, onProgress, options);
 }
 
 // "ページ全体を画像にする": every page becomes one JPEG. Form fields are drawn with what was typed in.
-async function rasterize(pdf, { dpi, quality }, onProgress) {
+async function rasterize(pdf, { dpi, quality }, onProgress, { gray = false } = {}) {
   const doc = await rasterizePdf(pdf, {
     scale: dpi / 72,
     quality,
+    gray,
     annotationMode: pdfjsLib.AnnotationMode.ENABLE_STORAGE,
     onPage: onProgress,
   });
@@ -138,11 +140,14 @@ async function compress() {
       const progress = (i, n) => showStatus(
         `${prefix}${method === "images" ? "画像" : "ページ"}を圧縮中…（${i}/${n}）`, { sticky: true },
       );
-      const out = method === "images" ? await compressImages(bytes, level, progress) : await rasterize(pdf, level, progress);
+      const options = { gray: els.gray.checked };
+      const out = method === "images"
+        ? await compressImages(bytes, level, progress, options)
+        : await rasterize(pdf, level, progress, options);
       if (!best || out.bytes.length < best.bytes.length) best = out;
       if (target !== null && out.bytes.length <= target) break;
     }
-    await showResult(best, { method, target });
+    await showResult(best, { method, target, gray: els.gray.checked });
     hideStatus();
   } catch (err) {
     console.error(err);
@@ -152,7 +157,7 @@ async function compress() {
   }
 }
 
-async function showResult(out, { method, target }) {
+async function showResult(out, { method, target, gray }) {
   const before = state.file.bytes.length;
   const after = out.bytes.length;
   const smaller = after < before;
@@ -173,9 +178,12 @@ async function showResult(out, { method, target }) {
     notes.push(`目標の ${formatSize(target)} 以下にはできませんでした（いちばん小さくてこのサイズです）。`);
     if (method === "images") notes.push("「ページ全体を画像にする」を選ぶと、もっと小さくなるかもしれません。");
   } else if (method === "images") {
-    notes.push(out.replaced ? `${out.replaced}枚の画像を小さくしました。文字はそのままです。` : "画像はそのままで、PDFの中の不要なデータを整理しました。");
+    notes.push(out.replaced
+      ? `${out.replaced}枚の画像を${gray ? "白黒にして" : ""}小さくしました。文字はそのままです。`
+      : "画像はそのままで、PDFの中の不要なデータを整理しました。");
+    if (gray && out.replaced) notes.push("色のついた文字や線は、色がそのまま残ります。ページ全部を白黒にするには「ページ全体を画像にする」を選んでください。");
   } else {
-    notes.push("ページを画像にしました。文字の選択・検索はできません。");
+    notes.push(`ページを${gray ? "白黒の" : ""}画像にしました。文字の選択・検索はできません。`);
   }
   els.resultNote.textContent = notes.join(" ");
   els.resultNote.classList.toggle("warn", warn);
@@ -248,7 +256,7 @@ els.nextPage.addEventListener("click", () => {
   state.previewPage++;
   renderPreview();
 });
-for (const input of [...methodInputs, ...levelInputs]) {
+for (const input of [...methodInputs, ...levelInputs, els.gray]) {
   input.addEventListener("change", () => {
     els.targetRow.hidden = levelInputs.find((i) => i.checked).value !== "target";
     if (!state.busy) clearResult(); // the shown result no longer matches the settings
