@@ -258,12 +258,15 @@ const TOOLS = {
       await editAndUndo(t, "__pdfGrade", ink, [120, 120], "#1d4ed8");
       await questionScores(t, ink);
       await commentBank(t, ink);
+      await gradeByQuestion(t, ink);
       await t.page.click("#save-btn");
       const [file] = await t.downloads(1);
       t.expectName(file, /^採点済_\d{8}\.zip$/);
       const names = fixtures.zipNames(file.bytes);
       t.expect(names.includes("生徒A_採点済.pdf") && names.includes("生徒B_採点済.pdf"), `ZIPの中身が違う: ${names.join(", ")}`);
       t.expect(names.some((n) => n.endsWith(".csv")), `ZIPに点数一覧がない: ${names.join(", ")}`);
+      await t.page.click("#anon-btn");
+      t.expect(await t.page.textContent(".doc-title") === "生徒A.pdf", "名前を隠すのをやめても名前に戻らない");
 
       // Work in progress survives closing the tab: reload and carry on.
       const before = await t.page.evaluate(async () => {
@@ -1241,6 +1244,57 @@ async function questionScores(t, ink) {
   const want = "ファイル名,問1,問2,合計,満点,書き込み数\r\n生徒A,3,4.5,7.5,";
   t.expect(csv.text.startsWith(want), `点数一覧の列が違う: ${csv.text}`);
   t.expect(csv.text.includes("\r\n生徒B,2,,2,"), `次の人の点数一覧が違う: ${csv.text}`);
+}
+
+// Hiding names shows numbers instead; boxing a question on one page then shows only that box
+// of that page for everyone, where marking still works, until 全体に戻す.
+async function gradeByQuestion(t, ink) {
+  await t.page.click("#anon-btn");
+  const shown = await t.page.evaluate(() => ({
+    titles: [...document.querySelectorAll(".doc-title")].map((e) => e.textContent).join(","),
+    rows: [...document.querySelectorAll(".file-name")].map((e) => e.textContent).join(","),
+    labels: [...document.querySelectorAll(".page-num")].map((e) => e.textContent).join(","),
+  }));
+  t.expect(shown.titles === "1番,2番" && shown.rows === "1番,2番", `名前が番号にならない: ${JSON.stringify(shown)}`);
+  t.expect(!shown.labels.includes("生徒"), `ページの下に名前が残っている: ${shown.labels}`);
+
+  await t.page.evaluate(() => __pdfGrade.setTool("stamp"));
+  await ink.scrollIntoViewIfNeeded();
+  await t.page.click("#focus-btn");
+  await t.drag(ink, [[40, 40], [200, 90], [320, 130]]);
+  const focus = await t.page.evaluate(() => {
+    const { state } = __pdfGrade;
+    const pages = [...state.pages.values()];
+    return {
+      focus: state.focus,
+      tool: state.tool,
+      hidden: pages.filter((v) => v.el.style.display === "none").length,
+      clipped: pages.filter((v) => v.el.style.clipPath.startsWith("inset(")).length,
+    };
+  });
+  t.expect(focus.focus?.num === 1 && focus.focus.w > 100 && focus.focus.h > 30, `囲んだ場所が決まらない: ${JSON.stringify(focus.focus)}`);
+  t.expect(focus.tool === "stamp", `囲んだあと前の道具に戻らない: ${focus.tool}`);
+  t.expect(focus.hidden === 1 && focus.clipped === 2, `全員の1ページ目の同じ場所だけにならない: ${JSON.stringify(focus)}`);
+  await t.shot("by-question");
+
+  // Marking 2番's answer in the box, after moving on with 次の人.
+  await t.page.click("#next-btn");
+  const other = t.page.locator(".page .ink").nth(2);
+  const before = await t.page.evaluate(() => __pdfGrade.state.items.length);
+  const box = await other.boundingBox();
+  const f = focus.focus;
+  const scale = await t.page.evaluate(() => __pdfGrade.state.scale);
+  await t.page.mouse.click(box.x + (f.x + f.w / 2) * scale, box.y + (f.y + f.h / 2) * scale);
+  const placed = await t.page.evaluate(() => {
+    const { state } = __pdfGrade;
+    const item = state.items.at(-1);
+    return { count: state.items.length, file: state.pages.get(item.page).file.name, type: item.type };
+  });
+  t.expect(placed.count === before + 1 && placed.file === "生徒B.pdf" && placed.type === "stamp", `囲んだ場所に記号を押せない: ${JSON.stringify(placed)}`);
+
+  await t.page.click("#focus-btn");
+  const back = await t.page.evaluate(() => [...__pdfGrade.state.pages.values()].every((v) => !v.el.style.display && !v.el.style.clipPath));
+  t.expect(back && !(await t.page.evaluate(() => __pdfGrade.state.focus)), "全体に戻すでPDF全体の表示に戻らない");
 }
 
 // A comment added to the bank is kept, and picking it places it with one click.
