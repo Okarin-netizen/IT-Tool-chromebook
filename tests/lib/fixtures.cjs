@@ -93,7 +93,7 @@ async function makeFormPdf() {
 
 // PDFs are built once up front because building is async and the tests ask for them often.
 async function prepare() {
-  for (const [pages, image] of [[1, false], [2, false], [3, false], [2, true]]) {
+  for (const [pages, image] of [[1, false], [2, false], [3, false], [6, false], [2, true]]) {
     pdfCache.set(pdfKey(pages, image), await makePdf(pages, { image }));
   }
   pdfCache.set("form", await makeFormPdf());
