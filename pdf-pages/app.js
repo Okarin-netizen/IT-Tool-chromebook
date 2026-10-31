@@ -5,6 +5,7 @@ import { addNextTool } from "../shared/js/handoff.js";
 import { loadText, saveText } from "../shared/js/storage.js";
 import { createLazyRenderer, freeCanvas } from "../shared/js/lazy.js";
 import { createSortable } from "../shared/js/sortable.js";
+import { History } from "../shared/js/history.js";
 import { embedPages, placePage } from "../shared/js/imposition.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
@@ -61,8 +62,6 @@ const state = {
   files: [], // { name, bytes, pdf (pdf.js), doc (pdf-lib, null when protected), blank }; kept until "最初から" so undo can bring pages back
   pages: [], // { id, file, index (0-based), baseRotation, rotation (added by the user), selected, el, canvas, rendered }
   lastClicked: null, // for shift-click range selection
-  history: [], // snapshots for undo
-  future: [], // snapshots for redo
   thumbPx: THUMB_SIZES.medium,
   dirty: false,
   busy: false,
@@ -81,7 +80,6 @@ async function addFiles(fileList) {
   const failed = [];
   const protectedNames = [];
   let added = 0;
-  remember();
   state.loading = true;
   for (const [i, file] of files.entries()) {
     showStatus(`PDFを読み込み中…（${i + 1}/${files.length}）`, { sticky: true });
@@ -95,7 +93,7 @@ async function addFiles(fileList) {
     }
   }
   state.loading = false;
-  if (!added) state.history.pop(); // nothing changed, so nothing to undo
+  if (added) history.record();
   updateUi();
   if (failed.length) {
     showStatus(failed.map((f) => `${f.name}: ${f.reason}`).join(" / "), { error: true });
@@ -229,9 +227,9 @@ function placePages(views, target, after) {
   const rest = state.pages.filter((p) => !views.includes(p));
   const next = [...rest.slice(0, at), ...moving, ...rest.slice(at)];
   if (next.every((p, i) => p === state.pages[i])) return;
-  remember();
   state.pages = next;
   state.dirty = true;
+  history.record();
   syncOrder();
 }
 
@@ -281,33 +279,33 @@ function movePage(view, delta) {
   const i = state.pages.indexOf(view);
   const j = i + delta;
   if (j < 0 || j >= state.pages.length) return;
-  remember();
   [state.pages[i], state.pages[j]] = [state.pages[j], state.pages[i]];
   state.dirty = true;
+  history.record();
   syncOrder();
   view.el.focus();
 }
 
 function rotatePages(views, delta) {
   if (!views.length) return;
-  remember();
   for (const view of views) {
     view.rotation = (view.rotation + delta + 360) % 360;
     renderThumb(view);
   }
   state.dirty = true;
+  history.record();
   updateUi();
 }
 
 function removePages(views) {
   if (!views.length) return;
-  remember();
   for (const view of views) {
     thumbs.remove(view);
     view.el.remove();
   }
   state.pages = state.pages.filter((p) => !views.includes(p));
   state.dirty = state.pages.length > 0;
+  history.record();
   updateUi();
   if (views.length > 1 || !state.pages.length) showStatus(`${views.length}ページを外しました（「元に戻す」で戻せます）`);
 }
@@ -317,8 +315,7 @@ function clearAll() {
   for (const file of state.files) file.pdf.destroy();
   state.files = [];
   blankFiles.clear();
-  state.history = [];
-  state.future = [];
+  history.reset();
   hideStatus();
   updateUi();
 }
@@ -351,9 +348,9 @@ async function insertBlank() {
     [width, height] = [size.width, size.height];
   }
   const view = newView(await blankFile(width, height), 0, 0);
-  remember();
   state.pages.splice(after ? state.pages.indexOf(after) + 1 : state.pages.length, 0, view);
   state.dirty = true;
+  history.record();
   syncOrder();
   view.el.scrollIntoView({ block: "nearest" });
   showStatus("白紙のページを入れました");
@@ -362,11 +359,11 @@ async function insertBlank() {
 function duplicatePages() {
   const selected = state.pages.filter((p) => p.selected);
   if (!selected.length) return;
-  remember();
   state.pages = state.pages.flatMap((view) => view.selected
     ? [view, newView(view.file, view.index, view.baseRotation, view.rotation)]
     : [view]);
   state.dirty = true;
+  history.record();
   syncOrder();
   showStatus(`${selected.length}ページを複製しました`);
 }
@@ -377,9 +374,9 @@ function reversePages() {
   if (targets.length < 2) return;
   const reversed = targets.slice().reverse();
   let k = 0;
-  remember();
   state.pages = state.pages.map((view) => (targets.includes(view) ? reversed[k++] : view));
   state.dirty = true;
+  history.record();
   syncOrder();
   showStatus("順番を逆にしました");
 }
@@ -397,9 +394,9 @@ function interleave(front, back, reverseBack) {
   }
   const at = state.pages.findIndex((p) => p.file === front || p.file === back);
   const rest = state.pages.filter((p) => p.file !== front && p.file !== back);
-  remember();
   state.pages = [...rest.slice(0, at), ...merged, ...rest.slice(at)];
   state.dirty = true;
+  history.record();
   syncOrder();
   showStatus(`${merged.length}ページを表と裏の交互に並べました`);
 }
@@ -465,15 +462,12 @@ function closeMenu() {
 
 /* ---------- undo / redo ---------- */
 
-function snapshot() {
-  return state.pages.map((view) => ({ view, rotation: view.rotation }));
-}
-
-function remember() {
-  state.history.push(snapshot());
-  if (state.history.length > HISTORY_LIMIT) state.history.shift();
-  state.future = [];
-}
+// A step is the pages in order with the turn each had then (the page objects are reused).
+const history = new History(state, {
+  take: () => state.pages.map((view) => ({ view, rotation: view.rotation })),
+  apply: restore,
+  limit: HISTORY_LIMIT,
+});
 
 function restore(snap) {
   const keep = new Set(snap.map((s) => s.view));
@@ -497,18 +491,14 @@ function restore(snap) {
   else if (previewView) renderPreview();
 }
 
+const canChange = () => !state.busy && !state.loading && !sortable.dragging;
+
 function undo() {
-  if (!state.history.length || state.busy || state.loading || sortable.dragging) return;
-  state.future.push(snapshot());
-  restore(state.history.pop());
-  showStatus("元に戻しました");
+  if (canChange() && history.undo()) showStatus("元に戻しました");
 }
 
 function redo() {
-  if (!state.future.length || state.busy || state.loading || sortable.dragging) return;
-  state.history.push(snapshot());
-  restore(state.future.pop());
-  showStatus("やり直しました");
+  if (canChange() && history.redo()) showStatus("やり直しました");
 }
 
 /* ---------- thumbnail size ---------- */
@@ -631,8 +621,8 @@ function updateUi() {
   els.interleaveBtn.disabled = fileCount() < 2;
   els.deleteBtn.disabled = none || selected === 0;
   els.extractBtn.disabled = none || selected === 0;
-  els.undoBtn.disabled = state.busy || state.loading || !state.history.length;
-  els.redoBtn.disabled = state.busy || state.loading || !state.future.length;
+  els.undoBtn.disabled = state.busy || state.loading || !history.canUndo;
+  els.redoBtn.disabled = state.busy || state.loading || !history.canRedo;
   const scope = selected ? "選んだページ" : "全ページ";
   els.rotateLeft.title = `${scope}を左に90°回転`;
   els.rotateRight.title = `${scope}を右に90°回転`;

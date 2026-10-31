@@ -39,6 +39,26 @@ const TOOLS = {
       await t.page.click(".page[data-num='1'] .layer", { position: { x: 120, y: 120 } });
       await t.page.keyboard.type("テスト");
       await t.until(() => __pdfText.state.items.some((i) => i.text === "テスト"));
+      // Undo takes back the typed text, then a second one typed elsewhere; redo brings both back.
+      const texts = () => t.page.evaluate(() => __pdfText.state.items.map((i) => i.text).join(",") + "/" + document.querySelectorAll(".titem").length);
+      await t.page.click(".page[data-num='1'] .layer", { position: { x: 120, y: 260 } });
+      await t.page.keyboard.type("二つ目");
+      await t.page.click("#undo-btn");
+      t.expect(await texts() === "テスト/1", `元に戻すで2つ目の文字が消えない: ${await texts()}`);
+      await t.page.keyboard.press("Control+z");
+      t.expect(await texts() === "/0", `元に戻すで1つ目の文字が消えない: ${await texts()}`);
+      await t.page.keyboard.press("Control+y");
+      await t.page.click("#redo-btn");
+      t.expect(await texts() === "テスト,二つ目/2", `やり直しで文字が戻らない: ${await texts()}`);
+      t.expect(await t.page.isDisabled("#redo-btn"), "これ以上やり直せないのに「やり直す」が押せる");
+      // Moving a box by its handle is one step too.
+      const firstX = () => t.page.evaluate(() => Math.round(__pdfText.state.items[0].x));
+      const x0 = await firstX();
+      await t.page.locator(".titem").first().hover();
+      await t.drag(t.page.locator(".titem .handle").first(), [[10, 10], [40, 20], [70, 30]]);
+      t.expect(await firstX() > x0 + 20, "文字をドラッグで動かせない");
+      await t.page.click("#undo-btn");
+      t.expect(await firstX() === x0, `元に戻すで文字の位置が戻らない: ${x0} → ${await firstX()}`);
       await t.page.click("#save-btn");
       const [file] = await t.downloads(1);
       t.expectName(file, "テスト資料_記入済み.pdf");
@@ -102,10 +122,21 @@ const TOOLS = {
       await t.page.selectOption("#nup", "1");
 
       // A long press with a finger picks a page up; dropping it in front of the first page moves it there.
+      const shown = () => t.page.evaluate(() => __pdfPages.state.pages.map((p) => (p.file.blank ? "白" : p.index + 1) + (p.rotation ? `@${p.rotation}` : "")).join(","));
       await t.until(() => __pdfPages.state.pages.every((p) => p.rendered));
+      const before = await shown();
       await t.touchDrag(t.page.locator("#grid .card").nth(2), t.page.locator("#grid .card").nth(0));
-      const dragged = await t.page.evaluate(() => __pdfPages.state.pages.map((p) => (p.file.blank ? "白" : p.index + 1)).join(","));
-      t.expect(dragged === "2,3,白,2", `指で並べかえた順が違う: ${dragged}`);
+      const dragged = await shown();
+      t.expect(dragged === "2@90,3,白,2@90", `指で並べかえた順が違う: ${dragged}`);
+      // Undo and redo the move, then a turn.
+      await t.page.keyboard.press("Control+z");
+      t.expect(await shown() === before, `元に戻すで並びが戻らない: ${await shown()}`);
+      await t.page.click("#redo-btn");
+      t.expect(await shown() === dragged, `やり直しで並びが戻らない: ${await shown()}`);
+      await t.page.evaluate(() => __pdfPages.rotatePages([__pdfPages.state.pages[1]], 90));
+      t.expect(await shown() === "2@90,3@90,白,2@90", `回転が違う: ${await shown()}`);
+      await t.page.click("#undo-btn");
+      t.expect(await shown() === dragged, `元に戻すで回転が戻らない: ${await shown()}`);
       await t.page.evaluate(() => __pdfPages.removePages(__pdfPages.state.pages.slice()));
       await t.setFiles("#file-input", [t.pdf("表.pdf", 3), t.pdf("裏.pdf", 2)]);
       await t.until(() => __pdfPages.state.pages.length === 5);
@@ -586,6 +617,21 @@ const TOOLS = {
       await t.shot("open");
       await t.page.click("[data-tool='arrow']");
       await t.drag(t.page.locator("#canvas"), [[100, 100], [200, 150], [300, 200]]);
+      // Move the arrow, then undo the move and the drawing, and redo both.
+      const items = () => t.page.evaluate(() => JSON.stringify(__imageAnnotate.state.items));
+      const drawn = await items();
+      await t.page.click("[data-tool='select']");
+      await t.drag(t.page.locator("#canvas"), [[200, 150], [240, 190], [260, 210]]);
+      const moved = await items();
+      t.expect(moved !== drawn, "矢印をドラッグで動かせない");
+      await t.page.keyboard.press("Control+z");
+      t.expect(await items() === drawn, "元に戻すで矢印の位置が戻らない");
+      await t.page.click("#undo-btn");
+      t.expect(await items() === "[]", "元に戻すで矢印が消えない");
+      t.expect(await t.page.isDisabled("#undo-btn"), "これ以上戻せないのに「元に戻す」が押せる");
+      await t.page.click("#redo-btn");
+      await t.page.keyboard.press("Control+y");
+      t.expect(await items() === moved, "やり直しで矢印が戻らない");
       await t.page.click("#save-btn");
       const [file] = await t.downloads(1);
       t.expectName(file, "画面_書き込み.png");

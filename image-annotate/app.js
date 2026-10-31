@@ -5,6 +5,7 @@ import { isImage, isHeic, readableImage } from "../shared/js/heic.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { canvasToBlob } from "../shared/js/canvas.js";
 import { copyImage } from "../shared/js/clipboard.js";
+import { History } from "../shared/js/history.js";
 
 const MAX_IMAGE_PX = 4000; // longest side; larger photos are shrunk so the canvas stays responsive
 const BLANK_SIZE = [1600, 1000];
@@ -49,8 +50,6 @@ const state = {
   color: "#e11d48",
   mul: 1,
   fill: false,
-  undo: [],
-  redo: [],
   editing: null, // text item open in the editor
   dirty: false,
 };
@@ -118,8 +117,7 @@ function start(base, name) {
   state.fileName = (name || "image").replace(/\.[^.]+$/, "");
   state.items = [];
   state.selected = null;
-  state.undo = [];
-  state.redo = [];
+  history.reset();
   state.dirty = false;
   els.canvas.width = state.W;
   els.canvas.height = state.H;
@@ -455,21 +453,32 @@ function handleAt(x, y) {
 
 /* ---------- undo / redo ---------- */
 
-const snapshot = () => JSON.stringify(state.items);
+// Items are changed in place, so each step keeps them as JSON.
+const history = new History(state, {
+  take: () => JSON.stringify(state.items),
+  apply: (step) => (state.items = JSON.parse(step)),
+  limit: 100,
+});
 
-function pushUndo(snap = snapshot()) {
-  state.undo.push(snap);
-  if (state.undo.length > 100) state.undo.shift();
-  state.redo = [];
+// Records the items as a new step, unless nothing changed since the last one.
+function recordChange() {
+  if (history.take() === history.steps[history.pos]) return;
+  history.record();
   state.dirty = true;
   updateButtons();
 }
 
-function restore(from, to) {
+function undo() {
   closeEditor(true);
-  if (!from.length) return;
-  to.push(snapshot());
-  state.items = JSON.parse(from.pop());
+  if (history.undo()) afterRestore();
+}
+
+function redo() {
+  closeEditor(true);
+  if (history.redo()) afterRestore();
+}
+
+function afterRestore() {
   state.selected = null;
   state.dirty = true;
   render();
@@ -495,11 +504,11 @@ els.canvas.addEventListener("pointerdown", (e) => {
   const [x, y] = toImage(e);
   const handle = handleAt(x, y);
   if (handle) {
-    drag = { mode: "handle", handle, snap: snapshot(), moved: false };
+    drag = { mode: "handle", handle };
   } else if (state.tool === "select") {
     const hit = itemAt(x, y);
     state.selected = hit;
-    if (hit) drag = { mode: "move", last: [x, y], snap: snapshot(), moved: false };
+    if (hit) drag = { mode: "move", last: [x, y] };
     render();
     updateButtons();
   } else if (state.tool === "text") {
@@ -513,7 +522,7 @@ els.canvas.addEventListener("pointerdown", (e) => {
     else it.points = [[x, y]];
     state.items.push(it);
     state.selected = null;
-    drag = { mode: "draw", item: it, snap: JSON.stringify(state.items.slice(0, -1)) };
+    drag = { mode: "draw", item: it };
   }
   if (drag) els.canvas.setPointerCapture(e.pointerId);
 });
@@ -530,16 +539,8 @@ els.canvas.addEventListener("pointermove", (e) => {
     const dx = x - drag.last[0];
     const dy = y - drag.last[1];
     drag.last = [x, y];
-    if (!drag.moved) {
-      pushUndo(drag.snap);
-      drag.moved = true;
-    }
     moveItem(state.selected, dx, dy);
   } else if (drag.mode === "handle") {
-    if (!drag.moved) {
-      pushUndo(drag.snap);
-      drag.moved = true;
-    }
     const it = state.selected;
     let [nx, ny] = [x, y];
     if (e.shiftKey && (it.type === "arrow" || it.type === "line")) {
@@ -585,12 +586,12 @@ function endDrag() {
       : false;
     if (tooSmall) {
       state.items.pop();
-    } else {
-      pushUndo(drag.snap);
-      if (it.type !== "pen" && it.type !== "marker") state.selected = it;
+    } else if (it.type !== "pen" && it.type !== "marker") {
+      state.selected = it;
     }
   }
   drag = null;
+  recordChange();
   render();
   updateButtons();
 }
@@ -634,7 +635,6 @@ function openEditor(item, x, y) {
     item = { type: "text", x, y, text: "", color: state.color, mul: state.mul, isNew: true };
   }
   state.editing = item;
-  state.editSnap = snapshot();
   state.selected = item.isNew ? null : item;
   els.editor.value = item.text;
   els.editor.hidden = false;
@@ -668,7 +668,6 @@ function closeEditor(commit) {
   els.editor.hidden = true;
   const text = els.editor.value.replace(/\s+$/, "");
   if (commit && text !== it.text) {
-    pushUndo(state.editSnap);
     if (it.isNew) {
       delete it.isNew;
       it.text = text;
@@ -680,6 +679,7 @@ function closeEditor(commit) {
     }
     state.selected = text ? it : null;
   }
+  recordChange();
   render();
   updateButtons();
 }
@@ -717,9 +717,9 @@ for (const b of els.tools) b.addEventListener("click", () => setTool(b.dataset.t
 function restyleSelected(apply) {
   const it = state.editing || state.selected;
   if (!it) return;
-  if (it !== state.editing) pushUndo();
   apply(it);
   if (state.editing) positionEditor();
+  else recordChange();
   render();
 }
 
@@ -746,21 +746,21 @@ els.fill.addEventListener("change", () => {
 
 function deleteSelected() {
   if (!state.selected) return;
-  pushUndo();
   state.items = state.items.filter((i) => i !== state.selected);
   state.selected = null;
+  recordChange();
   render();
   updateButtons();
 }
 
 els.deleteBtn.addEventListener("click", deleteSelected);
-els.undoBtn.addEventListener("click", () => restore(state.undo, state.redo));
-els.redoBtn.addEventListener("click", () => restore(state.redo, state.undo));
+els.undoBtn.addEventListener("click", undo);
+els.redoBtn.addEventListener("click", redo);
 
 function updateButtons() {
   const open = !!state.base;
-  els.undoBtn.disabled = !state.undo.length;
-  els.redoBtn.disabled = !state.redo.length;
+  els.undoBtn.disabled = !history.canUndo;
+  els.redoBtn.disabled = !history.canRedo;
   els.deleteBtn.disabled = !state.selected;
   els.copyBtn.disabled = !open;
   els.saveBtn.disabled = !open;
@@ -832,10 +832,10 @@ document.addEventListener("keydown", (e) => {
       save();
     } else if (k === "z" && !e.shiftKey) {
       e.preventDefault();
-      restore(state.undo, state.redo);
+      undo();
     } else if (k === "y" || (k === "z" && e.shiftKey)) {
       e.preventDefault();
-      restore(state.redo, state.undo);
+      redo();
     }
     return;
   }
@@ -851,8 +851,8 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     const step = (e.shiftKey ? 10 : 1) * pxRatio();
     const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
-    pushUndo();
     moveItem(state.selected, ...d);
+    recordChange();
     render();
   } else if (TOOL_KEYS[k] && !e.altKey) {
     setTool(TOOL_KEYS[k]);
@@ -869,6 +869,9 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 els.stage.dataset.tool = state.tool;
+
+// For the automated checks in tests/.
+window.__imageAnnotate = { state, undo, redo };
 
 // Keeps this tool working without a network once it has been opened.
 registerOffline(["./", "index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest"]);
