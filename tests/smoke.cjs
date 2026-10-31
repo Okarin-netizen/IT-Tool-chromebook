@@ -228,6 +228,8 @@ const TOOLS = {
       await editor.press("Enter");
       await t.until(() => __pdfGrade.state.items.some((i) => i.type === "score" && i.value === "80"));
       await editAndUndo(t, "__pdfGrade", ink, [120, 120], "#1d4ed8");
+      await questionScores(t, ink);
+      await commentBank(t, ink);
       await t.page.click("#save-btn");
       const [file] = await t.downloads(1);
       t.expectName(file, /^採点済_\d{8}\.zip$/);
@@ -855,6 +857,52 @@ const TOOLS = {
     },
   },
 };
+
+// Question scores count up 問1, 問2, …, their sum goes into the score, and the CSV gets a
+// column for each question. Another student starts again at 問1.
+async function questionScores(t, ink) {
+  const editor = t.page.locator("input.inline-edit");
+  await t.page.evaluate(() => __pdfGrade.setTool("qscore"));
+  for (const [y, points] of [[200, "3"], [260, "4.5"]]) {
+    await ink.click({ position: { x: 100, y } });
+    await editor.fill(points);
+    await editor.press("Enter");
+  }
+  const score = () => __pdfGrade.state.items.find((i) => i.type === "score")?.value;
+  await t.until(() => __pdfGrade.state.items.find((i) => i.type === "score")?.value === "7.5");
+  const qs = await t.page.evaluate(() => __pdfGrade.state.items.filter((i) => i.type === "qscore").map((i) => i.q).join(","));
+  t.expect(qs === "1,2", `設問の番号が進まない: ${qs}`);
+  await t.page.evaluate(() => __pdfGrade.undo());
+  t.expect(await t.page.evaluate(score) === "3", "元に戻したとき、合計が設問の点に合わない");
+  await t.page.evaluate(() => __pdfGrade.redo());
+  t.expect(await t.page.evaluate(score) === "7.5", "やり直したとき、合計が設問の点に合わない");
+  const other = t.page.locator(".page .ink").nth(2); // 生徒B's page
+  await other.scrollIntoViewIfNeeded();
+  await other.click({ position: { x: 100, y: 200 } });
+  await editor.fill("2");
+  await editor.press("Enter");
+  const csv = await t.page.evaluate(() => {
+    const q = __pdfGrade.state.items.filter((i) => i.type === "qscore").map((i) => i.q);
+    return { q, text: new TextDecoder().decode(__pdfGrade.scoreCsv(["生徒A", "生徒B"])).replace(/^\uFEFF/, "") };
+  });
+  t.expect(csv.q.join(",") === "1,2,1", `次の人の設問が問1から始まらない: ${csv.q}`);
+  const want = "ファイル名,問1,問2,合計,満点,書き込み数\r\n生徒A,3,4.5,7.5,";
+  t.expect(csv.text.startsWith(want), `点数一覧の列が違う: ${csv.text}`);
+  t.expect(csv.text.includes("\r\n生徒B,2,,2,"), `次の人の点数一覧が違う: ${csv.text}`);
+}
+
+// A comment added to the bank is kept, and picking it places it with one click.
+async function commentBank(t, ink) {
+  await t.page.click("#comment-btn");
+  await t.page.fill("#comment-input", "式を書こう");
+  await t.page.press("#comment-input", "Enter");
+  await t.page.click(".comment-choice:text('式を書こう')");
+  await ink.click({ position: { x: 200, y: 320 } });
+  await t.until(() => __pdfGrade.state.items.some((i) => i.type === "text" && i.text === "式を書こう"));
+  const saved = await t.page.evaluate(() => JSON.parse(localStorage.getItem("pdf-grade-comments-v1")));
+  t.expect(saved.at(-1) === "式を書こう" && saved.includes("よくできました"), `コメント集が保存されない: ${saved}`);
+  await t.shot("marked");
+}
 
 // Empties page 1's text and reads it back from the page image.
 function ocrFirstPage(t) {
