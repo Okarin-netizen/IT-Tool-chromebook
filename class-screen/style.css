@@ -1,0 +1,238 @@
+/* The shared look is in ../shared/css/base.css. This file sets the tool's colors and layout. */
+:root {
+  --bg: #f1f3f6;
+  --bar: #ffffff;
+  --text: #1f2329;
+  --muted: #5f6672;
+  --line: #d6dae1;
+  --accent: #9c36b5; /* the tool's color: also in icon.svg, manifest.webmanifest and theme-color */
+  --accent-dark: #7e2a93;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, #fff);
+  --accent-text: #ffffff;
+  --quiet: #2b8463;
+  --fine: #d39e00;
+  --loud: #d92d20;
+  /* Team colors on the scoreboard. */
+  --team-0: #d92d20;
+  --team-1: #1f5fd1;
+  --team-2: #16935a;
+  --team-3: #f08c00;
+  --team-4: #8a3fd1;
+  --team-5: #0d7fa8;
+  --team-6: #bd3b58;
+  --team-7: #5c6b00;
+}
+
+html, body { min-height: 100%; margin: 0; }
+
+body {
+  font-family: system-ui, "Noto Sans JP", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.btn.big { min-height: 52px; min-width: 180px; border-radius: 26px; font-size: 18px; padding: 0 28px; }
+.btn.big .i { width: 22px; height: 22px; }
+
+/* Mode switch as a segmented control, like the name roulette. */
+.tabs { display: flex; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+.tab {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.tab + .tab { border-left: 1px solid var(--line); }
+.tab[aria-selected="true"] { background: var(--accent-soft); color: var(--accent-dark); font-weight: 600; }
+
+.view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 28px 16px 40px;
+}
+.controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 20px; }
+.field { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
+.field select, .field input[type="text"] {
+  min-height: 36px;
+  font: inherit;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+}
+.field input[type="range"] { width: 160px; accent-color: var(--accent); }
+.note { margin: 0; color: var(--muted); font-size: 13px; text-align: center; }
+.count { margin: 0; min-height: 1.5em; color: var(--muted); font-size: 16px; }
+
+/* ---------- 声の大きさ ---------- */
+
+.meter-word {
+  margin: 0;
+  font-size: clamp(28px, 7vw, 72px);
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+}
+[data-mood="quiet"] .meter-word { color: var(--quiet); }
+[data-mood="fine"] .meter-word { color: var(--fine); }
+[data-mood="loud"] .meter-word { color: var(--loud); animation: shake .3s ease-in-out infinite alternate; }
+@keyframes shake { from { transform: scale(1); } to { transform: scale(1.06); } }
+.meter {
+  position: relative;
+  width: min(900px, 100%);
+  height: clamp(48px, 12vh, 120px);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+  overflow: hidden;
+}
+.meter-bar {
+  height: 100%;
+  width: 0;
+  background: var(--quiet);
+  transition: background-color .3s;
+}
+[data-mood="fine"] .meter-bar { background: var(--fine); }
+[data-mood="loud"] .meter-bar { background: var(--loud); }
+.meter-limit-line { position: absolute; top: 0; bottom: 0; width: 4px; margin-left: -2px; background: var(--text); }
+
+/* ---------- 信号 ---------- */
+
+.signal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 28px;
+  background: #2b2f36;
+}
+.light {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #9aa1ab;
+  font: inherit;
+  font-size: clamp(20px, 4vw, 40px);
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+}
+.lamp {
+  flex: none;
+  width: clamp(72px, 15vh, 150px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--lamp);
+  opacity: .22;
+  transition: opacity .2s, box-shadow .2s;
+}
+.light.red { --lamp: #ff3b30; }
+.light.yellow { --lamp: #ffcc00; }
+.light.green { --lamp: #34c759; }
+.light[aria-checked="true"] { color: #fff; }
+.light[aria-checked="true"] .lamp { opacity: 1; box-shadow: 0 0 36px var(--lamp); }
+.light:focus-visible { outline: 3px solid #fff; outline-offset: 4px; border-radius: 12px; }
+.light-label { min-width: 6em; }
+.signal-words { display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.signal-words[open] { align-items: flex-start; }
+.signal-words summary { cursor: pointer; color: var(--muted); }
+
+/* ---------- サイコロ ---------- */
+
+.dice-faces { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; min-height: 160px; }
+.die { width: clamp(90px, 20vh, 200px); height: auto; }
+.die-face { fill: var(--surface); stroke: var(--line); stroke-width: 3; }
+.pip { fill: var(--text); }
+.pip.one { fill: var(--loud); }
+.tumbling .die { transform: rotate(-8deg); }
+.tumbling .die:nth-child(even) { transform: rotate(10deg); }
+.dice-total { margin: 0; min-height: 1.5em; font-size: clamp(24px, 5vw, 48px); font-weight: 700; }
+
+/* ---------- 得点板 ---------- */
+
+.teams {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  width: min(1100px, 100%);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.team {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  border-top: 8px solid var(--team);
+}
+.team-name {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px dashed transparent;
+  background: transparent;
+  color: var(--team);
+  font: inherit;
+  font-size: clamp(18px, 2.5vw, 26px);
+  font-weight: 700;
+  text-align: center;
+}
+.team-name:hover, .team-name:focus { border-bottom-color: var(--line); outline: none; }
+.team-points { font-size: clamp(56px, 10vw, 120px); font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.team-buttons { display: flex; gap: 12px; }
+.team-buttons .btn { width: 56px; height: 56px; }
+.team-buttons .btn .i { width: 26px; height: 26px; }
+.team-remove { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border: 0; background: transparent; color: var(--muted); }
+
+/* Projected on a screen: only what the class should see. */
+:fullscreen .controls, :fullscreen .note, :fullscreen .signal-words, :fullscreen .team-remove { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  .signal { background: #15181d; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-mood="loud"] .meter-word { animation: none; }
+}
