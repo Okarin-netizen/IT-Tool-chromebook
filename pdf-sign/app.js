@@ -6,8 +6,9 @@ import { addNextTool } from "../shared/js/handoff.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { History } from "../shared/js/history.js";
 import {
-  MARKER_FACTOR, SEAL_COLOR, TEXT_FONT, textWidth, tracePath, drawStroke, drawStamp, previewCanvas, renderInkImage, createInkEditor,
+  tracePath, drawStroke, drawStamp, previewCanvas, renderInkImage, createInkEditor, trackPointer,
 } from "../shared/js/ink.js";
+import { createStamps, createMenus, syncToolbar, bindToolbar } from "../shared/js/markup.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
@@ -63,6 +64,7 @@ const state = {
   color: "#111111",
   width: 2,
   stamp: "name",
+  sealName: "", // the name on the name seal (saved)
   signIndex: 0,
   signs: [],
   scale: 1,
@@ -85,19 +87,7 @@ const STAMPS = [
   { id: "triangle", label: "さんかく", shape: "triangle", w: 28, h: 26 },
   { id: "date", label: "今日の日付", shape: "text", w: 0, h: 14, text: today },
 ];
-const stampDef = (id) => STAMPS.find((s) => s.id === id);
-
-function newStamp(id, page, cx, cy) {
-  const def = stampDef(id);
-  const text = def.text?.() ?? "";
-  let { w, h } = def;
-  if (def.shape === "text") w = textWidth(text, `${h * 0.85}px ${TEXT_FONT}`) + 2;
-  return {
-    type: "stamp", page, kind: id, text,
-    color: def.seal ? SEAL_COLOR : state.color,
-    x: cx - w / 2, y: cy - h / 2, w, h,
-  };
-}
+const { stampDef, newStamp, renderChoices } = createStamps(STAMPS, state);
 
 /* ---------- drawing items ---------- */
 
@@ -295,49 +285,25 @@ function setColor(color) {
 
 function updateUi() {
   const open = !!state.pdf;
-  for (const btn of els.tools) btn.classList.toggle("selected", btn.dataset.tool === state.tool);
-  for (const sw of els.swatches) sw.classList.toggle("selected", sw.dataset.color === state.color);
-  els.undoBtn.disabled = !open || !history.canUndo;
-  els.redoBtn.disabled = !open || !history.canRedo;
-  els.deleteBtn.disabled = !state.selected;
+  syncToolbar(els, state, history, open);
   els.saveBtn.disabled = !open;
 }
 
 /* ---------- menus ---------- */
 
-function closeMenus() {
-  els.stampMenu.hidden = true;
-  els.signMenu.hidden = true;
-}
-
-function toggleMenu(menu) {
-  const show = menu.hidden;
-  closeMenus();
-  menu.hidden = !show;
-}
+const { close: closeMenus, toggle: toggleMenu } = createMenus(els.stampMenu, els.signMenu);
 
 function renderStampChoices() {
-  for (const [list, seal] of [[els.sealList, true], [els.markList, false]]) {
-    list.replaceChildren(...STAMPS.filter((s) => !!s.seal === seal).map((def) => {
-      const item = newStamp(def.id, 0, 0, 0);
-      item.x = item.y = 0;
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "stamp-choice";
-      btn.title = def.label;
-      btn.setAttribute("aria-label", def.label);
-      btn.classList.toggle("selected", state.stamp === def.id);
-      btn.append(previewCanvas((ctx) => drawStamp(ctx, item, def), item.w, item.h, def.shape === "text" ? 62 : 46));
-      btn.addEventListener("click", () => {
-        state.stamp = def.id;
-        closeMenus();
-        renderStampChoices();
-        setTool("stamp");
-      });
-      return btn;
-    }));
-    if (!seal) list.lastChild.style.gridColumn = "span 2";
-  }
+  renderChoices([[els.sealList, true], [els.markList, false]], {
+    wide: (def) => def.shape === "text", // the date
+    wideBox: 62,
+    onPick: (def) => {
+      state.stamp = def.id;
+      closeMenus();
+      renderStampChoices();
+      setTool("stamp");
+    },
+  });
 }
 
 function renderSignChoices() {
@@ -409,25 +375,13 @@ function padPoint(e) {
 els.signPad.addEventListener("pointerdown", (e) => {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   e.preventDefault();
-  els.signPad.setPointerCapture(e.pointerId);
   const pts = [padPoint(e)];
   pad.strokes.push(pts);
   drawPad();
-  const move = (ev) => {
-    if (ev.pointerId !== e.pointerId) return;
-    const events = ev.getCoalescedEvents?.() ?? [];
-    for (const ce of events.length ? events : [ev]) pts.push(padPoint(ce));
+  trackPointer(e, padPoint, (point) => {
+    pts.push(point);
     drawPad();
-  };
-  const up = (ev) => {
-    if (ev.pointerId !== e.pointerId) return;
-    els.signPad.removeEventListener("pointermove", move);
-    els.signPad.removeEventListener("pointerup", up);
-    els.signPad.removeEventListener("pointercancel", up);
-  };
-  els.signPad.addEventListener("pointermove", move);
-  els.signPad.addEventListener("pointerup", up);
-  els.signPad.addEventListener("pointercancel", up);
+  });
 });
 
 function openSignDialog() {
@@ -609,18 +563,8 @@ els.sealName.addEventListener("keydown", (e) => {
   }
 });
 
-for (const sw of els.swatches) sw.addEventListener("click", () => setColor(sw.dataset.color));
+bindToolbar(els, state, editor, setColor);
 
-els.width.addEventListener("change", () => {
-  state.width = Number(els.width.value);
-  editor.changeSelected((item) => item.type === "stroke", (item) => {
-    item.width = item.tool === "marker" ? state.width * MARKER_FACTOR : state.width;
-  });
-});
-
-els.undoBtn.addEventListener("click", undo);
-els.redoBtn.addEventListener("click", redo);
-els.deleteBtn.addEventListener("click", editor.deleteSelected);
 els.zoomIn.addEventListener("click", () => state.pdf && setScale(clampScale(state.scale * 1.2)));
 els.zoomOut.addEventListener("click", () => state.pdf && setScale(clampScale(state.scale / 1.2)));
 els.saveBtn.addEventListener("click", save);

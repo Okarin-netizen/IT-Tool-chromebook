@@ -64,105 +64,117 @@ export function drawStroke(ctx, item) {
 //   text:   plain text (the date)
 //   check, ring, cross, triangle, hanamaru: marks drawn in the current color
 export function drawStamp(ctx, item, def) {
-  const { x, y, w, h, text } = item;
   ctx.save();
   ctx.strokeStyle = ctx.fillStyle = item.color;
   ctx.lineCap = ctx.lineJoin = "round";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  const cx = x + w / 2;
-  const cy = y + h / 2;
-  const s = Math.min(w, h);
-  switch (def.shape) {
-    case "circle": {
-      const lw = s * 0.06;
-      ctx.lineWidth = lw;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, w / 2 - lw / 2, h / 2 - lw / 2, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      const inner = s - lw * 2;
-      const chars = [...text];
-      if (def.vertical && chars.length === 4) {
-        // Two columns, read right to left like a real seal.
-        const fs = inner * 0.36;
-        ctx.font = sealFont(fs);
-        chars.forEach((ch, i) => {
-          const col = i < 2 ? 1 : -1;
-          const row = i % 2 ? 1 : -1;
-          ctx.fillText(ch, cx + (col * fs) / 2, cy + (row * fs) / 2);
-        });
-      } else if (def.vertical && chars.length > 1) {
-        const fs = Math.min(inner * 0.78 / chars.length, inner * 0.55);
-        ctx.font = sealFont(fs);
-        chars.forEach((ch, i) => ctx.fillText(ch, cx, cy + (i - (chars.length - 1) / 2) * fs));
-      } else {
-        const fs = Math.min(inner * 0.8 / chars.length, inner * 0.6);
-        ctx.font = sealFont(fs);
-        ctx.fillText(text, cx, cy);
-      }
-      break;
-    }
-    case "rect": {
-      const lw = h * 0.07;
-      ctx.lineWidth = lw;
-      ctx.beginPath();
-      ctx.roundRect(x + lw / 2, y + lw / 2, w - lw, h - lw, h * 0.12);
-      ctx.stroke();
-      const fs = Math.min(h * 0.6, (w * (def.fit ?? 0.84)) / [...text].length);
+  if (MARKS[def.shape]) drawMark(ctx, item, def.shape);
+  else WRITTEN[def.shape](ctx, item, def);
+  ctx.restore();
+}
+
+// Stamps with writing on them.
+const WRITTEN = {
+  circle(ctx, { x, y, w, h, text }, def) {
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const s = Math.min(w, h);
+    const lw = s * 0.06;
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, w / 2 - lw / 2, h / 2 - lw / 2, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    const inner = s - lw * 2;
+    const chars = [...text];
+    if (def.vertical && chars.length === 4) {
+      // Two columns, read right to left like a real seal.
+      const fs = inner * 0.36;
+      ctx.font = sealFont(fs);
+      chars.forEach((ch, i) => {
+        const col = i < 2 ? 1 : -1;
+        const row = i % 2 ? 1 : -1;
+        ctx.fillText(ch, cx + (col * fs) / 2, cy + (row * fs) / 2);
+      });
+    } else if (def.vertical && chars.length > 1) {
+      const fs = Math.min(inner * 0.78 / chars.length, inner * 0.55);
+      ctx.font = sealFont(fs);
+      chars.forEach((ch, i) => ctx.fillText(ch, cx, cy + (i - (chars.length - 1) / 2) * fs));
+    } else {
+      const fs = Math.min(inner * 0.8 / chars.length, inner * 0.6);
       ctx.font = sealFont(fs);
       ctx.fillText(text, cx, cy);
-      break;
     }
-    case "text": {
-      ctx.font = `${h * 0.85}px ${TEXT_FONT}`;
-      ctx.textAlign = "left";
-      ctx.fillText(text, x, cy, w);
-      break;
+  },
+
+  rect(ctx, { x, y, w, h, text }, def) {
+    const lw = h * 0.07;
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    ctx.roundRect(x + lw / 2, y + lw / 2, w - lw, h - lw, h * 0.12);
+    ctx.stroke();
+    const fs = Math.min(h * 0.6, (w * (def.fit ?? 0.84)) / [...text].length);
+    ctx.font = sealFont(fs);
+    ctx.fillText(text, x + w / 2, y + h / 2);
+  },
+
+  text(ctx, { x, y, w, h, text }) {
+    ctx.font = `${h * 0.85}px ${TEXT_FONT}`;
+    ctx.textAlign = "left";
+    ctx.fillText(text, x, y + h / 2, w);
+  },
+};
+
+// Marks are traced in a 1×1 box that is then stretched over the stamp.
+const MARKS = {
+  check(ctx) {
+    ctx.moveTo(0.1, 0.55);
+    ctx.lineTo(0.4, 0.84);
+    ctx.lineTo(0.92, 0.14);
+  },
+  ring(ctx) {
+    ctx.arc(0.5, 0.5, 0.44, 0, Math.PI * 2);
+  },
+  cross(ctx) {
+    ctx.moveTo(0.12, 0.12);
+    ctx.lineTo(0.88, 0.88);
+    ctx.moveTo(0.88, 0.12);
+    ctx.lineTo(0.12, 0.88);
+  },
+  triangle(ctx) {
+    ctx.moveTo(0.5, 0.08);
+    ctx.lineTo(0.94, 0.9);
+    ctx.lineTo(0.06, 0.9);
+    ctx.closePath();
+  },
+  // A spiral in the middle, ringed with petals.
+  hanamaru(ctx) {
+    for (let t = 0; t <= 1; t += 0.01) {
+      const a = t * Math.PI * 4.6 - Math.PI / 2;
+      const r = 0.03 + t * 0.25;
+      const px = 0.5 + r * Math.cos(a);
+      const py = 0.5 + r * Math.sin(a);
+      if (t === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
     }
-    default: {
-      ctx.translate(x, y);
-      ctx.scale(w, h);
-      ctx.lineWidth = def.shape === "hanamaru" ? 0.045 : 0.11;
-      ctx.beginPath();
-      if (def.shape === "check") {
-        ctx.moveTo(0.1, 0.55);
-        ctx.lineTo(0.4, 0.84);
-        ctx.lineTo(0.92, 0.14);
-      } else if (def.shape === "ring") {
-        ctx.arc(0.5, 0.5, 0.44, 0, Math.PI * 2);
-      } else if (def.shape === "cross") {
-        ctx.moveTo(0.12, 0.12);
-        ctx.lineTo(0.88, 0.88);
-        ctx.moveTo(0.88, 0.12);
-        ctx.lineTo(0.12, 0.88);
-      } else if (def.shape === "triangle") {
-        ctx.moveTo(0.5, 0.08);
-        ctx.lineTo(0.94, 0.9);
-        ctx.lineTo(0.06, 0.9);
-        ctx.closePath();
-      } else if (def.shape === "hanamaru") {
-        // A spiral in the middle, ringed with petals.
-        for (let t = 0; t <= 1; t += 0.01) {
-          const a = t * Math.PI * 4.6 - Math.PI / 2;
-          const r = 0.03 + t * 0.25;
-          const px = 0.5 + r * Math.cos(a);
-          const py = 0.5 + r * Math.sin(a);
-          if (t === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
-        }
-        const n = 9;
-        for (let i = 0; i < n; i++) {
-          const a = (i / n) * Math.PI * 2 - Math.PI / 2;
-          const px = 0.5 + 0.34 * Math.cos(a);
-          const py = 0.5 + 0.34 * Math.sin(a);
-          ctx.moveTo(px + 0.12 * Math.cos(a - 1.9), py + 0.12 * Math.sin(a - 1.9));
-          ctx.arc(px, py, 0.12, a - 1.9, a + 1.9);
-        }
-      }
-      ctx.stroke();
+    const petals = 9;
+    for (let i = 0; i < petals; i++) {
+      const a = (i / petals) * Math.PI * 2 - Math.PI / 2;
+      const px = 0.5 + 0.34 * Math.cos(a);
+      const py = 0.5 + 0.34 * Math.sin(a);
+      ctx.moveTo(px + 0.12 * Math.cos(a - 1.9), py + 0.12 * Math.sin(a - 1.9));
+      ctx.arc(px, py, 0.12, a - 1.9, a + 1.9);
     }
-  }
-  ctx.restore();
+  },
+};
+
+function drawMark(ctx, { x, y, w, h }, shape) {
+  ctx.translate(x, y);
+  ctx.scale(w, h);
+  ctx.lineWidth = shape === "hanamaru" ? 0.045 : 0.11;
+  ctx.beginPath();
+  MARKS[shape](ctx);
+  ctx.stroke();
 }
 
 // Highlighter goes underneath so it never covers pen ink (the layer is opaque within itself).
@@ -256,6 +268,32 @@ function moveItem(item, dx, dy) {
     item.x += dx;
     item.y += dy;
   }
+}
+
+/* ---------- pointer ---------- */
+
+// Follows the pointer that went down in `e` until it is released, on the element that got the
+// event. `toPoint(event)` turns each position into the caller's coordinates; every position
+// in between is passed to onMove (pens report more of them than move events), and onUp is
+// told whether the pointer was cancelled.
+export function trackPointer(e, toPoint, onMove, onUp) {
+  const target = e.currentTarget;
+  target.setPointerCapture(e.pointerId);
+  const move = (ev) => {
+    if (ev.pointerId !== e.pointerId) return;
+    const events = ev.getCoalescedEvents?.() ?? [];
+    for (const ce of events.length ? events : [ev]) onMove(toPoint(ce), ce);
+  };
+  const up = (ev) => {
+    if (ev.pointerId !== e.pointerId) return;
+    target.removeEventListener("pointermove", move);
+    target.removeEventListener("pointerup", up);
+    target.removeEventListener("pointercancel", up);
+    onUp?.(ev.type === "pointercancel");
+  };
+  target.addEventListener("pointermove", move);
+  target.addEventListener("pointerup", up);
+  target.addEventListener("pointercancel", up);
 }
 
 /* ---------- the editor ---------- */
@@ -368,25 +406,7 @@ export function createInkEditor({ state, history, viewOf, allViews, drawItem, up
   }
 
   // Follows one pointer until it is released; calls back with page points.
-  function track(e, view, onMove, onUp) {
-    const target = e.currentTarget;
-    target.setPointerCapture(e.pointerId);
-    const move = (ev) => {
-      if (ev.pointerId !== e.pointerId) return;
-      const events = ev.getCoalescedEvents?.() ?? [];
-      for (const ce of events.length ? events : [ev]) onMove(pagePoint(ce, view), ce);
-    };
-    const up = (ev) => {
-      if (ev.pointerId !== e.pointerId) return;
-      target.removeEventListener("pointermove", move);
-      target.removeEventListener("pointerup", up);
-      target.removeEventListener("pointercancel", up);
-      onUp?.(ev.type === "pointercancel");
-    };
-    target.addEventListener("pointermove", move);
-    target.addEventListener("pointerup", up);
-    target.addEventListener("pointercancel", up);
-  }
+  const track = (e, view, onMove, onUp) => trackPointer(e, (ev) => pagePoint(ev, view), onMove, onUp);
 
   // Pen or highlighter, following the pointer.
   function drawStrokeFrom(e, view, [x, y]) {
