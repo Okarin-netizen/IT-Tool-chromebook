@@ -133,6 +133,35 @@ body {
 .stats dd { margin: 0; font-size: 15px; }
 .stats b { font-size: 28px; font-variant-numeric: tabular-nums; }
 
+/* ---------- keyboard of weak keys ---------- */
+
+.keyboard { display: flex; flex-direction: column; gap: 4px; margin: 8px auto 0; font-size: 13px; width: fit-content; max-width: 100%; }
+.kb-row { display: flex; gap: 4px; }
+.kb-key {
+  --heat: 0%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4em;
+  height: 2.4em;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--miss) var(--heat), var(--surface));
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  box-sizing: border-box;
+}
+.kb-key.space { width: 16em; font-family: inherit; font-weight: 500; margin-left: 4em; }
+.kb-key.unused { color: var(--muted); background: var(--subtle); border-style: dashed; }
+.kb-key.hot { color: #fff; }
+.kb-key.slow { border: 3px solid #e67700; }
+.legend { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 6px; }
+.sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--line); vertical-align: middle; }
+.sw.missed { background: var(--miss); }
+.sw.slow { border: 3px solid #e67700; background: var(--surface); }
+#key-history .keyboard { margin: 12px auto 8px; }
+#key-history #h-clear { margin-top: 8px; }
+
 @media (prefers-color-scheme: dark) {
   html:root { --typed: #7fa2ec; --miss: #f08a7c; }
   .best, .tab[aria-selected="true"] { color: var(--text); }

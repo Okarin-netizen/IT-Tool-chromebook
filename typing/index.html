@@ -38,6 +38,7 @@
         <select id="source">
           <option value="builtin" selected>基本のことば</option>
           <option value="custom">自分のことば</option>
+          <option value="weak">苦手なキーの練習</option>
         </select>
       </label>
     </div>
@@ -53,6 +54,13 @@
       <button id="start-btn" class="btn primary big"><svg class="i" aria-hidden="true"><use href="#i-play"/></svg>スタート（スペースキー）</button>
       <p id="best" class="best"></p>
       <p class="note">日本語入力（かな）はオフにして、英数入力で打ってください。記録はこのブラウザの中だけに保存されます。</p>
+      <details id="key-history" class="custom" hidden>
+        <summary>これまでの苦手なキー</summary>
+        <div id="h-keyboard" class="keyboard" aria-hidden="true"></div>
+        <p class="note legend"><span class="sw missed"></span>赤いほどミスが多い　<span class="sw slow"></span>枠が太いのは打つのが遅いキー</p>
+        <p id="h-weak" class="note"></p>
+        <button id="h-clear" class="btn">記録を消す</button>
+      </details>
       <details id="custom" class="custom">
         <summary>自分のことばを使う</summary>
         <p id="custom-hint" class="note"></p>
@@ -84,6 +92,8 @@
       </dl>
       <p id="r-best" class="best"></p>
       <p id="r-keys" class="note"></p>
+      <div id="r-keyboard" class="keyboard" aria-hidden="true"></div>
+      <p class="note legend"><span class="sw missed"></span>赤いほどミスが多い　<span class="sw slow"></span>枠が太いのは打つのが遅いキー</p>
       <button id="again-btn" class="btn primary big"><svg class="i" aria-hidden="true"><use href="#i-play"/></svg>もう一度（スペースキー）</button>
     </section>
   </main>
