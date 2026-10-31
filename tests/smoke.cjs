@@ -529,8 +529,22 @@ const TOOLS = {
       const [file] = await t.downloads(1);
       t.expectName(file, "本文.txt");
       t.expect(file.bytes.toString("utf8").includes("Smoke test page 1"), "取り出した文字が保存されていない");
+      t.expect(await t.page.isDisabled("#save-pdf"), "文字のあるPDFなのに「検索できるPDFを保存」が押せる");
+      // Photos become a PDF with one page each, as long as A4 on the long side.
+      const sizes = await t.page.evaluate(async () => {
+        const photo = (w, h) => new Promise((resolve) => {
+          const c = document.createElement("canvas");
+          [c.width, c.height] = [w, h];
+          c.toBlob((b) => resolve(new File([b], "写真.png", { type: "image/png" })));
+        });
+        const bytes = await __pdfExtract.photosToPdf([await photo(1600, 1200), await photo(600, 900)]);
+        const doc = await PDFLib.PDFDocument.load(bytes);
+        return doc.getPages().map((p) => [p.getWidth(), p.getHeight()].map(Math.round).join("x"));
+      });
+      t.expect(sizes.join(",") === "842x632,561x842", `写真のページの大きさが違う: ${sizes}`);
       if (flags.has("--ocr")) {
         t.expect(await ocrFirstPage(t), "OCRで文字が読めない");
+        await searchablePdf(t);
       }
     },
     async offline(t) {
@@ -850,6 +864,30 @@ function ocrFirstPage(t) {
     await __pdfExtract.ocrPages([view]);
     return /Smoke|test/i.test(view.textarea.value);
   });
+}
+
+// Opens a photo of a printed page, which is read right away, saves it as a searchable PDF and
+// opens that again: now the page has text of its own.
+async function searchablePdf(t) {
+  await t.page.evaluate(async () => {
+    const c = document.createElement("canvas");
+    [c.width, c.height] = [1600, 1200];
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = "#000";
+    ctx.font = "64px sans-serif";
+    ctx.fillText("Smoke test photo", 120, 240);
+    const blob = await new Promise((resolve) => c.toBlob(resolve));
+    __pdfExtract.openFiles([new File([blob], "プリント.png", { type: "image/png" })]);
+  });
+  await t.until(() => /Smoke|photo/i.test(__pdfExtract.allText()) && !__pdfExtract.state.busy, 120000);
+  await t.page.click("#save-pdf");
+  const [file] = await t.downloads(1);
+  t.expectName(file, "プリント_OCR.pdf");
+  await t.setFiles("#file-input", [{ name: file.name, mimeType: "application/pdf", buffer: file.bytes }]);
+  await t.until(() => __pdfExtract.state.name === "プリント_OCR.pdf" && !__pdfExtract.state.busy);
+  t.expect(await t.page.evaluate(() => __pdfExtract.state.pages[0].hadText && /Smoke|photo/i.test(__pdfExtract.allText())), "検索できるPDFに文字が入っていない");
 }
 
 /* ---------- test harness ---------- */

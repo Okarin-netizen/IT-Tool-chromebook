@@ -51,7 +51,9 @@ async function sendTo(tool, save) {
 // return a promise that settles after download(). `kind` is what it saves: "pdf" or "image".
 export function addNextTool({ saveBtn, save, kind }) {
   const here = currentTool();
-  const targets = TOOLS.filter((tool) => tool.takes === kind && tool.id !== here);
+  // Tools made for this kind first (画像→PDF before PDF文字取り出し for a photo).
+  const targets = TOOLS.filter((tool) => tool.takes?.includes(kind) && tool.id !== here)
+    .sort((a, b) => (a.takes[0] !== kind) - (b.takes[0] !== kind));
   const btn = menuButton();
   const menu = document.createElement("div");
   menu.className = "next-menu";
