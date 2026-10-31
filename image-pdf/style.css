@@ -150,7 +150,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-.card-bar .btn { min-height: 30px; min-width: 30px; justify-content: center; padding: 0 6px; }
+.card-bar .btn { min-height: 30px; min-width: 30px; justify-content: center; padding: 0 5px; }
 .card-bar .del { color: #c0392b; }
 .card-bar .i { width: 18px; height: 18px; margin: 0; }
 .i.inline { width: 18px; height: 18px; vertical-align: -3px; }

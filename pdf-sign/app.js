@@ -326,8 +326,9 @@ function renderSignChoices() {
     const del = document.createElement("button");
     del.type = "button";
     del.className = "btn sign-del";
-    del.textContent = "✕";
+    del.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-close"/></svg>';
     del.title = "この署名を消す";
+    del.setAttribute("aria-label", del.title);
     del.addEventListener("click", () => {
       if (!confirm("この署名を消しますか？（PDFに入れた署名は消えません）")) return;
       state.signs.splice(i, 1);
@@ -450,53 +451,10 @@ async function save() {
   showStatus("PDFを作成中…", { sticky: true });
   try {
     await document.fonts.ready;
-    const { PDFDocument, degrees, BlendMode } = await loadPdfLib();
-    const original = await PDFDocument.load(state.bytes, { ignoreEncryption: true });
-    const rebuilt = original.isEncrypted;
-    const onPage = (num, count) => showStatus(`保護されたPDFのため、ページを画像にしています… (${num}/${count})`, { sticky: true });
-    const doc = rebuilt ? await rasterizePdf(state.pdf, { onPage }) : original;
-
-    let redacted = 0;
-    for (const view of state.pages) {
-      const all = state.items.filter((i) => i.page === view.num);
-      // A black box drawn over a page hides nothing: the words are still in the PDF and can be
-      // copied. Pages with 墨消し are replaced by a picture of the page with the boxes burnt in,
-      // the way BentoPDF's and Stirling-PDF's "convert to image" redaction removes the text.
-      const boxes = all.filter((i) => i.type === "redact");
-      const flat = boxes.length > 0;
-      if (flat) {
-        showStatus(`墨消ししたページを画像にしています…（${view.num}ページ目）`, { sticky: true });
-        await flattenPage(doc, view, boxes);
-        redacted++;
-      }
-      const items = all.filter((i) => i.type !== "redact");
-      if (!items.length) continue;
-      const ink = await renderInkImage(items, view.viewport, drawItem);
-      if (!ink) continue;
-      const { box } = ink;
-      const page = doc.getPage(view.num - 1);
-      const image = await doc.embedPng(ink.png);
-      // The image's bottom-left corner on screen is its origin in the PDF.
-      // Rebuilt (and flattened) pages are already upright, so only the y axis flips.
-      const upright = rebuilt || flat;
-      const [x, y] = upright
-        ? [box.x, view.viewport.height - (box.y + box.h)]
-        : view.viewport.convertToPdfPoint(box.x, box.y + box.h);
-      page.drawImage(image, {
-        x, y, width: box.w, height: box.h,
-        rotate: degrees(upright ? 0 : view.viewport.rotation),
-        blendMode: BlendMode.Multiply,
-      });
-    }
-
-    const out = await doc.save();
-    download(new Blob([out], { type: "application/pdf" }), outputName());
+    const { bytes, rebuilt, redacted } = await buildPdf();
+    download(new Blob([bytes], { type: "application/pdf" }), outputName());
     state.dirty = false;
-    showStatus(rebuilt
-      ? "保存しました（保護されたPDFのため、元のページは画像として保存しています）"
-      : redacted
-        ? `保存しました（墨消しした${redacted}ページは、下の文字が残らないように画像にしています）`
-        : "保存しました（ダウンロードフォルダを確認してください）");
+    showStatus(savedMessage(rebuilt, redacted));
   } catch (err) {
     console.error(err);
     showStatus("保存できませんでした。PDFが壊れているか、対応していない形式の可能性があります", { error: true });
@@ -504,6 +462,60 @@ async function save() {
     saving = false;
     updateUi();
   }
+}
+
+// The PDF with everything written on it. `rebuilt` tells whether its pages had to be made
+// from pictures (a protected PDF), `redacted` how many pages with 墨消し became pictures.
+async function buildPdf() {
+  const { PDFDocument } = await loadPdfLib();
+  const original = await PDFDocument.load(state.bytes, { ignoreEncryption: true });
+  const rebuilt = original.isEncrypted;
+  const onPage = (num, count) => showStatus(`保護されたPDFのため、ページを画像にしています… (${num}/${count})`, { sticky: true });
+  const doc = rebuilt ? await rasterizePdf(state.pdf, { onPage }) : original;
+  let redacted = 0;
+  for (const view of state.pages) {
+    const all = state.items.filter((i) => i.page === view.num);
+    // A black box drawn over a page hides nothing: the words are still in the PDF and can be
+    // copied. Pages with 墨消し are replaced by a picture of the page with the boxes burnt in,
+    // the way BentoPDF's and Stirling-PDF's "convert to image" redaction removes the text.
+    const boxes = all.filter((i) => i.type === "redact");
+    const flat = boxes.length > 0;
+    if (flat) {
+      showStatus(`墨消ししたページを画像にしています…（${view.num}ページ目）`, { sticky: true });
+      await flattenPage(doc, view, boxes);
+      redacted++;
+    }
+    const items = all.filter((i) => i.type !== "redact");
+    // Rebuilt (and flattened) pages are already upright.
+    if (items.length) await drawInk(doc, view, items, rebuilt || flat);
+  }
+  return { bytes: await doc.save(), rebuilt, redacted };
+}
+
+// Puts the pen strokes and stamps of one page on it, as one picture.
+async function drawInk(doc, view, items, upright) {
+  const { degrees, BlendMode } = await loadPdfLib();
+  const ink = await renderInkImage(items, view.viewport, drawItem);
+  if (!ink) return;
+  const { box } = ink;
+  const page = doc.getPage(view.num - 1);
+  const image = await doc.embedPng(ink.png);
+  // The image's bottom-left corner on screen is its origin in the PDF. On an upright page
+  // only the y axis flips.
+  const [x, y] = upright
+    ? [box.x, view.viewport.height - (box.y + box.h)]
+    : view.viewport.convertToPdfPoint(box.x, box.y + box.h);
+  page.drawImage(image, {
+    x, y, width: box.w, height: box.h,
+    rotate: degrees(upright ? 0 : view.viewport.rotation),
+    blendMode: BlendMode.Multiply,
+  });
+}
+
+function savedMessage(rebuilt, redacted) {
+  if (rebuilt) return "保存しました（保護されたPDFのため、元のページは画像として保存しています）";
+  if (redacted) return `保存しました（墨消しした${redacted}ページは、下の文字が残らないように画像にしています）`;
+  return "保存しました（ダウンロードフォルダを確認してください）";
 }
 
 // Swaps page `view.num` of `doc` for a picture of it (as shown, turned upright) with the

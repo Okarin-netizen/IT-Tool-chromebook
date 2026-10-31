@@ -161,6 +161,11 @@ function setAllSelected(selected) {
   updateUi();
 }
 
+// "3/10ページ選択中", or "全10ページ" when none is chosen.
+function countText(chosen, total) {
+  return chosen ? `${chosen}/${total}ページ選択中` : `全${total}ページ`;
+}
+
 function updateUi() {
   const total = state.pages.length;
   const chosen = state.pages.filter((p) => p.selected).length;
@@ -169,7 +174,7 @@ function updateUi() {
   els.selectNone.disabled = !chosen || state.busy;
   els.saveBtn.disabled = !total || state.busy;
   els.fileInput.disabled = state.busy;
-  els.count.textContent = total ? (chosen ? `${chosen}/${total}ページ選択中` : `全${total}ページ`) : "";
+  els.count.textContent = total ? countText(chosen, total) : "";
   els.saveBtn.innerHTML = `<svg class="i" aria-hidden="true"><use href="#i-save"/></svg>${chosen ? `選んだ${chosen}ページを保存` : "全ページを保存"}`;
 }
 

@@ -1036,6 +1036,12 @@ async function testPortal(browser, server) {
     for (const name of Object.keys(TOOLS).filter((n) => TOOLS[n].portal !== false)) {
       t.expect(links.some((href) => href.replace(/\/$/, "") === name), `トップページに ${name} へのリンクがない`);
     }
+    // shared/js/tools.js (the names "次のツールで開く" shows) agrees with the portal.
+    const tiles = await page.$$eval("section:not(.quick) .apps a", (as) =>
+      as.map((a) => [a.getAttribute("href").replace(/\/$/, ""), a.querySelector(".name").textContent]));
+    const listed = await page.evaluate(async () => (await import("./shared/js/tools.js")).TOOLS.map((tool) => [tool.id, tool.name]));
+    const key = (pairs) => pairs.map((pair) => pair.join(":")).sort().join();
+    t.expect(key(tiles) === key(listed), `shared/js/tools.js とトップページのツールが合わない: ${key(listed)} / ${key(tiles)}`);
     await t.shot("start");
 
     // A star puts a tool in "お気に入り"; tools opened lately show in "最近使ったもの".

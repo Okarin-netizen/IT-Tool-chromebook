@@ -110,12 +110,14 @@ function filterNames(filter) {
   return [String(filter).slice(1)];
 }
 
+const COMPONENTS = { DeviceGray: 1, CalGray: 1, DeviceRGB: 3, CalRGB: 3 };
+
 // 1 for gray, 3 for RGB; null for anything that needs more care (CMYK, indexed, Lab…).
 function colorComponents(cs) {
   if (!cs) return null;
   if (cs instanceof PDFName) {
     const name = String(cs).slice(1);
-    return name === "DeviceGray" || name === "CalGray" ? 1 : name === "DeviceRGB" || name === "CalRGB" ? 3 : null;
+    return COMPONENTS[name] ?? null;
   }
   if (cs instanceof PDFArray && cs.size()) {
     const kind = String(cs.lookup(0)).slice(1);
@@ -146,15 +148,24 @@ function unPng(data, rowBytes, bpp) {
       if (type === 1) v += a;
       else if (type === 2) v += b;
       else if (type === 3) v += (a + b) >> 1;
-      else if (type === 4) {
-        const p = a + b - c;
-        const pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
-        v += pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
-      } else if (type !== 0) return null;
+      else if (type === 4) v += paeth(a, b, c);
+      else if (type !== 0) return null;
       out[dst + x] = v;
     }
   }
   return out;
+}
+
+// The PNG "Paeth" predictor: whichever of left, above and upper left is closest to
+// left + above - upper left.
+function paeth(a, b, c) {
+  const p = a + b - c;
+  const pa = Math.abs(p - a);
+  const pb = Math.abs(p - b);
+  const pc = Math.abs(p - c);
+  if (pa <= pb && pa <= pc) return a;
+  if (pb <= pc) return b;
+  return c;
 }
 
 function toImageData(raw, width, height, comps) {

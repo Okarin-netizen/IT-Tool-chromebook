@@ -198,7 +198,10 @@ async function renderFormLayer(view, page) {
   view.el.append(div);
   view.formLayer = div;
   const viewport = page.getViewport({ scale: state.scale }).clone({ dontFlip: true });
-  const layer = new pdfjsLib.AnnotationLayer({ div, page, viewport, accessibilityManager: null, annotationCanvasMap: null, annotationEditorUIManager: null, structTreeLayer: null });
+  const layer = new pdfjsLib.AnnotationLayer({
+    div, page, viewport,
+    accessibilityManager: null, annotationCanvasMap: null, annotationEditorUIManager: null, structTreeLayer: null,
+  });
   await layer.render({
     viewport,
     div,
@@ -255,29 +258,7 @@ function setScale(scale) {
 
 function addItem(view, x, y) {
   const item = { id: nextItemId++, type: "text", page: view.num, x, y, size: state.size, color: state.color, text: "" };
-
-  const box = document.createElement("div");
-  box.className = "titem";
-  box.style.position = "absolute";
-
-  const ta = document.createElement("textarea");
-  ta.className = "tbox";
-  ta.spellcheck = false;
-  ta.wrap = "off";
-  ta.rows = 1;
-  ta.setAttribute("aria-label", "文字");
-
-  const handle = document.createElement("div");
-  handle.className = "handle";
-  handle.textContent = "✥";
-  handle.title = "ドラッグで移動";
-
-  const del = document.createElement("div");
-  del.className = "tdel";
-  del.textContent = "✕";
-  del.title = "削除";
-
-  box.append(ta, handle, del);
+  const { box, ta, handle, del } = createTextBox();
   view.layer.append(box);
   Object.assign(item, { el: ta, box });
   state.items.push(item);
@@ -307,6 +288,32 @@ function addItem(view, x, y) {
 
   ta.focus();
   return item;
+}
+
+// The box a text is typed into, with its handle for moving it and its delete button.
+function createTextBox() {
+  const box = document.createElement("div");
+  box.className = "titem";
+  box.style.position = "absolute";
+
+  const ta = document.createElement("textarea");
+  ta.className = "tbox";
+  ta.spellcheck = false;
+  ta.wrap = "off";
+  ta.rows = 1;
+  ta.setAttribute("aria-label", "文字");
+
+  const handle = document.createElement("div");
+  handle.className = "handle";
+  handle.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-move"/></svg>';
+  handle.title = "ドラッグで移動";
+
+  const del = document.createElement("div");
+  del.className = "tdel";
+  del.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-close"/></svg>';
+  del.title = "削除";
+  box.append(ta, handle, del);
+  return { box, ta, handle, del };
 }
 
 function layoutItem(item) {
@@ -545,7 +552,7 @@ function addImageItem(view, img, x, y, w, h) {
 
   const del = document.createElement("div");
   del.className = "tdel";
-  del.textContent = "✕";
+  del.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-close"/></svg>';
   del.title = "削除";
 
   const resize = document.createElement("div");
@@ -609,7 +616,6 @@ function enableResize(item, handle) {
 
 /* ---------- saving ---------- */
 
-
 function outputName() {
   const base = state.fileName.replace(/\.pdf$/i, "");
   return `${base}_記入済み.pdf`;
@@ -621,51 +627,8 @@ async function save() {
   showStatus("PDFを作成中…", { sticky: true });
   try {
     await fontReady;
-    const [{ PDFDocument, rgb, degrees }, fontkit] = await Promise.all([loadPdfLib(), loadFontkit()]);
-    const original = await PDFDocument.load(state.bytes, { ignoreEncryption: true });
-    const rebuilt = original.isEncrypted;
-    const onPage = (num, count) => showStatus(`保護されたPDFのため、ページを画像にしています… (${num}/${count})`, { sticky: true });
-    const doc = rebuilt ? await rasterizePdf(state.pdf, { onPage }) : original;
-    doc.registerFontkit(fontkit);
-    if (state.hasForm && !rebuilt) await fillForm(doc);
-    // Maps screen coordinates (scale 1, top-left origin) onto a page of `doc`.
-    // Rebuilt pages are already upright, so only the y axis flips.
-    const placement = (pageNum) => {
-      const viewport = state.pages[pageNum - 1].viewport;
-      return rebuilt
-        ? { toPdf: (x, y) => [x, viewport.height - y], rotate: degrees(0) }
-        : { toPdf: (x, y) => viewport.convertToPdfPoint(x, y), rotate: degrees(viewport.rotation) };
-    };
-
-    for (const item of state.items) {
-      if (item.type !== "image") continue;
-      const page = doc.getPage(item.page - 1);
-      const { toPdf, rotate } = placement(item.page);
-      const image = item.format === "png" ? await doc.embedPng(item.bytes) : await doc.embedJpg(item.bytes);
-      // The photo's bottom-left corner on screen is its origin in the PDF.
-      const [x, y] = toPdf(item.x, item.y + item.h);
-      page.drawImage(image, { x, y, width: item.w, height: item.h, rotate });
-    }
-
-    const items = state.items.filter((item) => item.type === "text" && item.text.trim());
-    const font = items.length
-      ? await doc.embedFont(await subsetFont(items.map((i) => i.text).join("")), EMBED_OPTIONS)
-      : null;
-
-    for (const item of items) {
-      const page = doc.getPage(item.page - 1);
-      const { toPdf, rotate } = placement(item.page);
-      const color = hexToRgb(item.color, rgb);
-      item.text.split("\n").forEach((line, i) => {
-        if (!line) return;
-        const baseline = item.y + item.size * (state.baselineRatio + i * LINE_HEIGHT);
-        const [x, y] = toPdf(item.x, baseline);
-        page.drawText(line, { x, y, size: item.size, font, color, rotate });
-      });
-    }
-
-    const out = await doc.save();
-    download(new Blob([out], { type: "application/pdf" }), outputName());
+    const { bytes, rebuilt } = await buildPdf();
+    download(new Blob([bytes], { type: "application/pdf" }), outputName());
     state.dirty = false;
     showStatus(rebuilt
       ? "保存しました（保護されたPDFのため、元のページは画像として保存しています）"
@@ -675,6 +638,60 @@ async function save() {
     showStatus("保存できませんでした。PDFが壊れているか、対応していない形式の可能性があります", { error: true });
   } finally {
     els.saveBtn.disabled = false;
+  }
+}
+
+// The PDF with the texts and photos on it. `rebuilt` tells whether its pages had to be made
+// from pictures (a protected PDF).
+async function buildPdf() {
+  const [{ PDFDocument, degrees }, fontkit] = await Promise.all([loadPdfLib(), loadFontkit()]);
+  const original = await PDFDocument.load(state.bytes, { ignoreEncryption: true });
+  const rebuilt = original.isEncrypted;
+  const onPage = (num, count) => showStatus(`保護されたPDFのため、ページを画像にしています… (${num}/${count})`, { sticky: true });
+  const doc = rebuilt ? await rasterizePdf(state.pdf, { onPage }) : original;
+  doc.registerFontkit(fontkit);
+  if (state.hasForm && !rebuilt) await fillForm(doc);
+  // Maps screen coordinates (scale 1, top-left origin) onto a page of `doc`.
+  // Rebuilt pages are already upright, so only the y axis flips.
+  const placement = (pageNum) => {
+    const viewport = state.pages[pageNum - 1].viewport;
+    return rebuilt
+      ? { toPdf: (x, y) => [x, viewport.height - y], rotate: degrees(0) }
+      : { toPdf: (x, y) => viewport.convertToPdfPoint(x, y), rotate: degrees(viewport.rotation) };
+  };
+  await drawImages(doc, placement);
+  await drawTexts(doc, placement);
+  return { bytes: await doc.save(), rebuilt };
+}
+
+async function drawImages(doc, placement) {
+  for (const item of state.items) {
+    if (item.type !== "image") continue;
+    const page = doc.getPage(item.page - 1);
+    const { toPdf, rotate } = placement(item.page);
+    const image = item.format === "png" ? await doc.embedPng(item.bytes) : await doc.embedJpg(item.bytes);
+    // The photo's bottom-left corner on screen is its origin in the PDF.
+    const [x, y] = toPdf(item.x, item.y + item.h);
+    page.drawImage(image, { x, y, width: item.w, height: item.h, rotate });
+  }
+}
+
+// The texts, in a font cut down to the characters they use.
+async function drawTexts(doc, placement) {
+  const { rgb } = await loadPdfLib();
+  const items = state.items.filter((item) => item.type === "text" && item.text.trim());
+  if (!items.length) return;
+  const font = await doc.embedFont(await subsetFont(items.map((i) => i.text).join("")), EMBED_OPTIONS);
+  for (const item of items) {
+    const page = doc.getPage(item.page - 1);
+    const { toPdf, rotate } = placement(item.page);
+    const color = hexToRgb(item.color, rgb);
+    item.text.split("\n").forEach((line, i) => {
+      if (!line) return;
+      const baseline = item.y + item.size * (state.baselineRatio + i * LINE_HEIGHT);
+      const [x, y] = toPdf(item.x, baseline);
+      page.drawText(line, { x, y, size: item.size, font, color, rotate });
+    });
   }
 }
 

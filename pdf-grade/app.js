@@ -221,7 +221,6 @@ async function addPdfs(pdfs, skipped = 0) {
   const failed = [];
   let dupes = 0;
   let added = 0;
-  const firstAdded = [];
   for (const [i, src] of pdfs.entries()) {
     if (state.files.some((f) => f.name === src.name && f.size === src.size)) {
       dupes++;
@@ -229,23 +228,38 @@ async function addPdfs(pdfs, skipped = 0) {
     }
     showStatus(`PDFを読み込み中… (${i + 1}/${pdfs.length})`, { sticky: true });
     try {
-      const pdf = await openPdf(src.bytes.slice(), { name: src.name }).promise;
-      const file = { id: nextId++, name: src.name, size: src.size, bytes: src.bytes, pdf, views: [] };
-      buildFileView(file);
-      for (let num = 1; num <= pdf.numPages; num++) {
-        const page = await pdf.getPage(num);
-        createPageView(file, num, page.getViewport({ scale: 1 }));
-        page.cleanup();
-      }
-      state.files.push(file);
-      firstAdded.push(file);
+      state.files.push(await openSubmission(src));
       added++;
     } catch (err) {
       console.error(err);
       failed.push(isPasswordCancelled(err) ? `${src.name}（パスワード付き）` : src.name);
     }
   }
+  showFiles(added);
+  showStatus(addedMessage(added, dupes, skipped, failed), { error: !added });
+  if (added) {
+    autosaveOn = true;
+    els.resume.hidden = true;
+    scheduleAutosave();
+  }
+  return added;
+}
 
+// One student's PDF, opened, with its place in the list and its pages.
+async function openSubmission({ name, size, bytes }) {
+  const pdf = await openPdf(bytes.slice(), { name }).promise;
+  const file = { id: nextId++, name, size, bytes, pdf, views: [] };
+  buildFileView(file);
+  for (let num = 1; num <= pdf.numPages; num++) {
+    const page = await pdf.getPage(num);
+    createPageView(file, num, page.getViewport({ scale: 1 }));
+    page.cleanup();
+  }
+  return file;
+}
+
+// Puts the PDFs and the rows of the list in name order, after `added` new ones came in.
+function showFiles(added) {
   state.files.sort((a, b) => collator.compare(a.name, b.name));
   for (const file of state.files) {
     els.docs.append(file.section);
@@ -258,20 +272,16 @@ async function addPdfs(pdfs, skipped = 0) {
   refreshAllRows();
   updateCurrent();
   updateUi();
+}
 
+function addedMessage(added, dupes, skipped, failed) {
   const notes = [];
   if (added) notes.push(`${added}人分のPDFを追加しました（全${state.files.length}人）`);
   if (dupes) notes.push(`同じファイル${dupes}件は飛ばしました`);
   if (skipped) notes.push(`PDFでないファイル${skipped}件は飛ばしました`);
   if (failed.length) notes.push(`開けなかったPDF: ${failed.join("、")}`);
   if (!notes.length) notes.push("PDFが見つかりませんでした");
-  showStatus(notes.join("。"), { error: !added });
-  if (added) {
-    autosaveOn = true;
-    els.resume.hidden = true;
-    scheduleAutosave();
-  }
-  return added;
+  return notes.join("。");
 }
 
 /* ---------- keeping work in progress ---------- */
@@ -318,7 +328,8 @@ async function offerResume() {
   if (!session?.files?.length || state.files.length) return;
   const when = new Date(session.savedAt).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" });
   const marked = new Set(session.items.map((i) => i.file)).size;
-  els.resumeText.textContent = `${when} の採点の続きがあります（${session.files.length}人分、書き込み済み ${marked}人${session.dirty ? "、まだ保存していません" : ""}）。`;
+  const unsaved = session.dirty ? "、まだ保存していません" : "";
+  els.resumeText.textContent = `${when} の採点の続きがあります（${session.files.length}人分、書き込み済み ${marked}人${unsaved}）。`;
   els.resume.hidden = false;
 }
 
@@ -342,57 +353,63 @@ async function resumeSession() {
   showStatus(`前回の続きから始めます（${state.files.length}人分）`);
 }
 
+// The parts of the screen for one student: their PDF in the viewer and their row in the list.
 function buildFileView(file) {
-  const section = document.createElement("section");
-  section.className = "doc";
-  const head = document.createElement("div");
-  head.className = "doc-head";
+  buildDocSection(file);
+  buildFileRow(file);
+}
+
+function buildDocSection(file) {
   const title = document.createElement("span");
   title.className = "doc-title";
   title.textContent = file.name;
   const score = document.createElement("span");
   score.className = "doc-score";
+  const head = document.createElement("div");
+  head.className = "doc-head";
   head.append(title, score);
   const pages = document.createElement("div");
   pages.className = "doc-pages";
+  const section = document.createElement("section");
+  section.className = "doc";
   section.append(head, pages);
-  file.section = section;
-  file.head = head;
-  file.headScore = score;
-  file.pagesEl = pages;
+  Object.assign(file, { section, head, headScore: score, pagesEl: pages });
+}
 
-  const row = document.createElement("li");
-  row.className = "file-row";
-  const jump = document.createElement("button");
-  jump.type = "button";
-  jump.className = "file-jump";
-  jump.title = "この人のPDFへ移動";
+function buildFileRow(file) {
   const name = document.createElement("span");
   name.className = "file-name";
   name.textContent = baseName(file.name);
   const meta = document.createElement("span");
   meta.className = "file-meta";
+  const jump = document.createElement("button");
+  jump.type = "button";
+  jump.className = "file-jump";
+  jump.title = "この人のPDFへ移動";
   jump.append(name, meta);
   jump.addEventListener("click", () => {
     scrollToFile(file);
     if (window.matchMedia("(max-width: 760px)").matches) toggleFiles(false);
   });
-  const dl = document.createElement("button");
-  dl.type = "button";
-  dl.className = "btn row-btn";
-  dl.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-save"/></svg>';
-  dl.title = "この人のPDFだけ保存";
-  dl.setAttribute("aria-label", dl.title);
-  dl.addEventListener("click", () => saveOne(file));
-  const del = document.createElement("button");
-  del.type = "button";
-  del.className = "btn row-btn row-del";
-  del.textContent = "✕";
-  del.title = "一覧から外す";
-  del.addEventListener("click", () => removeFile(file));
+  const dl = rowButton("i-save", "この人のPDFだけ保存", () => saveOne(file));
+  const del = rowButton("i-close", "一覧から外す", () => removeFile(file));
+  del.classList.add("row-del");
+  const row = document.createElement("li");
+  row.className = "file-row";
   row.append(jump, dl, del);
   file.row = row;
   file.rowMeta = meta;
+}
+
+function rowButton(icon, title, onClick) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn row-btn";
+  btn.innerHTML = `<svg class="i" aria-hidden="true"><use href="#${icon}"/></svg>`;
+  btn.title = title;
+  btn.setAttribute("aria-label", title);
+  btn.addEventListener("click", onClick);
+  return btn;
 }
 
 function createPageView(file, num, viewport) {
@@ -794,7 +811,8 @@ async function buildAll(write) {
   for (const [i, file] of state.files.entries()) {
     const label = `保存用のPDFを作成中… (${i + 1}/${state.files.length}人)`;
     showStatus(label, { sticky: true });
-    const { bytes, rebuilt } = await buildPdf(file, (num) => showStatus(`${label} 保護されたPDFを画像にしています ${num}/${file.views.length}`, { sticky: true }));
+    const onPage = (num) => showStatus(`${label} 保護されたPDFを画像にしています ${num}/${file.views.length}`, { sticky: true });
+    const { bytes, rebuilt } = await buildPdf(file, onPage);
     if (rebuilt) rebuiltCount++;
     await write(names[i], bytes);
   }
