@@ -1,12 +1,14 @@
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { shuffle } from "../shared/js/random.js";
-import { createMatcher, normalizeKana } from "./romaji.js";
+import { createMatcher, normalizeKana, guide } from "./romaji.js";
+import { keyOf, addRound, weakKeys, weightWords, drawKeyboard } from "./keys.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use. Add a new key instead.
 const SETTINGS_KEY = "typing-settings-v1"; // { lang, duration, source }
 const CUSTOM_KEY = "typing-custom-v1"; // { ja: text, en: text } as typed in the box
 const BEST_KEY = "typing-best-v1"; // { "ja-60-builtin": { speed, accuracy, date } }
+const KEYS_KEY = "typing-keys-v1"; // { ja: { [key]: { n, miss, ms, timed } }, en: {…} } over all rounds
 
 // [shown, reading]
 const WORDS_JA = [
@@ -58,13 +60,18 @@ const els = {
   imeWarning: $("ime-warning"),
   result: $("result"),
   againBtn: $("again-btn"),
+  resultKeyboard: $("r-keyboard"),
+  history: $("key-history"),
+  historyKeyboard: $("h-keyboard"),
+  historyWeak: $("h-weak"),
+  historyClear: $("h-clear"),
 };
 
 const saved = loadJson(SETTINGS_KEY, {});
 const settings = {
   lang: saved.lang === "en" ? "en" : "ja",
   duration: [30, 60, 120].includes(saved.duration) ? saved.duration : 60,
-  source: saved.source === "custom" ? "custom" : "builtin",
+  source: ["custom", "weak"].includes(saved.source) ? saved.source : "builtin",
 };
 const custom = { ja: "", en: "", ...loadJson(CUSTOM_KEY, {}) };
 
@@ -78,6 +85,9 @@ const game = {
   misses: 0,
   wordsDone: 0,
   missedKeys: new Map(), // expected key → times missed
+  keys: {}, // this round, per key on the keyboard: { n, miss, ms, timed } (see keys.js)
+  lastHit: 0, // when the last right key was typed
+  firstOfWord: true, // the next key starts a word, so it is not timed
   endsAt: 0,
   timer: 0,
 };
@@ -94,10 +104,19 @@ function customWords(lang) {
   }).filter((w) => /^[ぁ-ゖー、。・「」？！　a-z0-9 ,.\-?!]+$/i.test(w.reading));
 }
 
-function wordList() {
-  if (settings.source === "custom") return customWords(settings.lang);
+function builtinWords() {
   if (settings.lang === "ja") return WORDS_JA.map(([shown, reading]) => ({ shown, reading }));
   return WORDS_EN.map((w) => ({ shown: w, reading: w }));
+}
+
+const keyHistory = () => loadJson(KEYS_KEY, {})[settings.lang] ?? {};
+const spelling = (w) => (settings.lang === "ja" ? guide(normalizeKana(w.reading)) : w.reading);
+
+function wordList() {
+  if (settings.source === "custom") return customWords(settings.lang);
+  // 苦手なキーの練習: the basic words, those with the weak keys several times over.
+  if (settings.source === "weak") return weightWords(builtinWords(), weakKeys(keyHistory()), spelling);
+  return builtinWords();
 }
 
 // English is matched key for key, capitals and punctuation included.
@@ -134,6 +153,22 @@ function renderStart() {
   els.custom.open = settings.source === "custom";
   const best = loadJson(BEST_KEY, {})[bestKey()];
   els.best.textContent = best ? `この設定のベスト記録: 1分あたり ${best.speed} 打（正確さ ${best.accuracy}%）` : "";
+  renderHistory();
+}
+
+const keyName = (k) => (k === " " ? "スペース" : k.toUpperCase());
+
+// The keyboard over every round in this language, and which keys the practice will stress.
+function renderHistory() {
+  const stats = keyHistory();
+  const any = Object.keys(stats).length > 0;
+  els.history.hidden = !any;
+  if (!any) return;
+  drawKeyboard(els.historyKeyboard, stats);
+  const weak = weakKeys(stats);
+  els.historyWeak.textContent = weak.length
+    ? `苦手なキー: ${weak.map(keyName).join("・")}。「ことば」を「苦手なキーの練習」にすると、これらのキーを使うことばが多く出ます。`
+    : "今のところ、とくに苦手なキーはありません（キーごとに5回以上打つと判定します）。";
 }
 
 function show(screen) {
@@ -177,6 +212,7 @@ function nextWord() {
     game.index = 0;
   }
   game.item = game.words[game.index++];
+  game.firstOfWord = true;
   game.matcher = settings.lang === "ja" ? createMatcher(game.item.reading) : englishMatcher(game.item.reading);
   els.word.textContent = game.item.shown;
   els.kana.textContent = settings.lang === "ja" && game.item.shown !== game.item.reading ? game.item.reading : "";
@@ -208,7 +244,12 @@ function startGame() {
     els.best.textContent = settings.lang === "ja" ? "「自分のことば」に、ひらがなの読みがついたことばを入れてください" : "「自分のことば」に英語を入れてください";
     return;
   }
-  Object.assign(game, { playing: true, words: shuffle(words), index: 0, score: 0, misses: 0, wordsDone: 0, missedKeys: new Map() });
+  if (settings.source === "weak" && !weakKeys(keyHistory()).length) {
+    els.best.textContent = "苦手なキーがまだ見つかっていないので、基本のことばをそのまま出します";
+  }
+  Object.assign(game, {
+    playing: true, words: shuffle(words), index: 0, score: 0, misses: 0, wordsDone: 0, missedKeys: new Map(), keys: {},
+  });
   game.endsAt = performance.now() + settings.duration * 1000;
   els.imeWarning.hidden = true;
   show("play");
@@ -233,10 +274,13 @@ function finish() {
   $("r-misses").textContent = game.misses;
   $("r-words").textContent = game.wordsDone;
   const weak = [...game.missedKeys].sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const keyName = (k) => (k === " " ? "スペース" : k);
   $("r-keys").textContent = weak.length
-    ? `まちがえやすいキー: ${weak.map(([k, n]) => `${keyName(k)}（${n}回）`).join("、")}`
+    ? `まちがえやすいキー: ${weak.map(([k, n]) => `${k === " " ? "スペース" : k}（${n}回）`).join("、")}`
     : "ミスなし！";
+  drawKeyboard(els.resultKeyboard, game.keys);
+  const all = loadJson(KEYS_KEY, {});
+  all[settings.lang] = addRound(all[settings.lang] ?? {}, game.keys);
+  saveJson(KEYS_KEY, all);
 
   const bests = loadJson(BEST_KEY, {});
   const old = bests[bestKey()];
@@ -249,6 +293,13 @@ function finish() {
   }
   show("result");
   renderStart();
+}
+
+// This round's numbers for the key on the keyboard that types `ch`.
+function keyStat(ch) {
+  const key = keyOf(ch);
+  game.keys[key] ??= { n: 0, miss: 0, ms: 0, timed: 0 };
+  return game.keys[key];
 }
 
 function onKey(e) {
@@ -266,8 +317,17 @@ function onKey(e) {
   e.preventDefault();
   const key = settings.lang === "ja" ? e.key.toLowerCase() : e.key;
   const expected = game.matcher.rest[0];
+  const now = performance.now();
   if (game.matcher.type(key)) {
     game.score++;
+    const s = keyStat(key);
+    s.n++;
+    if (!game.firstOfWord) {
+      s.ms += now - game.lastHit;
+      s.timed++;
+    }
+    game.firstOfWord = false;
+    game.lastHit = now;
     els.play.classList.remove("miss");
     if (game.matcher.done) {
       game.wordsDone++;
@@ -277,6 +337,7 @@ function onKey(e) {
   } else {
     game.misses++;
     game.missedKeys.set(expected, (game.missedKeys.get(expected) ?? 0) + 1);
+    if (expected !== undefined) keyStat(expected).miss++;
     els.play.classList.add("miss");
   }
   renderWord();
@@ -294,16 +355,23 @@ document.addEventListener("keydown", (e) => {
 });
 els.startBtn.addEventListener("click", startGame);
 els.againBtn.addEventListener("click", startGame);
+els.historyClear.addEventListener("click", () => {
+  if (!confirm("これまでのキーの記録を消しますか？")) return;
+  const all = loadJson(KEYS_KEY, {});
+  delete all[settings.lang];
+  saveJson(KEYS_KEY, all);
+  renderStart();
+});
 els.stopBtn.addEventListener("click", () => {
   stopGame();
   show("start");
 });
 
 // Keeps this tool working without a network once it has been opened.
-registerOffline(["./", "index.html", "style.css", "app.js", "romaji.js", "icon.svg", "manifest.webmanifest"]);
+registerOffline(["./", "index.html", "style.css", "app.js", "romaji.js", "keys.js", "icon.svg", "manifest.webmanifest"]);
 
 renderStart();
 show("start");
 
 // Hook for automated tests.
-window.__typing = { game, settings, startGame, finish };
+window.__typing = { game, settings, startGame, finish, wordList };

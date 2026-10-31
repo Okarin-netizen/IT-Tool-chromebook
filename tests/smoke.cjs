@@ -960,7 +960,31 @@ const TOOLS = {
       await t.page.evaluate(() => __typing.finish());
       await t.page.locator("#result:not([hidden])").waitFor();
       t.expect(await t.page.textContent("#r-words") === "3", "結果のことばの数が違う");
+      // The keyboard shows the keys of this round; the numbers add up over rounds.
+      t.expect(await t.page.locator("#r-keyboard .kb-key").count() === 43, "結果にキーボードの図が出ない");
+      const kept = await t.page.evaluate(() => JSON.parse(localStorage.getItem("typing-keys-v1")).ja);
+      const missed = Object.values(kept).reduce((n, s) => n + s.miss, 0);
+      const right = Object.values(kept).reduce((n, s) => n + s.n, 0);
+      t.expect(missed === 1 && right > 5, `キーごとの記録が残らない: ${JSON.stringify(kept)}`);
       await t.shot("result");
+      // 苦手なキーの練習: with G missed often, words typed with G come up more.
+      await t.page.evaluate(() => localStorage.setItem("typing-keys-v1", JSON.stringify({ ja: {
+        g: { n: 10, miss: 6, ms: 3000, timed: 10 }, a: { n: 60, miss: 1, ms: 12000, timed: 60 }, k: { n: 30, miss: 0, ms: 6000, timed: 30 },
+      } })));
+      await t.page.click(".tab[data-lang='ja']");
+      await t.page.selectOption("#source", "weak");
+      await t.until(() => !document.querySelector("#key-history").hidden);
+      t.expect((await t.page.textContent("#h-weak")).startsWith("苦手なキー: G"), `苦手なキーが出ない: ${await t.page.textContent("#h-weak")}`);
+      const counts = await t.page.evaluate(() => {
+        const list = __typing.wordList();
+        const gakkyu = list.filter((w) => w.shown === "学級委員").length;
+        const sansuu = list.filter((w) => w.shown === "算数").length;
+        return `${gakkyu},${sansuu}`;
+      });
+      t.expect(counts === "3,1", `G を使うことばが多く出ない（学級委員,算数）: ${counts}`);
+      await t.page.click("#key-history summary");
+      await t.shot("weak-keys");
+      await t.page.selectOption("#source", "builtin");
       // English: capitals and punctuation as shown.
       await t.page.click(".tab[data-lang='en']");
       await t.page.click("#start-btn");
