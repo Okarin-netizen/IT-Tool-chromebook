@@ -911,6 +911,30 @@ const TOOLS = {
       await t.page.press("#expr", "Enter");
       await t.until(() => document.querySelector("#result").textContent.includes("7"));
       await t.shot("result");
+      // The keys for statistics and combinations, and other ways to show the answer.
+      const answer = async (src) => {
+        await t.page.fill("#expr", src);
+        await t.page.press("#expr", "Enter");
+        return t.page.textContent("#result");
+      };
+      await t.page.click("#more-keys summary");
+      await t.page.fill("#expr", "");
+      for (const key of ["平均", "7", "0", ",", "8", "5", ",", "9", "0"]) await t.page.click(`#more-keys .key:text-is("${key}"), #keys .key:text-is("${key}")`);
+      await t.page.click(".key.eq");
+      t.expect(await t.page.textContent("#result") === "81.6666666667", `ボタンで入れた平均が違う: ${await t.page.textContent("#result")}`);
+      t.expect(await answer("nCr(5,2)") === "10", "nCr が計算できない");
+      await t.page.click(".view[data-view='frac']");
+      t.expect(await answer("1/3+1/6") === "1/2", `分数で表示されない: ${await t.page.textContent("#result")}`);
+      await t.page.click(".view[data-view='factor']");
+      t.expect(await answer("360") === "2³ × 3² × 5", "素因数分解が表示されない");
+      t.expect(await answer("2.5") === "2.5" && await t.page.textContent("#result-note") === "2以上の整数のときだけ表せます", "素因数分解できないときの説明が出ない");
+      await t.page.click(".view[data-view='hex']");
+      t.expect(await t.page.textContent("#result") === "2.5", "表し方を変えたとき答えが変わる");
+      t.expect(await answer("0b1010+0x1F") === "0x29", `16進数で表示されない: ${await t.page.textContent("#result")}`);
+      await t.shot("views");
+      await t.page.reload();
+      t.expect(await t.page.getAttribute(".view[data-view='hex']", "aria-checked") === "true", "表し方が保存されない");
+      t.expect(await t.page.evaluate(() => JSON.parse(localStorage.getItem("calc-tool-v1")).history[0].text) === "0x29", "履歴に表示どおりの答えが残らない");
     },
   },
 

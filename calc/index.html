@@ -38,6 +38,14 @@
         <input id="expr" class="expr" type="text" inputmode="none" autocomplete="off" spellcheck="false"
                aria-label="式" placeholder="例: 2sin(30)+√3">
         <output id="result" class="result" for="expr" aria-live="polite"></output>
+        <div class="views" role="radiogroup" aria-label="答えの表し方">
+          <button class="view" data-view="dec" role="radio" aria-checked="true">小数</button>
+          <button class="view" data-view="frac" role="radio" aria-checked="false">分数</button>
+          <button class="view" data-view="bin" role="radio" aria-checked="false" title="2進数">2進</button>
+          <button class="view" data-view="hex" role="radio" aria-checked="false" title="16進数">16進</button>
+          <button class="view" data-view="factor" role="radio" aria-checked="false">素因数分解</button>
+          <span id="result-note" class="result-note"></span>
+        </div>
       </div>
 
       <div class="keys" id="keys">
@@ -83,6 +91,25 @@
         <button class="key fn" data-ins="ans" title="前の答え">Ans</button>
         <button class="key eq" data-act="eval">＝</button>
       </div>
+
+      <details id="more-keys" class="more-keys">
+        <summary>統計・組み合わせ・進数</summary>
+        <div class="keys">
+          <button class="key fn" data-ins="nCr(" title="組み合わせ nCr(n, r)">nCr</button>
+          <button class="key fn" data-ins="nPr(" title="順列 nPr(n, r)">nPr</button>
+          <button class="key fn" data-ins="gcd(" title="最大公約数 gcd(12, 18)">最大公約数</button>
+          <button class="key fn" data-ins="lcm(" title="最小公倍数 lcm(4, 6)">最小公倍数</button>
+          <button class="key fn" data-ins=", " title="数の区切り">,</button>
+          <button class="key fn" data-ins="mean(" title="平均 mean(70, 85, 90)">平均</button>
+          <button class="key fn" data-ins="median(" title="中央値">中央値</button>
+          <button class="key fn" data-ins="mode(" title="最頻値（同じ回数なら小さいほう）">最頻値</button>
+          <button class="key fn" data-ins="var(" title="分散（データの個数で割る）">分散</button>
+          <button class="key fn" data-ins="sd(" title="標準偏差">標準偏差</button>
+          <button class="key fn" data-ins="0b" title="2進数を入れる（例: 0b1010）">0b</button>
+          <button class="key fn" data-ins="0x" title="16進数を入れる（例: 0x1F）">0x</button>
+        </div>
+        <p class="muted more-help">数は「,」で区切ります（例: <code>mean(70, 85, 90)</code>、<code>nCr(5, 2)</code>）。分散と標準偏差はデータの個数で割ります。答えの下の「分数」「2進」「16進」「素因数分解」で表し方を変えられます。</p>
+      </details>
     </section>
 
     <section class="history">
