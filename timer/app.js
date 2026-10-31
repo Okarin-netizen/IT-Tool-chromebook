@@ -15,10 +15,16 @@ const defaults = {
   sound: true,
   settings: { work: 25, short: 5, long: 15, rounds: 4, auto: true },
   pomodoro: { phase: "work", done: 0, remaining: null, endAt: null },
-  timer: { total: 10 * 60000, remaining: null, endAt: null },
+  // until: "14:30" when the timer ends at a clock time; startedAt / lastEnd: for the exam board
+  timer: { total: 10 * 60000, remaining: null, endAt: null, until: null, startedAt: null, lastEnd: null },
   stopwatch: { elapsed: 0, startedAt: null, laps: [] },
   today: { date: "", count: 0, minutes: 0 },
+  exam: false, // 試験モード: the start and end times, and the time now, shown large
 };
+// When the countdown turns orange and red: 5 minutes and 1 minute before the end, or a share
+// of a short timer.
+const WARN_MS = 5 * 60000;
+const URGENT_MS = 60000;
 
 const state = load();
 let finishTimer = null;
@@ -65,6 +71,20 @@ function fmt(ms, { tenths = false, ceil = true } = {}) {
   return out;
 }
 
+const pad2 = (n) => String(n).padStart(2, "0");
+const clock = (t) => {
+  const d = new Date(t);
+  return `${d.getHours()}:${pad2(d.getMinutes())}`;
+};
+
+// Today's moment for "14:30".
+function untilTime(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d.getTime();
+}
+
 function phaseMs(phase) {
   return state.settings[phase] * 60000;
 }
@@ -81,6 +101,7 @@ function totalOf(kind) {
 function remaining(kind = state.mode) {
   const c = state[kind];
   if (c.endAt) return c.endAt - Date.now();
+  if (c.remaining == null && kind === "timer" && c.until) return Math.max(0, untilTime(c.until) - Date.now());
   return c.remaining ?? totalOf(kind);
 }
 
@@ -170,9 +191,23 @@ function start(kind = state.mode) {
   } else {
     askNotification();
     const c = state[kind];
-    let left = remaining(kind);
-    if (left <= 0) left = totalOf(kind);
-    c.endAt = Date.now() + left;
+    const now = Date.now();
+    if (kind === "timer" && c.until) {
+      // "14:30 まで" ends at 14:30 however long it was paused.
+      const end = untilTime(c.until);
+      if (end <= now) {
+        showStatus(`${c.until} はもう過ぎています。時刻を入れ直してください`, { error: true, ms: 4000 });
+        return;
+      }
+      if (c.remaining == null || !c.startedAt) c.total = end - now;
+      c.endAt = end;
+    } else {
+      let left = remaining(kind);
+      if (left <= 0) left = totalOf(kind);
+      c.endAt = now + left;
+    }
+    if (kind === "timer" && (!c.startedAt || c.remaining == null || c.remaining === 0)) c.startedAt = now;
+    if (kind === "timer") c.lastEnd = c.endAt;
     c.remaining = null;
   }
   keepAwake(true);
@@ -198,7 +233,7 @@ function reset() {
   if (state.mode === "stopwatch") {
     state.stopwatch = { elapsed: 0, startedAt: null, laps: [] };
   } else if (state.mode === "timer") {
-    Object.assign(state.timer, { remaining: null, endAt: null });
+    Object.assign(state.timer, { remaining: null, endAt: null, startedAt: null, lastEnd: null });
   } else {
     // First press resets the current phase; pressing again when nothing is in progress clears the set.
     const p = state.pomodoro;
@@ -288,10 +323,52 @@ function setMode(mode) {
 
 function setTimerTotal(ms) {
   if (ms <= 0) return;
-  state.timer = { total: ms, remaining: null, endAt: null };
+  state.timer = { total: ms, remaining: null, endAt: null, until: null, startedAt: null, lastEnd: null };
   document.body.classList.remove("done");
   afterChange();
   buildPresets();
+}
+
+// A timer that ends at a clock time, such as the end of a test.
+function setUntil(hhmm) {
+  if (!/^\d{1,2}:\d{2}$/.test(hhmm)) {
+    showStatus("終わりの時刻を入れてください", { ms: 3000 });
+    return;
+  }
+  hhmm = hhmm.replace(/^0(\d)/, "$1"); // "09:50" is shown as 9:50, like the other times
+  const left = untilTime(hhmm) - Date.now();
+  if (left <= 0) {
+    showStatus(`${hhmm} はもう過ぎています`, { error: true, ms: 3000 });
+    return;
+  }
+  state.timer = { total: left, remaining: null, endAt: null, until: hhmm, startedAt: null, lastEnd: null };
+  document.body.classList.remove("done");
+  afterChange();
+  buildPresets();
+  showStatus(`${hhmm} までのタイマーにしました。スタートを押してください`, { ms: 3000 });
+}
+
+const examShown = () => state.exam && state.mode === "timer";
+
+// 試験モード: when the test started, when it ends, and the time now.
+function renderExam() {
+  $("exam-board").hidden = !examShown();
+  document.body.classList.toggle("exam", examShown());
+  if (!examShown()) return;
+  const c = state.timer;
+  const now = Date.now();
+  let end = null;
+  if (c.endAt) end = c.endAt;
+  else if (c.until) end = untilTime(c.until);
+  else if (c.remaining === 0) end = c.lastEnd;
+  else if (c.startedAt && c.remaining > 0) end = now + c.remaining; // paused: if it went on now
+  const set = (id, text) => {
+    const el = $(id);
+    if (el.textContent !== text) el.textContent = text;
+  };
+  set("exam-start", c.startedAt ? clock(c.startedAt) : "--:--");
+  set("exam-end", end ? clock(end) : "--:--");
+  set("exam-now", clock(now));
 }
 
 function afterChange() {
@@ -329,15 +406,17 @@ function render() {
   $("lap-btn").hidden = mode !== "stopwatch";
   $("lap-btn").disabled = !running;
   $("laps").hidden = mode !== "stopwatch" || state.stopwatch.laps.length === 0;
-  document.querySelectorAll("#timer-setup button, #timer-setup input").forEach((el) => { el.disabled = running; });
+  document.querySelectorAll("#timer-setup button, #timer-setup input:not(#exam-on)").forEach((el) => { el.disabled = running; });
+  document.body.classList.toggle("running", running);
 
   $("start-btn").textContent = startLabel(mode, running);
+  $("exam-on").checked = state.exam;
   $("sound-btn").innerHTML = `<svg class="i" aria-hidden="true"><use href="#i-${state.sound ? "bell" : "bell-off"}"/></svg>`;
 
   if (mode === "pomodoro") {
     renderPomodoro();
   } else if (mode === "timer") {
-    $("phase").textContent = `${fmt(state.timer.total)} のタイマー`;
+    $("phase").textContent = state.timer.until ? `${state.timer.until} までのタイマー` : `${fmt(state.timer.total)} のタイマー`;
   } else {
     $("phase").textContent = "ストップウォッチ";
     renderLaps();
@@ -400,7 +479,13 @@ function tick() {
     progress = total ? left / total : 0;
     const label = state.mode === "pomodoro" ? PHASE_LABEL[state.pomodoro.phase] : "タイマー";
     document.title = isRunning() ? `${text} ${label}` : "タイマー・ポモドーロ";
+    // The timer turns orange, then red, as the end comes near.
+    const timing = state.mode === "timer" && isRunning();
+    document.body.classList.toggle("warn", timing && left <= Math.min(WARN_MS, total * 0.3) && left > Math.min(URGENT_MS, total * 0.1));
+    document.body.classList.toggle("urgent", timing && left <= Math.min(URGENT_MS, total * 0.1));
   }
+  if (state.mode === "stopwatch") document.body.classList.remove("warn", "urgent");
+  renderExam();
   if (display.textContent !== text) display.textContent = text;
   display.classList.toggle("small", text.length > 7);
   ring.style.strokeDasharray = RING_LEN;
@@ -422,6 +507,12 @@ $("sound-btn").addEventListener("click", () => {
   render();
   if (state.sound) { unlockAudio(); beep(1); }
   showStatus(state.sound ? "音をオンにしました" : "音をオフにしました", { ms: 3000 });
+});
+
+$("until-set").addEventListener("click", () => setUntil($("until-time").value));
+$("exam-on").addEventListener("change", () => {
+  state.exam = $("exam-on").checked;
+  afterChange();
 });
 
 $("custom-set").addEventListener("click", () => {
@@ -495,7 +586,7 @@ window.addEventListener("storage", (e) => {
 
 // The clock is redrawn 10 times a second only while the one on screen runs; when it is stopped,
 // render() draws it once after each change. A countdown in another mode ends via scheduleFinish().
-setInterval(() => { if (isRunning()) tick(); }, 100);
+setInterval(() => { if (isRunning() || examShown()) tick(); }, 100);
 
 // Picks up where it left off after a reload; a countdown that ran out while closed just ends quietly.
 for (const c of [state.pomodoro, state.timer]) {
@@ -508,3 +599,6 @@ if (isRunning()) keepAwake(true);
 
 // Keeps this tool working without a network once it has been opened.
 registerOffline(["./", "index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest"]);
+
+// Hook for automated tests.
+window.__timer = { state, setUntil, start, pause, tick };

@@ -963,6 +963,46 @@ const TOOLS = {
       const a = await t.page.textContent("#display");
       await t.page.waitForTimeout(400);
       t.expect(a === await t.page.textContent("#display"), "一時停止しても止まらない");
+      // A timer that ends at a clock time, with the exam board.
+      await t.page.click(".tab[data-mode='timer']");
+      const times = await t.page.evaluate(() => {
+        const hm = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+        const now = new Date();
+        const later = new Date(now.getTime() + 3 * 60000);
+        return { until: hm(later), now: `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`, wraps: later.getDate() !== now.getDate() };
+      });
+      if (!times.wraps) {
+        await t.page.fill("#until-time", times.until);
+        await t.page.click("#until-set");
+        t.expect(await t.page.textContent("#phase") === `${times.until.replace(/^0/, "")} までのタイマー`, `時刻までのタイマーにならない: ${await t.page.textContent("#phase")}`);
+        await t.page.check("#exam-on");
+        t.expect(await t.page.isVisible("#exam-board"), "試験モードの時刻が出ない");
+        const endText = times.until.replace(/^0/, "");
+        t.expect(await t.page.textContent("#exam-end") === endText, `終了の時刻が違う: ${await t.page.textContent("#exam-end")}`);
+        await t.page.click("#start-btn");
+        await t.until(() => document.querySelector("#exam-start").textContent !== "--:--");
+        t.expect(await t.page.textContent("#exam-start") === times.now || await t.page.textContent("#exam-start") === await t.page.textContent("#exam-now"),
+          `開始の時刻が違う: ${await t.page.textContent("#exam-start")}`);
+        t.expect(await t.page.textContent("#exam-end") === endText, "スタートしたら終了の時刻が変わった");
+        const left = await t.page.evaluate(() => __timer.state.timer.endAt - Date.now());
+        t.expect(left > 60000 && left <= 180000, `終わりまでの時間が違う: ${left}`);
+        await t.shot("exam");
+        // Near the end the color changes: orange within 5 minutes of a long timer, red in the last minute.
+        const classes = await t.page.evaluate(() => {
+          const { state, tick } = __timer;
+          const at = (ms) => {
+            state.timer.total = 40 * 60000;
+            state.timer.endAt = Date.now() + ms;
+            tick();
+            return ["warn", "urgent"].filter((c) => document.body.classList.contains(c)).join() || "none";
+          };
+          return [at(10 * 60000), at(4 * 60000), at(30000)].join("/");
+        });
+        t.expect(classes === "none/warn/urgent", `残りが少ないときの色が違う: ${classes}`);
+        await t.page.click("#start-btn");
+        await t.page.click("#reset-btn");
+        await t.page.uncheck("#exam-on");
+      }
     },
   },
 
