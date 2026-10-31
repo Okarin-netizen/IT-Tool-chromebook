@@ -1,5 +1,7 @@
 // Safe math expression parser (no eval). compile("2sin(x)^2") returns a function (vars) => number.
-// Supports + - * / ^ ! ( ), implicit multiplication (2x, 3(x+1), 2π), and the functions below.
+// Supports + - * / ^ ! ( ), implicit multiplication (2x, 3(x+1), 2π), the functions below,
+// functions of a list such as mean(70, 85, 90), and 0b1010 / 0x1F for binary and hexadecimal.
+// It never touches the page, so `node tests/calc-expr.mjs` can check it.
 
 const FUNCS = {
   sin: (a, d) => (d.deg ? trigDeg(a, 0) : Math.sin(a)),
@@ -22,6 +24,33 @@ const FUNCS = {
   round: Math.round,
 };
 
+// Functions of several numbers, written with "," between them: nCr(5, 2), mean(1, 2, 3).
+// Each takes the array of values.
+const LIST_FUNCS = {
+  ncr: ([n, r, ...rest]) => (rest.length || r === undefined ? arity("nCr", 2) : choose(n, r)),
+  npr: ([n, r, ...rest]) => (rest.length || r === undefined ? arity("nPr", 2) : permutations(n, r)),
+  gcd: (xs) => integers(xs).reduce(gcd2),
+  lcm: (xs) => integers(xs).reduce((a, b) => (a && b ? (a / gcd2(a, b)) * b : 0)),
+  mean: (xs) => sumOf(xs) / xs.length,
+  median: (xs) => {
+    const s = [...xs].sort((a, b) => a - b);
+    const mid = s.length >> 1;
+    return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+  },
+  mode: (xs) => {
+    // The value seen most often; when several tie, the smallest of them.
+    const counts = new Map();
+    for (const x of xs) counts.set(x, (counts.get(x) ?? 0) + 1);
+    let best = NaN;
+    let most = 0;
+    for (const [x, n] of counts) if (n > most || (n === most && x < best)) [best, most] = [x, n];
+    return best;
+  },
+  // Variance and standard deviation divide by n (the 分散 of the 数学I textbook).
+  var: (xs) => variance(xs),
+  sd: (xs) => Math.sqrt(variance(xs)),
+};
+
 const CONSTS = { pi: Math.PI, e: Math.E };
 
 // Names typed or shown with symbols are mapped to plain names first.
@@ -33,6 +62,40 @@ const ALIASES = {
 
 export class ExprError extends Error {}
 
+const arity = (name, n) => {
+  throw new ExprError(`${name} には数を${n}つ、「,」で区切って入れます`);
+};
+const sumOf = (xs) => xs.reduce((a, b) => a + b, 0);
+function variance(xs) {
+  const m = sumOf(xs) / xs.length;
+  return sumOf(xs.map((x) => (x - m) ** 2)) / xs.length;
+}
+// Whole numbers, allowing for float noise (gcd(0.1*30, 6) is gcd(3, 6)); others make NaN.
+function integers(xs) {
+  return xs.map((x) => (Math.abs(x - Math.round(x)) < 1e-9 ? Math.abs(Math.round(x)) : NaN));
+}
+function gcd2(a, b) {
+  if (Number.isNaN(a) || Number.isNaN(b)) return NaN;
+  while (b) [a, b] = [b, a % b];
+  return a;
+}
+// nCr and nPr for whole numbers 0 <= r <= n; anything else is NaN.
+function choose(n, r) {
+  [n, r] = integers([n, r]);
+  if (!(r <= n)) return NaN;
+  r = Math.min(r, n - r);
+  let v = 1;
+  for (let i = 1; i <= r; i++) v = (v * (n - r + i)) / i;
+  return Math.round(v);
+}
+function permutations(n, r) {
+  [n, r] = integers([n, r]);
+  if (!(r <= n)) return NaN;
+  let v = 1;
+  for (let i = 0; i < r; i++) v *= n - i;
+  return v;
+}
+
 function tokenize(src) {
   let s = "";
   for (const ch of src.normalize("NFKC")) s += ALIASES[ch] ?? ch;
@@ -41,6 +104,12 @@ function tokenize(src) {
   while (i < s.length) {
     const ch = s[i];
     if (/\s/.test(ch)) { i++; continue; }
+    const based = /^0(b[01]+|x[0-9a-f]+)/i.exec(s.slice(i));
+    if (based) {
+      tokens.push({ t: "num", v: parseInt(based[1].slice(1), /b/i.test(based[1][0]) ? 2 : 16) });
+      i += based[0].length;
+      continue;
+    }
     const num = /^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i.exec(s.slice(i));
     if (num) {
       tokens.push({ t: "num", v: parseFloat(num[0]) });
@@ -65,13 +134,15 @@ function tokenize(src) {
 
 // "xsin" or "pix" have no spaces, so split a run of letters into known names greedily.
 function splitWord(w) {
-  const names = [...Object.keys(FUNCS), ...Object.keys(CONSTS), "ans", "x"].sort((a, b) => b.length - a.length);
+  const names = [...Object.keys(FUNCS), ...Object.keys(LIST_FUNCS), ...Object.keys(CONSTS), "ans", "x"]
+    .sort((a, b) => b.length - a.length);
   const out = [];
   let i = 0;
   while (i < w.length) {
     const name = names.find((n) => w.startsWith(n, i));
     if (!name) throw new ExprError(`わからない名前です: ${w.slice(i)}`);
-    out.push(FUNCS[name] ? { t: "fn", v: name } : { t: "id", v: name });
+    if (LIST_FUNCS[name]) out.push({ t: "list", v: name });
+    else out.push(FUNCS[name] ? { t: "fn", v: name } : { t: "id", v: name });
     i += name.length;
   }
   return out;
@@ -83,12 +154,12 @@ function splitWord(w) {
 //   unary   := ("+" | "-") unary | power
 //   power   := postfix ("^" unary)?        right associative, so -2^2 = -4 and 2^-1 = 0.5
 //   postfix := atom "!"*
-//   atom    := num | id | fn atom-or-power | "(" sum ")"
+//   atom    := num | id | fn atom-or-power | list "(" sum ("," sum)* ")" | "(" sum ")"
 function parse(tokens) {
   let pos = 0;
   const peek = () => tokens[pos];
   const take = (t) => (peek()?.t === t ? tokens[pos++] : null);
-  const startsAtom = (tok) => tok && (tok.t === "num" || tok.t === "id" || tok.t === "fn" || tok.t === "(");
+  const startsAtom = (tok) => tok && ["num", "id", "fn", "list", "("].includes(tok.t);
 
   function sum() {
     let node = product();
@@ -132,6 +203,13 @@ function parse(tokens) {
       if (!take(")")) throw new ExprError("「)」が足りません");
       return node;
     }
+    if (tok.t === "list") {
+      if (!take("(")) throw new ExprError(`${tok.v}( のあとに数を「,」で区切って入れます`);
+      const args = [sum()];
+      while (take(",")) args.push(sum());
+      if (!take(")")) throw new ExprError("「)」が足りません");
+      return { op: "list", v: tok.v, args };
+    }
     if (tok.t === "fn") {
       // sin(x), sin x, sin^2 x (= (sin x)^2), sin 2x is read as sin(2x) like a textbook.
       let exp = null;
@@ -161,6 +239,7 @@ function parse(tokens) {
 // The error for a token that cannot stand where it is.
 function unexpected(tok) {
   if (tok.t === ")") return new ExprError("「(」が足りません");
+  if (tok.t === ",") return new ExprError("「,」は mean(1, 2, 3) のような、数を並べる関数の中だけで使えます");
   return new ExprError(`「${tok.t}」の位置がおかしいです`);
 }
 
@@ -201,6 +280,11 @@ function build(node) {
     case "neg": { const a = build(node.a); return (env) => -a(env); }
     case "!": { const a = build(node.a); return (env) => factorial(a(env)); }
     case "fn": { const f = FUNCS[node.v]; const a = build(node.a); return (env) => f(a(env), env); }
+    case "list": {
+      const f = LIST_FUNCS[node.v];
+      const args = node.args.map(build);
+      return (env) => f(args.map((a) => a(env)));
+    }
     default: {
       const a = build(node.a);
       const b = build(node.b);
@@ -256,4 +340,75 @@ export function format(v) {
   const abs = Math.abs(p);
   if (abs >= 1e12 || abs < 1e-6) return p.toExponential(10).replace(/\.?0+e/, "e").replace("e+", "×10^").replace("e", "×10^");
   return String(p);
+}
+
+/* ---------- other ways to show an answer ---------- */
+
+const isWhole = (v) => Number.isFinite(v) && Math.abs(v - Math.round(v)) < 1e-9;
+
+// v as a fraction n/d with d <= maxDen, found by continued fractions, or null when v is not
+// (close enough to) one: 0.75 → { n: 3, d: 4 }, 1/3 → { n: 1, d: 3 }, π → null.
+export function toFraction(v, maxDen = 10000) {
+  if (!Number.isFinite(v)) return null;
+  const sign = v < 0 ? -1 : 1;
+  const x = Math.abs(v);
+  let [h0, h1, k0, k1] = [0, 1, 1, 0];
+  let rest = x;
+  for (let i = 0; i < 40; i++) {
+    const a = Math.floor(rest);
+    [h0, h1] = [h1, a * h1 + h0];
+    [k0, k1] = [k1, a * k1 + k0];
+    if (k1 > maxDen) return null;
+    if (Math.abs(x - h1 / k1) <= 1e-9 * Math.max(1, x)) return { n: sign * h1, d: k1 };
+    rest = 1 / (rest - a);
+    if (!Number.isFinite(rest)) break;
+  }
+  return null;
+}
+
+// Prime factors of a whole number from 2 up to 10^12, as [[prime, power]], or null.
+export function primeFactors(v) {
+  if (!isWhole(v)) return null;
+  let n = Math.round(v);
+  if (n < 2 || n > 1e12) return null;
+  const out = [];
+  for (let p = 2; p * p <= n; p += p === 2 ? 1 : 2) {
+    let k = 0;
+    while (n % p === 0) {
+      n /= p;
+      k++;
+    }
+    if (k) out.push([p, k]);
+  }
+  if (n > 1) out.push([n, 1]);
+  return out;
+}
+
+const SUPERSCRIPT = { 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
+
+// The answer shown as `view`: "dec" (as usual), "frac", "bin", "hex" or "factor".
+// Returns { text } or, when that view does not fit the number, { text, note } with the usual
+// text and why it is shown that way.
+export function formatAs(v, view = "dec") {
+  const plain = format(v);
+  if (view === "frac") {
+    if (isWhole(v)) return { text: plain };
+    const f = toFraction(v);
+    return f ? { text: `${f.n}/${f.d}` } : { text: plain, note: "分数で表せません" };
+  }
+  if (view === "bin" || view === "hex") {
+    if (!isWhole(v) || Math.abs(v) > Number.MAX_SAFE_INTEGER) return { text: plain, note: "整数のときだけ表せます" };
+    const n = Math.round(v);
+    const digits = Math.abs(n).toString(view === "bin" ? 2 : 16).toUpperCase();
+    return { text: `${n < 0 ? "-" : ""}${view === "bin" ? "0b" : "0x"}${digits}` };
+  }
+  if (view === "factor") {
+    const factors = primeFactors(v);
+    if (!factors) return { text: plain, note: "2以上の整数のときだけ表せます" };
+    const text = factors
+      .map(([p, k]) => (k > 1 ? p + [...String(k)].map((c) => SUPERSCRIPT[c]).join("") : String(p)))
+      .join(" × ");
+    return { text: factors.length === 1 && factors[0][1] === 1 ? `${text}（素数）` : text };
+  }
+  return { text: plain };
 }

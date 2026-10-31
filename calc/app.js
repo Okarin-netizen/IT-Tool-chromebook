@@ -1,4 +1,4 @@
-import { compile, format, ExprError } from "./expr.js";
+import { compile, formatAs, ExprError } from "./expr.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { pixelRatio } from "../shared/js/canvas.js";
@@ -19,7 +19,7 @@ const els = {
   angleBtn: $("angle-btn"),
   expr: $("expr"),
   result: $("result"),
-  keys: $("keys"),
+  resultNote: $("result-note"),
   historyList: $("history-list"),
   historyEmpty: $("history-empty"),
   historyClear: $("history-clear"),
@@ -37,6 +37,8 @@ const state = {
   ans: undefined,
   history: [], // { expr, text }
   justEvaluated: false,
+  view: "dec", // how answers are shown: dec, frac, bin, hex, factor
+  lastValue: undefined, // the answer of the last "=", shown again when the view changes
   funcs: [], // { src, color, on, fn, error }
 };
 
@@ -45,6 +47,7 @@ function save() {
     angle: state.angle,
     ans: state.ans,
     history: state.history,
+    view: state.view,
     funcs: state.funcs.map(({ src, color, on }) => ({ src, color, on })),
   });
 }
@@ -77,14 +80,41 @@ els.angleBtn.addEventListener("click", () => {
   save();
 });
 
-function evaluate(src) {
-  const vars = state.ans === undefined ? {} : { ans: state.ans };
-  return compile(src)(vars, state.angle);
+// "mean(70, 85, 90" with the keys: the missing ")" are added at the end, as on a calculator.
+function closeParens(src) {
+  const open = (src.match(/\(/g) ?? []).length - (src.match(/\)/g) ?? []).length;
+  return open > 0 ? src + ")".repeat(open) : src;
 }
 
-function showResult(text, kind) {
+function evaluate(src) {
+  const vars = state.ans === undefined ? {} : { ans: state.ans };
+  return compile(closeParens(src))(vars, state.angle);
+}
+
+function showResult(text, kind, note = "") {
   els.result.textContent = text;
   els.result.className = "result" + (kind ? " " + kind : "");
+  els.resultNote.textContent = note;
+}
+
+// The answer in the chosen view, with a note when that view does not fit it.
+function showValue(v, kind) {
+  const { text, note } = formatAs(v, state.view);
+  showResult(text, kind, note);
+  return text;
+}
+
+function setView(view) {
+  state.view = view;
+  for (const btn of document.querySelectorAll(".view")) btn.setAttribute("aria-checked", btn.dataset.view === view);
+  if (state.justEvaluated && state.lastValue !== undefined) showValue(state.lastValue);
+  else preview();
+}
+for (const btn of document.querySelectorAll(".view")) {
+  btn.addEventListener("click", () => {
+    setView(btn.dataset.view);
+    save();
+  });
 }
 
 // Shows the answer in grey while typing; errors stay quiet until "=".
@@ -92,7 +122,7 @@ function preview() {
   const src = els.expr.value.trim();
   if (!src) return showResult("", "preview");
   try {
-    showResult(format(evaluate(src)), "preview");
+    showValue(evaluate(src), "preview");
   } catch {
     showResult("", "preview");
   }
@@ -103,10 +133,10 @@ function commit() {
   if (!src) return;
   try {
     const v = evaluate(src);
-    const text = format(v);
-    showResult(text);
+    const text = showValue(v);
+    state.lastValue = v;
     if (Number.isFinite(v)) state.ans = v;
-    state.history.unshift({ expr: src, text });
+    state.history.unshift({ expr: closeParens(src), text });
     state.history.length = Math.min(state.history.length, MAX_HISTORY);
     state.justEvaluated = true;
     renderHistory();
@@ -143,7 +173,7 @@ function backspace() {
     if (start === 0) return;
     // Remove a whole function name like "sin(" or "ans" at once.
     const before = input.value.slice(0, start);
-    const word = /(asin|acos|atan|sinh|cosh|tanh|sin|cos|tan|sqrt|cbrt|abs|ln|log|exp|ans)\(?$/.exec(before);
+    const word = /(asin|acos|atan|sinh|cosh|tanh|sin|cos|tan|sqrt|cbrt|abs|ln|log|exp|ans|nCr|nPr|gcd|lcm|mean|median|mode|var|sd)\(?$/i.exec(before);
     start -= word ? word[0].length : 1;
   }
   input.setRangeText("", start, end, "end");
@@ -156,7 +186,8 @@ function clearAll() {
   showResult("");
 }
 
-els.keys.addEventListener("click", (e) => {
+const keyAreas = document.querySelectorAll(".keys");
+for (const area of keyAreas) area.addEventListener("click", (e) => {
   const key = e.target.closest(".key");
   if (!key) return;
   if (key.dataset.ins) insert(key.dataset.ins);
@@ -167,7 +198,7 @@ els.keys.addEventListener("click", (e) => {
   els.expr.focus({ preventScroll: true });
 });
 // Stop buttons from stealing focus (and the caret position) on press.
-els.keys.addEventListener("pointerdown", (e) => {
+for (const area of keyAreas) area.addEventListener("pointerdown", (e) => {
   if (e.target.closest(".key")) e.preventDefault();
 });
 
@@ -670,6 +701,7 @@ els.funcAdd.addEventListener("click", () => {
 
 const saved = loadJson(STORE_KEY);
 setAngle(saved?.angle === "rad" ? "rad" : "deg");
+if (document.querySelector(`.view[data-view="${saved?.view}"]`)) setView(saved.view);
 if (typeof saved?.ans === "number") state.ans = saved.ans;
 if (Array.isArray(saved?.history)) {
   state.history = saved.history.filter((h) => h && typeof h.expr === "string").slice(0, MAX_HISTORY);
