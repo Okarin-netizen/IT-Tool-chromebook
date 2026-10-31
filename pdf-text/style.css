@@ -164,6 +164,21 @@ body {
 }
 .iitem.active .resize, .iitem:hover .resize { display: block; }
 
+/* White boxes: paper white, with a dashed edge so they can be found again on the page. */
+.pages.white-mode .page { cursor: crosshair; }
+.wghost, .wrect { position: absolute; background: #fff; }
+.wghost { outline: 2px dashed var(--select); }
+.witem { outline: none; }
+.wrect {
+  position: relative;
+  outline: 1px dashed rgba(37, 99, 235, .45);
+  cursor: move;
+  touch-action: none;
+}
+.witem:hover .wrect, .witem.active .wrect { outline: 2px solid var(--select); }
+.witem .tdel { top: -2px; }
+.witem.active .resize, .witem:hover .resize { display: block; }
+
 @media (max-width: 640px) {
   .group.end { margin-left: 0; }
   .viewer { padding: 16px 8px 64px; }

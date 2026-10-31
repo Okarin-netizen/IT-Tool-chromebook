@@ -59,6 +59,34 @@ const TOOLS = {
       t.expect(await firstX() > x0 + 20, "文字をドラッグで動かせない");
       await t.page.click("#undo-btn");
       t.expect(await firstX() === x0, `元に戻すで文字の位置が戻らない: ${x0} → ${await firstX()}`);
+      // 白で消す: drag a white box over the title of page 2; it hides the text in the saved PDF.
+      await t.page.click("#white-btn");
+      const k = await t.page.evaluate(() => {
+        document.querySelector(".page[data-num='2']").scrollIntoView({ block: "start" });
+        return __pdfText.state.scale;
+      });
+      await t.drag(t.page.locator(".page[data-num='2'] .layer"), [[50 * k, 52 * k], [150 * k, 70 * k], [330 * k, 96 * k]]);
+      const whites = () => t.page.evaluate(() => __pdfText.state.items.filter((i) => i.type === "white").length);
+      t.expect(await whites() === 1, "ドラッグで白い四角ができない");
+      await t.shot("white");
+      await t.page.click("#undo-btn");
+      t.expect(await whites() === 0, "元に戻すで白い四角が消えない");
+      await t.page.click("#redo-btn");
+      t.expect(await whites() === 1, "やり直しで白い四角が戻らない");
+      await t.page.click("#white-btn");
+      t.expect(await t.page.getAttribute("#white-btn", "aria-pressed") === "false", "「白で消す」が切れない");
+      const dark = await t.page.evaluate(async () => {
+        const { openPdf, renderPage } = await import("../shared/js/pdf.js");
+        const pdf = await openPdf((await __pdfText.buildPdf()).bytes).promise;
+        const count = async (n) => {
+          const px = (await renderPage(await pdf.getPage(n), 1)).getContext("2d").getImageData(55, 55, 270, 36).data;
+          let c = 0;
+          for (let i = 0; i < px.length; i += 4) if (px[i] < 128) c++;
+          return c;
+        };
+        return [await count(1), await count(2)];
+      });
+      t.expect(dark[0] > 50 && dark[1] === 0, `白い四角で文字が隠れていない: ${dark}`);
       await t.page.click("#save-btn");
       const [file] = await t.downloads(1);
       t.expectName(file, "テスト資料_記入済み.pdf");
@@ -274,6 +302,30 @@ const TOOLS = {
       t.expectName(file, "写真入り_圧縮.pdf");
       await t.expectPdfPages(file, 2);
       t.expect(file.bytes.length < t.pdf("写真入り.pdf", 2, { image: true }).buffer.length, "小さくなっていない");
+      // 白黒にする: the photo turns gray with either method; in the page picture, so does the blue frame.
+      const colorIn = (box) => t.page.evaluate(async ([x0, y0, x1, y1]) => {
+        const { renderPage } = await import("../shared/js/pdf.js");
+        const canvas = await renderPage(await __pdfCompress.state.result.pdf.getPage(1), 1);
+        const px = canvas.getContext("2d").getImageData(x0, y0, x1 - x0, y1 - y0).data;
+        let most = 0;
+        for (let i = 0; i < px.length; i += 4) most = Math.max(most, Math.abs(px[i] - px[i + 1]), Math.abs(px[i + 1] - px[i + 2]));
+        return most;
+      }, box);
+      const PHOTO = [80, 380, 515, 700];
+      const FRAME = [58, 140, 262, 244];
+      t.expect(await colorIn(PHOTO) > 40, "元の写真に色がない（テストの前提が違う）");
+      await t.page.check("#gray");
+      t.expect(await t.page.isHidden("#result"), "白黒を切りかえても前の結果が残る");
+      await t.page.click("#compress-btn");
+      await t.until(() => __pdfCompress.state.result && !__pdfCompress.state.busy, 60000);
+      t.expect(await colorIn(PHOTO) <= 4, `「画像だけ軽くする」で写真が白黒にならない: ${await colorIn(PHOTO)}`);
+      t.expect(await colorIn(FRAME) > 40, "「画像だけ軽くする」で線の色まで変わった");
+      await t.page.check("input[name=method][value=raster]");
+      await t.page.click("#compress-btn");
+      await t.until(() => __pdfCompress.state.result && !__pdfCompress.state.busy, 60000);
+      t.expect(await colorIn(PHOTO) <= 4 && await colorIn(FRAME) <= 4, "「ページ全体を画像にする」でページが白黒にならない");
+      await t.shot("gray");
+      await t.page.uncheck("#gray");
 
       // A protected PDF can only be shrunk by turning its pages into pictures.
       await t.setFiles("#file-input", [t.locked("鍵つき.pdf")]);

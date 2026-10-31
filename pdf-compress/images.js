@@ -2,6 +2,7 @@
 // everything else (text, lines, fonts) is kept as it is. Imported only when it is used,
 // because it needs pdf-lib.
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
+import { grayscale } from "../shared/js/canvas.js";
 
 const { PDFDocument, PDFName, PDFDict, PDFArray, PDFRef, PDFRawStream, PDFStream, decodePDFRawStream } = await loadPdfLib();
 
@@ -9,7 +10,8 @@ const MIN_IMAGE_BYTES = 8 * 1024; // smaller images aren't worth re-encoding
 const N = (name) => PDFName.of(name);
 const DECODABLE = new Set(["FlateDecode", "LZWDecode", "ASCII85Decode", "ASCIIHexDecode", "RunLengthDecode"]);
 
-export async function compressImages(bytes, level, onProgress) {
+// `gray` also makes the images black and white (text and lines keep their colors).
+export async function compressImages(bytes, level, onProgress, { gray = false } = {}) {
   const doc = await PDFDocument.load(bytes, { updateMetadata: false });
   const ctx = doc.context;
 
@@ -29,7 +31,7 @@ export async function compressImages(bytes, level, onProgress) {
   for (const [i, [ref, obj]] of targets.entries()) {
     onProgress(i + 1, targets.length);
     try {
-      const jpeg = await reencodeImage(obj, level);
+      const jpeg = await reencodeImage(obj, level, gray);
       if (!jpeg) continue;
       const dict = obj.dict.clone(ctx);
       dict.set(N("Width"), ctx.obj(jpeg.width));
@@ -50,7 +52,7 @@ export async function compressImages(bytes, level, onProgress) {
 }
 
 // Returns { bytes, width, height } of a smaller JPEG, or null when the image is left as it is.
-async function reencodeImage(stream, { maxPx, quality }) {
+async function reencodeImage(stream, { maxPx, quality }, gray) {
   const dict = stream.dict;
   const original = stream.getContents();
   if (original.length < MIN_IMAGE_BYTES) return null;
@@ -87,9 +89,11 @@ async function reencodeImage(stream, { maxPx, quality }) {
   g.fillRect(0, 0, w, h);
   g.drawImage(bitmap, 0, 0);
   bitmap.close();
+  if (gray) grayscale(g, w, h);
   const blob = await canvas.convertToBlob({ type: "image/jpeg", quality });
   const bytes = new Uint8Array(await blob.arrayBuffer());
-  if (bytes.length > original.length * 0.9) return null;
+  // A gray image is wanted even when it is not much smaller.
+  if (bytes.length > original.length * (gray ? 1 : 0.9)) return null;
   return { bytes, width: w, height: h };
 }
 
