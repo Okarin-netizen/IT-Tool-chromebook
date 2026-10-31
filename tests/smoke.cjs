@@ -761,6 +761,10 @@ const TOOLS = {
       const [file] = await t.downloads(1);
       t.expectName(file, /^時間割と課題_\d{4}-\d{2}-\d{2}\.json$/);
       t.expect(JSON.parse(file.bytes.toString("utf8")).tasks[0].title === "読書感想文", "バックアップに課題が入っていない");
+      // The delete button is an icon: a click on the picture inside it still counts.
+      t.page.once("dialog", (dialog) => dialog.accept());
+      await t.page.click(".task-del svg");
+      await t.until(() => !document.querySelector("#task-list .task"));
     },
   },
 

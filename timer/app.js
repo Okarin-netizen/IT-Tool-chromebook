@@ -331,25 +331,11 @@ function render() {
   $("laps").hidden = mode !== "stopwatch" || state.stopwatch.laps.length === 0;
   document.querySelectorAll("#timer-setup button, #timer-setup input").forEach((el) => { el.disabled = running; });
 
-  const startBtn = $("start-btn");
-  const paused = mode === "stopwatch" ? state.stopwatch.elapsed > 0 : countdown().remaining > 0 && countdown().remaining < totalOf(mode);
-  startBtn.textContent = running ? "一時停止" : paused ? "再開" : "スタート";
-
+  $("start-btn").textContent = startLabel(mode, running);
   $("sound-btn").innerHTML = `<svg class="i" aria-hidden="true"><use href="#i-${state.sound ? "bell" : "bell-off"}"/></svg>`;
 
   if (mode === "pomodoro") {
-    const p = state.pomodoro;
-    $("phase").textContent = `${PHASE_LABEL[p.phase]}（${state.settings[p.phase]}分）`;
-    const dots = $("dots");
-    dots.replaceChildren();
-    for (let i = 0; i < state.settings.rounds; i++) {
-      const d = document.createElement("span");
-      d.className = "dot" + (i < p.done ? " filled" : "");
-      dots.append(d);
-    }
-    const t = today();
-    $("today-count").textContent = t.count;
-    $("today-min").textContent = t.minutes;
+    renderPomodoro();
   } else if (mode === "timer") {
     $("phase").textContent = `${fmt(state.timer.total)} のタイマー`;
   } else {
@@ -360,6 +346,29 @@ function render() {
   tick();
 }
 
+// "一時停止" while running, "再開" when stopped part way, "スタート" otherwise.
+function startLabel(mode, running) {
+  if (running) return "一時停止";
+  const started = mode === "stopwatch"
+    ? state.stopwatch.elapsed > 0
+    : countdown().remaining > 0 && countdown().remaining < totalOf(mode);
+  return started ? "再開" : "スタート";
+}
+
+// The phase, a dot for each round of the set, and today's count.
+function renderPomodoro() {
+  const p = state.pomodoro;
+  $("phase").textContent = `${PHASE_LABEL[p.phase]}（${state.settings[p.phase]}分）`;
+  $("dots").replaceChildren(...Array.from({ length: state.settings.rounds }, (_, i) => {
+    const dot = document.createElement("span");
+    dot.className = "dot" + (i < p.done ? " filled" : "");
+    return dot;
+  }));
+  const t = today();
+  $("today-count").textContent = t.count;
+  $("today-min").textContent = t.minutes;
+}
+
 function renderLaps() {
   const list = $("laps");
   list.replaceChildren();
@@ -367,7 +376,8 @@ function renderLaps() {
   for (let i = laps.length - 1; i >= 0; i--) {
     const li = document.createElement("li");
     const split = laps[i] - (laps[i - 1] ?? 0);
-    li.innerHTML = `<span>ラップ ${i + 1}</span><span class="split">+${fmt(split, { tenths: true, ceil: false })}</span><span>${fmt(laps[i], { tenths: true, ceil: false })}</span>`;
+    const exact = { tenths: true, ceil: false };
+    li.innerHTML = `<span>ラップ ${i + 1}</span><span class="split">+${fmt(split, exact)}</span><span>${fmt(laps[i], exact)}</span>`;
     list.append(li);
   }
 }

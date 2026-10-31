@@ -5,6 +5,8 @@ import { pixelRatio } from "../shared/js/canvas.js";
 
 const STORE_KEY = "calc-tool-v1";
 const MAX_HISTORY = 50;
+const KEY_SYMBOLS = { "*": "×", "/": "÷" }; // typed keys shown as the signs on the keypad
+const ERROR_DELAY_MS = 700; // pause in typing before a formula's error shows
 const MAX_FUNCS = 8;
 const COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#be185d", "#4d7c0f"];
 
@@ -178,7 +180,7 @@ els.expr.addEventListener("keydown", (e) => {
     clearAll();
   } else if (state.justEvaluated && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
-    insert(e.key === "*" ? "×" : e.key === "/" ? "÷" : e.key);
+    insert(KEY_SYMBOLS[e.key] ?? e.key);
   }
 });
 els.expr.addEventListener("input", () => {
@@ -271,37 +273,59 @@ function label(v, step) {
 }
 
 function drawGrid() {
-  const { w, h } = size;
   const step = niceStep(70);
-  const minor = step / (String(step / 10 ** Math.floor(Math.log10(step)))[0] === "2" ? 4 : 5);
-
+  // Grid lines between the labelled ones: quarters of a step of 2 (or 20, 0.2 …), fifths of 1 or 5.
+  const leading = String(step / 10 ** Math.floor(Math.log10(step)))[0];
+  const minor = step / (leading === "2" ? 4 : 5);
   ctx.lineWidth = 1;
-  for (const [s, color] of [[minor, "#f3f4f6"], [step, "#e5e7eb"]]) {
-    ctx.strokeStyle = color;
-    ctx.beginPath();
-    for (let x = Math.ceil(fromPx(0) / s) * s; x <= fromPx(w); x += s) {
-      const px = Math.round(toPx(x)) + 0.5;
-      ctx.moveTo(px, 0);
-      ctx.lineTo(px, h);
-    }
-    for (let y = Math.ceil(fromPy(h) / s) * s; y <= fromPy(0); y += s) {
-      const py = Math.round(toPy(y)) + 0.5;
-      ctx.moveTo(0, py);
-      ctx.lineTo(w, py);
-    }
-    ctx.stroke();
-  }
-
+  gridLines(minor, "#f3f4f6");
+  gridLines(step, "#e5e7eb");
   // Axes, kept on screen at the edge when the origin is scrolled away so labels stay readable.
   const ax = Math.round(toPx(0)) + 0.5;
   const ay = Math.round(toPy(0)) + 0.5;
+  drawAxes(ax, ay);
+  axisNumbers(step, ax, ay);
+  axisNames(ax, ay);
+}
+
+// Lines across the graph every `gap` in x and in y.
+function gridLines(gap, color) {
+  const { w, h } = size;
+  ctx.strokeStyle = color;
+  ctx.beginPath();
+  for (let x = Math.ceil(fromPx(0) / gap) * gap; x <= fromPx(w); x += gap) {
+    const px = Math.round(toPx(x)) + 0.5;
+    ctx.moveTo(px, 0);
+    ctx.lineTo(px, h);
+  }
+  for (let y = Math.ceil(fromPy(h) / gap) * gap; y <= fromPy(0); y += gap) {
+    const py = Math.round(toPy(y)) + 0.5;
+    ctx.moveTo(0, py);
+    ctx.lineTo(w, py);
+  }
+  ctx.stroke();
+}
+
+// The axes through (ax, ay) in pixels, each only while it is on screen.
+function drawAxes(ax, ay) {
+  const { w, h } = size;
   ctx.strokeStyle = "#374151";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  if (ax >= 0 && ax <= w) { ctx.moveTo(ax, 0); ctx.lineTo(ax, h); }
-  if (ay >= 0 && ay <= h) { ctx.moveTo(0, ay); ctx.lineTo(w, ay); }
+  if (ax >= 0 && ax <= w) {
+    ctx.moveTo(ax, 0);
+    ctx.lineTo(ax, h);
+  }
+  if (ay >= 0 && ay <= h) {
+    ctx.moveTo(0, ay);
+    ctx.lineTo(w, ay);
+  }
   ctx.stroke();
+}
 
+// The numbers along the axes every `step`, and "O" at the origin.
+function axisNumbers(step, ax, ay) {
+  const { w, h } = size;
   ctx.fillStyle = "#4b5563";
   ctx.font = "12px system-ui, sans-serif";
   const ly = Math.min(Math.max(ay + 4, 4), h - 18);
@@ -323,6 +347,11 @@ function drawGrid() {
     ctx.textBaseline = "top";
     ctx.fillText("O", ax - 4, ay + 4);
   }
+}
+
+// "x" at the right end of the x axis and "y" at the top of the y axis.
+function axisNames(ax, ay) {
+  const { w, h } = size;
   ctx.font = "italic 14px serif";
   ctx.textAlign = "right";
   ctx.textBaseline = "bottom";
@@ -375,6 +404,8 @@ function coordDigits() {
   return Math.max(0, Math.min(6, Math.ceil(Math.log10(view.scale)) + 1));
 }
 
+const SNAP_PX = 40; // the pointer snaps to a curve this close to it
+
 function drawHover() {
   if (!hover) {
     els.readout.hidden = true;
@@ -386,31 +417,9 @@ function drawHover() {
     const s = v.toFixed(d);
     return /^-0\.?0*$/.test(s) ? s.slice(1) : s;
   };
-  // Snap to the curve nearest the pointer, if one is close.
-  let best = null;
-  state.funcs.forEach((f, i) => {
-    if (!f.on || !f.fn) return;
-    const y = safeEval(f.fn, x);
-    if (Number.isNaN(y)) return;
-    const dist = Math.abs(toPy(y) - hover.y);
-    if (dist < 40 && (!best || dist < best.dist)) best = { f, i, y, dist };
-  });
+  const best = nearestCurve(x);
   if (best) {
-    const py = toPy(best.y);
-    ctx.strokeStyle = best.f.color;
-    ctx.setLineDash([4, 4]);
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(hover.x, 0);
-    ctx.lineTo(hover.x, size.h);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = "#fff";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(hover.x, py, 5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    drawSnapMark(toPy(best.y), best.f.color);
     els.readout.textContent = `y${subscript(best.i + 1)}: (${fmt(x)}, ${fmt(best.y)})`;
     els.readout.style.borderLeft = `4px solid ${best.f.color}`;
   } else {
@@ -418,6 +427,37 @@ function drawHover() {
     els.readout.style.borderLeft = "";
   }
   els.readout.hidden = false;
+}
+
+// The shown curve nearest the pointer at `x`, if one is close: { f, i, y, dist }.
+function nearestCurve(x) {
+  let best = null;
+  state.funcs.forEach((f, i) => {
+    if (!f.on || !f.fn) return;
+    const y = safeEval(f.fn, x);
+    if (Number.isNaN(y)) return;
+    const dist = Math.abs(toPy(y) - hover.y);
+    if (dist < SNAP_PX && (!best || dist < best.dist)) best = { f, i, y, dist };
+  });
+  return best;
+}
+
+// A dashed line down through the pointer and a ring where it meets the curve.
+function drawSnapMark(py, color) {
+  ctx.strokeStyle = color;
+  ctx.setLineDash([4, 4]);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(hover.x, 0);
+  ctx.lineTo(hover.x, size.h);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#fff";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(hover.x, py, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
 }
 
 const SUBS = "₀₁₂₃₄₅₆₇₈₉";
@@ -544,72 +584,79 @@ function addFunc(src = "", color = nextColor(), on = true) {
 }
 
 function renderFuncs(focusIndex) {
-  els.funcList.replaceChildren(...state.funcs.map((f, i) => {
-    const li = document.createElement("li");
-    const row = document.createElement("div");
-    row.className = "func" + (f.error ? " error" : "");
-    row.style.setProperty("--c", f.color);
-
-    const check = document.createElement("input");
-    check.type = "checkbox";
-    check.checked = f.on;
-    check.title = "表示する";
-    check.addEventListener("change", () => {
-      f.on = check.checked;
-      draw();
-      save();
-    });
-
-    const id = `func-${i}`;
-    const lab = document.createElement("label");
-    lab.htmlFor = id;
-    lab.textContent = `y${subscript(i + 1)} =`;
-
-    const input = document.createElement("input");
-    input.type = "text";
-    input.id = id;
-    input.value = f.src;
-    input.placeholder = i === 0 ? "例: x^2-2x-3" : "式を入力";
-    input.autocomplete = "off";
-    input.spellcheck = false;
-    let timer = 0;
-    input.addEventListener("input", () => {
-      f.src = input.value;
-      compileFunc(f);
-      row.classList.toggle("error", Boolean(f.error));
-      draw();
-      // Wait for a pause in typing before showing the message, so half-typed input doesn't flash errors.
-      clearTimeout(timer);
-      msg.hidden = true;
-      timer = setTimeout(() => {
-        msg.textContent = f.error;
-        msg.hidden = !f.error;
-      }, 700);
-      save();
-    });
-
-    const remove = document.createElement("button");
-    remove.className = "remove";
-    remove.textContent = "✕";
-    remove.title = "この関数を消す";
-    remove.addEventListener("click", () => {
-      state.funcs.splice(i, 1);
-      if (!state.funcs.length) addFunc();
-      renderFuncs();
-      draw();
-      save();
-    });
-
-    row.append(check, lab, input, remove);
-    const msg = document.createElement("p");
-    msg.className = "func-msg";
-    msg.textContent = f.error;
-    msg.hidden = !f.error;
-    li.append(row, msg);
-    return li;
-  }));
+  els.funcList.replaceChildren(...state.funcs.map(funcRow));
   if (focusIndex !== undefined) els.funcList.querySelectorAll('input[type="text"]')[focusIndex]?.focus();
   els.funcAdd.disabled = state.funcs.length >= MAX_FUNCS;
+}
+
+// The row for function `f`, the i-th: a check box to show it, its formula and a delete button,
+// with the error message below.
+function funcRow(f, i) {
+  const row = document.createElement("div");
+  row.className = "func" + (f.error ? " error" : "");
+  row.style.setProperty("--c", f.color);
+  const msg = document.createElement("p");
+  msg.className = "func-msg";
+  msg.textContent = f.error;
+  msg.hidden = !f.error;
+
+  const check = document.createElement("input");
+  check.type = "checkbox";
+  check.checked = f.on;
+  check.title = "表示する";
+  check.addEventListener("change", () => {
+    f.on = check.checked;
+    draw();
+    save();
+  });
+  const id = `func-${i}`;
+  const lab = document.createElement("label");
+  lab.htmlFor = id;
+  lab.textContent = `y${subscript(i + 1)} =`;
+  const remove = document.createElement("button");
+  remove.className = "remove";
+  remove.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-close"/></svg>';
+  remove.title = "この関数を消す";
+  remove.setAttribute("aria-label", remove.title);
+  remove.addEventListener("click", () => {
+    state.funcs.splice(i, 1);
+    if (!state.funcs.length) addFunc();
+    renderFuncs();
+    draw();
+    save();
+  });
+  row.append(check, lab, formulaInput(f, i, id, row, msg), remove);
+
+  const li = document.createElement("li");
+  li.append(row, msg);
+  return li;
+}
+
+// The text box for the formula of `f`: redraws as it is typed, and shows an error once the
+// typing pauses, so half-typed input doesn't flash errors.
+function formulaInput(f, i, id, row, msg) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.id = id;
+  input.value = f.src;
+  input.placeholder = i === 0 ? "例: x^2-2x-3" : "式を入力";
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  let timer = 0;
+  input.addEventListener("input", () => {
+    f.src = input.value;
+    compileFunc(f);
+    row.classList.toggle("error", Boolean(f.error));
+    draw();
+    clearTimeout(timer);
+    msg.hidden = true;
+    timer = setTimeout(() => {
+      msg.textContent = f.error;
+      msg.hidden = !f.error;
+    }, ERROR_DELAY_MS);
+    save();
+  });
+  return input;
 }
 
 els.funcAdd.addEventListener("click", () => {
@@ -624,9 +671,14 @@ els.funcAdd.addEventListener("click", () => {
 const saved = loadJson(STORE_KEY);
 setAngle(saved?.angle === "rad" ? "rad" : "deg");
 if (typeof saved?.ans === "number") state.ans = saved.ans;
-if (Array.isArray(saved?.history)) state.history = saved.history.filter((h) => h && typeof h.expr === "string").slice(0, MAX_HISTORY);
+if (Array.isArray(saved?.history)) {
+  state.history = saved.history.filter((h) => h && typeof h.expr === "string").slice(0, MAX_HISTORY);
+}
 if (Array.isArray(saved?.funcs) && saved.funcs.length) {
-  for (const f of saved.funcs.slice(0, MAX_FUNCS)) addFunc(String(f.src ?? ""), COLORS.includes(f.color) ? f.color : nextColor(), f.on !== false);
+  for (const f of saved.funcs.slice(0, MAX_FUNCS)) {
+    const color = COLORS.includes(f.color) ? f.color : nextColor();
+    addFunc(String(f.src ?? ""), color, f.on !== false);
+  }
 } else {
   addFunc("x^2-2x-3");
   addFunc("2sin(x)");
