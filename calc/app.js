@@ -1,4 +1,5 @@
 import { compile, formatAs, ExprError } from "./expr.js";
+import { findPoints } from "./points.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { pixelRatio } from "../shared/js/canvas.js";
@@ -30,6 +31,7 @@ const els = {
   zoomOut: $("zoom-out"),
   zoomReset: $("zoom-reset"),
   readout: $("readout"),
+  pointsOn: $("points-on"),
 };
 
 const state = {
@@ -40,6 +42,7 @@ const state = {
   view: "dec", // how answers are shown: dec, frac, bin, hex, factor
   lastValue: undefined, // the answer of the last "=", shown again when the view changes
   funcs: [], // { src, color, on, fn, error }
+  showPoints: true, // dots where curves meet the x axis or each other, and at maxima and minima
 };
 
 function save() {
@@ -48,6 +51,7 @@ function save() {
     ans: state.ans,
     history: state.history,
     view: state.view,
+    showPoints: state.showPoints,
     funcs: state.funcs.map(({ src, color, on }) => ({ src, color, on })),
   });
 }
@@ -448,8 +452,13 @@ function drawHover() {
     const s = v.toFixed(d);
     return /^-0\.?0*$/.test(s) ? s.slice(1) : s;
   };
-  const best = nearestCurve(x);
-  if (best) {
+  const point = nearestPoint();
+  const best = point ? null : nearestCurve(x);
+  if (point) {
+    drawPointMark(point);
+    els.readout.textContent = `${pointName(point)}: (${pointNumber(point.x)}, ${pointNumber(point.y)})`;
+    els.readout.style.borderLeft = `4px solid ${point.kind === "cross" ? "#374151" : state.funcs[point.of[0]].color}`;
+  } else if (best) {
     drawSnapMark(toPy(best.y), best.f.color);
     els.readout.textContent = `y${subscript(best.i + 1)}: (${fmt(x)}, ${fmt(best.y)})`;
     els.readout.style.borderLeft = `4px solid ${best.f.color}`;
@@ -494,6 +503,79 @@ function drawSnapMark(py, color) {
 const SUBS = "₀₁₂₃₄₅₆₇₈₉";
 const subscript = (n) => String(n).replace(/\d/g, (c) => SUBS[c]);
 
+/* ---------- points: crossings, maxima and minima ---------- */
+
+const POINT_PX = 14; // the pointer picks a point this close to it
+let points = [];
+let pointsKey = "";
+
+// Recomputed only when the view or the shown functions change.
+function updatePoints() {
+  const key = state.showPoints
+    ? JSON.stringify([view, size, state.funcs.map((f) => (f.on && f.fn ? f.src : ""))])
+    : "";
+  if (key === pointsKey) return;
+  pointsKey = key;
+  if (!state.showPoints) {
+    points = [];
+    return;
+  }
+  const fns = state.funcs.map((f) => (f.on && f.fn ? (x) => f.fn({ x }) : null));
+  points = findPoints(fns, fromPx(0), fromPx(size.w), size.h / view.scale);
+}
+
+function drawPoints() {
+  for (const p of points) {
+    const px = toPx(p.x);
+    const py = toPy(p.y);
+    if (px < -8 || px > size.w + 8 || py < -8 || py > size.h + 8) continue;
+    // A crossing of two curves is white with a dark ring; the others take their curve's color.
+    ctx.fillStyle = p.kind === "cross" ? "#fff" : state.funcs[p.of[0]].color;
+    ctx.strokeStyle = p.kind === "cross" ? "#374151" : "#fff";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+
+// The marked point nearest the pointer, if it is close enough.
+function nearestPoint() {
+  let best = null;
+  for (const p of points) {
+    const dist = Math.hypot(toPx(p.x) - hover.x, toPy(p.y) - hover.y);
+    if (dist < POINT_PX && (!best || dist < best.dist)) best = { p, dist };
+  }
+  return best?.p ?? null;
+}
+
+const yName = (i) => `y${subscript(i + 1)}`;
+function pointName(p) {
+  if (p.kind === "cross") return `${yName(p.of[0])} と ${yName(p.of[1])} の交点`;
+  if (p.kind === "zero") return `${yName(p.of[0])} と x軸の交点`;
+  return `${yName(p.of[0])} の${p.kind === "max" ? "極大" : "極小"}`;
+}
+// Up to 6 decimals, without trailing zeros: 1, -1.732051.
+const pointNumber = (v) => {
+  const s = String(Number(v.toFixed(6)));
+  return s === "-0" ? "0" : s;
+};
+
+function drawPointMark(p) {
+  ctx.strokeStyle = p.kind === "cross" ? "#374151" : state.funcs[p.of[0]].color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(toPx(p.x), toPy(p.y), 9, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+els.pointsOn.addEventListener("change", () => {
+  state.showPoints = els.pointsOn.checked;
+  draw();
+  save();
+});
+
 let frame = 0;
 function draw() {
   if (frame) return;
@@ -503,6 +585,8 @@ function draw() {
     ctx.clearRect(0, 0, size.w, size.h);
     drawGrid();
     for (const f of state.funcs) if (f.on && f.fn) drawFunc(f);
+    updatePoints();
+    drawPoints();
     drawHover();
   });
 }
@@ -703,6 +787,7 @@ const saved = loadJson(STORE_KEY);
 setAngle(saved?.angle === "rad" ? "rad" : "deg");
 if (document.querySelector(`.view[data-view="${saved?.view}"]`)) setView(saved.view);
 if (typeof saved?.ans === "number") state.ans = saved.ans;
+if (saved?.showPoints === false) state.showPoints = els.pointsOn.checked = false;
 if (Array.isArray(saved?.history)) {
   state.history = saved.history.filter((h) => h && typeof h.expr === "string").slice(0, MAX_HISTORY);
 }
@@ -726,6 +811,10 @@ registerOffline([
   "style.css",
   "app.js",
   "expr.js",
+  "points.js",
   "icon.svg",
   "manifest.webmanifest",
 ]);
+
+// Hook for automated tests.
+window.__calc = { state, view, points: () => points, toPx, toPy };

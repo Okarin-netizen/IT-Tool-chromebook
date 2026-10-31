@@ -17,10 +17,11 @@ node tests/smoke.cjs --ocr            # PDF文字取り出しの OCR も確か�
 node tests/smoke.cjs --headed         # ブラウザの画面を表示して動かす
 ```
 
-電卓の計算（`calc/expr.js`）は、ブラウザなしで確かめられます。
+電卓の計算（`calc/expr.js`）とグラフの交点・頂点（`calc/points.js`）は、ブラウザなしで確かめられます。
 
 ```sh
 node tests/calc-expr.mjs
+node tests/calc-points.mjs
 ```
 
 すべて通ると `すべて通りました` と表示されます。失敗したツールは `NG` と理由が表示されます。
