@@ -935,6 +935,22 @@ const TOOLS = {
       await t.page.reload();
       t.expect(await t.page.getAttribute(".view[data-view='hex']", "aria-checked") === "true", "表し方が保存されない");
       t.expect(await t.page.evaluate(() => JSON.parse(localStorage.getItem("calc-tool-v1")).history[0].text) === "0x29", "履歴に表示どおりの答えが残らない");
+      // The graph marks where y = x² − 2x − 3 meets the x axis (−1 and 3), its vertex, and the
+      // crossings with y = 2sin x; touching a point shows its coordinates.
+      await t.page.click("#tab-graph");
+      await t.until(() => __calc.points().length > 0);
+      const marks = await t.page.evaluate(() => __calc.points().filter((p) => p.of[0] === 0 && p.of.length === 1)
+        .map((p) => `${p.kind}(${p.x},${p.y})`).join(" "));
+      t.expect(marks === "zero(-1,0) zero(3,0) min(1,-4)", `y₁ の点が違う: ${marks}`);
+      const at = await t.page.evaluate(() => [__calc.toPx(3), __calc.toPy(0)]);
+      const box = await t.page.locator("#plot").boundingBox();
+      await t.page.mouse.move(box.x + at[0], box.y + at[1]);
+      await t.until(() => !document.querySelector("#readout").hidden);
+      t.expect(await t.page.textContent("#readout") === "y₁ と x軸の交点: (3, 0)", `点の座標が出ない: ${await t.page.textContent("#readout")}`);
+      t.expect(await t.page.evaluate(() => __calc.points().some((p) => p.kind === "cross")), "2つのグラフの交点がない");
+      await t.shot("graph-points");
+      await t.page.uncheck("#points-on");
+      await t.until(() => __calc.points().length === 0);
     },
   },
 
