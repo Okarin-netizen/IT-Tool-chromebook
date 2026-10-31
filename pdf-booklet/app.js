@@ -12,6 +12,7 @@ import { loadPdfLib } from "../shared/js/pdf-lib.js";
 const SETTINGS_KEY = "pdf-booklet-settings-v1";
 const PREVIEW_PX = 340; // preview width of a sideways sheet, in CSS pixels
 const A4 = { width: 595, height: 842 }; // shown in the help before a PDF is opened
+const ACCENT = "#8a6236"; // the tool's color, for the cover tags on the preview
 const THUMB_PX = 72; // width of a page in the page order list, in CSS pixels
 const LONG_PRESS_MS = 350; // touch: hold this long before a page starts to drag
 const DRAG_SLOP = 8; // px the pointer may wander before a press counts as a drag (or a scroll)
@@ -104,6 +105,11 @@ function bookletSides(settings) {
     .map((slots) => slots.map((p) => (p === null ? null : state.order[p])));
 }
 
+// What a page of the finished booklet is called: 表紙, 2, 3, …, 裏表紙.
+function placeName(place, total) {
+  return place === 0 ? "表紙" : place === total - 1 ? "裏表紙" : `${place + 1}`;
+}
+
 // Saddle stitching: every sheet holds 4 pages, 2 on each side, and the sheets are stacked and
 // folded in the middle. The outer sheet carries the first 2 and the last 2 pages, the next one
 // the 2 after and the 2 before those, and so on. Returns the sides in printing order (front of
@@ -118,18 +124,20 @@ function planBooklet(count, { binding = "left", backCover = false } = {}) {
   // A back cover stays the very last page; the blanks go just before it.
   if (backCover && count > 1) order.splice(count - 1, 0, ...pad);
   else order.push(...pad);
-  const sides = [];
+  // `places` holds the same sides as booklet page numbers (0 is the cover), blanks included.
+  const places = [];
   for (let i = 0; i < total / 4; i++) {
-    const front = [order[total - 1 - 2 * i], order[2 * i]];
-    const back = [order[2 * i + 1], order[total - 2 - 2 * i]];
+    const front = [total - 1 - 2 * i, 2 * i];
+    const back = [2 * i + 1, total - 2 - 2 * i];
     // Bound on the right (vertical Japanese text), the book opens the other way.
     if (binding === "right") {
       front.reverse();
       back.reverse();
     }
-    sides.push(front, back);
+    places.push(front, back);
   }
-  return { sides, total, blanks };
+  const sides = places.map((slots) => slots.map((place) => order[place]));
+  return { sides, places, total, blanks };
 }
 
 // The sheet the pages are printed on, and the two halves of it (in PDF points, origin at the
@@ -255,6 +263,7 @@ function rebuildPreview(settings) {
   if (!state.file) return;
   const layout = sheetLayout(state.pages[state.order[0]], settings.paper);
   const sides = bookletSides(settings);
+  const { places, total } = planBooklet(state.order.length, settings);
   const cssW = layout.width > layout.height ? PREVIEW_PX : PREVIEW_PX * 0.7;
   const cssH = (cssW * layout.height) / layout.width;
   sides.forEach((slots, i) => {
@@ -267,7 +276,13 @@ function rebuildPreview(settings) {
     const label = document.createElement("div");
     label.className = "label";
     const sheet = Math.floor(i / 2) + 1;
-    const nums = slots.map((p) => (p === null ? "白紙" : `${p + 1}`)).join(layout.stacked ? "／" : "｜");
+    // Each half by its page of the booklet, with the page of the PDF when it was moved.
+    const names = slots.map((p, slot) => {
+      const name = placeName(places[i][slot], total);
+      if (p === null) return `${name}（白紙）`;
+      return state.order.indexOf(p) !== p ? `${name}（元の${p + 1}）` : name;
+    });
+    const nums = names.join(layout.stacked ? "／" : "｜");
     label.innerHTML = `<b>${sheet}枚目の${i % 2 ? "裏" : "表"}</b>　`;
     label.append(nums);
     el.append(canvas, label);
@@ -277,7 +292,8 @@ function rebuildPreview(settings) {
     const guides = i === 0 && settings.spine.on && settings.spine.mode === "pair"
       ? Array.from({ length: 9 }, (_, n) => spineBands(layout, { ...settings.spine, subject: n, grade: n % 3 })).flat()
       : [];
-    const side = { sheet, back: i % 2 === 1, slots, layout, bands, guides, bandColor: settings.spine.color, el, canvas, cssW, rendered: false };
+    const badges = places[i].map((place) => placeName(place, total));
+    const side = { sheet, back: i % 2 === 1, slots, badges, layout, bands, guides, bandColor: settings.spine.color, el, canvas, cssW, rendered: false };
     state.sides.push(side);
     previews.add(side);
   });
@@ -342,6 +358,26 @@ async function renderSide(side) {
   for (const band of side.bands) {
     ctx.fillRect(band.x * scale, (layout.height - band.y - band.h) * scale, band.w * scale, band.h * scale);
   }
+  // Which page of the finished booklet each half is: a tag at the bottom of the half, only on
+  // the screen (it is not printed). The cover and back cover stand out in the tool's color.
+  const dpr = window.devicePixelRatio || 1;
+  ctx.font = `600 ${Math.round(12 * dpr)}px system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  side.badges.forEach((name, slot) => {
+    const cell = layout.cells[slot];
+    const w = ctx.measureText(name).width + 16 * dpr;
+    const h = 20 * dpr;
+    const x = (cell.x + cell.w / 2) * scale - w / 2;
+    const y = (layout.height - cell.y) * scale - h - 8 * dpr;
+    const cover = name === "表紙" || name === "裏表紙";
+    ctx.fillStyle = cover ? ACCENT : "rgba(31, 35, 41, .72)";
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, h / 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.fillText(name, x + w / 2, y + h / 2 + dpr / 2);
+  });
   canvas.width = out.width;
   canvas.height = out.height;
   canvas.getContext("2d").drawImage(out, 0, 0);
@@ -422,7 +458,8 @@ function showOrder() {
   state.order.forEach((index, at) => {
     const thumb = state.thumbs[index];
     els.thumbs.append(thumb.el);
-    thumb.num.textContent = index === at ? `${at + 1}` : `${at + 1}（元の${index + 1}）`;
+    const name = at === 0 ? "表紙" : `${at + 1}`;
+    thumb.num.textContent = index === at ? name : `${name}（元の${index + 1}）`;
   });
   els.orderReset.disabled = state.order.every((index, at) => index === at);
 }
