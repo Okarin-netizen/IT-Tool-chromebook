@@ -3,14 +3,18 @@ import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { createLazyRenderer, freeCanvas } from "../shared/js/lazy.js";
 import { registerOffline } from "../shared/js/offline.js";
-import { loadScript } from "../shared/js/pdf-lib.js";
-import { pixelRatio } from "../shared/js/canvas.js";
+import { loadScript, loadPdfLib } from "../shared/js/pdf-lib.js";
+import { pixelRatio, canvasToBlob } from "../shared/js/canvas.js";
 import { copyText } from "../shared/js/clipboard.js";
+import { isImage, readableImage } from "../shared/js/heic.js";
+import { addNextTool } from "../shared/js/handoff.js";
 
 const asset = (path) => new URL(path, location.href).href;
 
 const PREVIEW_PX = 280; // width of a page preview, in CSS pixels
 const OCR_PX = 3000; // longest side of the page image given to OCR (about 260 dpi for A4)
+const PHOTO_PX = 3000; // longest side a photo is kept at when it becomes a PDF page
+const PHOTO_PT = 842; // … and the longest side of that page, in points (as long as A4)
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -23,6 +27,7 @@ const els = {
   ocrEmpty: $("ocr-empty"),
   copyAll: $("copy-all"),
   saveTxt: $("save-txt"),
+  savePdf: $("save-pdf"),
   viewer: $("viewer"),
   welcome: $("welcome"),
   pages: $("pages"),
@@ -30,8 +35,10 @@ const els = {
 
 const state = {
   name: "",
+  bytes: null, // the PDF as opened (photos: the PDF made from them), for 検索できるPDF
   pdf: null,
-  // { num, lines: [{ text, gapBefore }], ocr, edited, el, textarea, canvas, rendered }
+  // { num, lines: [{ text, gapBefore }], hadText, ocr, layer, edited, el, textarea, canvas, rendered }
+  // hadText: the PDF itself has text on the page. layer: the text-only PDF page OCR made of it.
   pages: [],
   busy: false,
   preview: true,
@@ -217,25 +224,31 @@ function formatPage(view) {
   updatePageUi(view);
 }
 
-/* ---------- opening a PDF ---------- */
+/* ---------- opening a PDF or photos ---------- */
 
-async function openFile(file) {
-  if (!file) return;
-  if (!isPdf(file)) {
-    showStatus("PDFファイルを選んでください", { error: true });
+// Opens the first PDF among `files`, or else all the photos as the pages of one PDF.
+// Photos have no text, so they are read with OCR right away.
+async function openFiles(files) {
+  const pdfFile = files.find(isPdf);
+  const photos = pdfFile ? [] : files.filter(isImage);
+  if (!pdfFile && !photos.length) {
+    showStatus("PDFか画像（JPEG・PNG・HEIC）を選んでください", { error: true });
     return;
   }
   if (state.busy) return;
-  if (state.pages.some((p) => p.edited) && !confirm("書き直した文字は消えます。別のPDFを開きますか？")) return;
+  if (state.pages.some((p) => p.edited) && !confirm("書き直した文字は消えます。別のファイルを開きますか？")) return;
   state.busy = true;
   updateUi();
-  showStatus("PDFを読み込み中…", { sticky: true });
+  let opened = false;
   try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const pdf = await openPdf(bytes, { name: file.name }).promise;
+    showStatus(pdfFile ? "PDFを読み込み中…" : "画像を読み込み中…", { sticky: true });
+    const bytes = pdfFile ? new Uint8Array(await pdfFile.arrayBuffer()) : await photosToPdf(photos);
+    const name = pdfFile ? pdfFile.name || "document.pdf" : `${photos[0].name.replace(/\.[^.]*$/, "") || "photo"}.pdf`;
+    const pdf = await openPdf(bytes.slice(), { name }).promise;
     closeCurrent();
+    state.bytes = bytes;
     state.pdf = pdf;
-    state.name = file.name || "document.pdf";
+    state.name = name;
     els.fileName.textContent = state.name;
     els.fileName.title = state.name;
 
@@ -243,25 +256,53 @@ async function openFile(file) {
       if (pdf.numPages > 5) showStatus(`文字を取り出し中…（${num}/${pdf.numPages}ページ）`, { sticky: true });
       await addPage(pdf, num);
     }
-    reportOpened();
+    opened = true;
+    if (pdfFile) reportOpened();
   } catch (err) {
     console.error(err);
-    showStatus(openPdfError(err), { error: true });
+    showStatus(pdfFile ? openPdfError(err) : "画像を読み込めませんでした", { error: true });
   } finally {
     state.busy = false;
     updateUi();
   }
+  if (opened && photos.length) await ocrPages(state.pages);
+}
+
+// The photos as a PDF with one page each, upright (as the camera held it), on white.
+async function photosToPdf(photos) {
+  const { PDFDocument } = await loadPdfLib();
+  const doc = await PDFDocument.create();
+  for (const photo of photos) {
+    const bitmap = await createImageBitmap(await readableImage(photo), { imageOrientation: "from-image" });
+    const k = Math.min(1, PHOTO_PX / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * k));
+    canvas.height = Math.max(1, Math.round(bitmap.height * k));
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const jpeg = await canvasToBlob(canvas, "image/jpeg", 0.9);
+    const image = await doc.embedJpg(new Uint8Array(await jpeg.arrayBuffer()));
+    const pt = PHOTO_PT / Math.max(canvas.width, canvas.height);
+    const [width, height] = [canvas.width * pt, canvas.height * pt];
+    doc.addPage([width, height]).drawImage(image, { x: 0, y: 0, width, height });
+    canvas.width = canvas.height = 0;
+  }
+  return doc.save();
 }
 
 // Reads the text of page `num` and adds its row to the list.
 async function addPage(pdf, num) {
   const page = await pdf.getPage(num);
-  const view = { num, lines: [], ocr: false, edited: false, rendered: false };
+  const view = { num, lines: [], ocr: false, layer: null, edited: false, rendered: false };
   try {
     view.lines = await readTextLines(page);
   } catch (err) {
     console.error(err);
   }
+  view.hadText = view.lines.length > 0;
   createPageRow(view);
   state.pages.push(view);
   els.pages.append(view.el);
@@ -288,6 +329,7 @@ function closeCurrent() {
   els.pages.replaceChildren();
   state.pdf?.destroy();
   state.pdf = null;
+  state.bytes = null;
 }
 
 const isEmpty = (view) => !view.textarea.value.trim();
@@ -453,7 +495,9 @@ function ocrLines(text, lang) {
   return lines;
 }
 
-async function ocrPages(views, { confirmReplace = false } = {}) {
+// Reads `views` from their page images. Besides the text, OCR makes each page's text layer
+// for 検索できるPDF. With `keepEdited`, text the user has written in stays as it is.
+async function ocrPages(views, { confirmReplace = false, keepEdited = false } = {}) {
   if (state.busy || !views.length) return;
   if (confirmReplace && views.some((v) => !isEmpty(v)) && !confirm("今の文字を、画像から読み取った文字に置きかえますか？")) return;
   const lang = els.ocrLang.value;
@@ -474,11 +518,15 @@ async function ocrPages(views, { confirmReplace = false } = {}) {
       showStatus(`画像から文字を読み取り中…${label()}`, { sticky: true });
       try {
         const canvas = await pageImage(view.num);
-        const { data } = await worker.recognize(canvas);
-        view.lines = ocrLines(data.text, lang);
-        view.ocr = true;
-        view.edited = false;
-        formatPage(view);
+        const { data } = await worker.recognize(canvas, { pdfTextOnly: true }, { text: true, pdf: true });
+        canvas.width = canvas.height = 0;
+        view.layer = new Uint8Array(data.pdf);
+        if (!(keepEdited && view.edited)) {
+          view.lines = ocrLines(data.text, lang);
+          view.ocr = true;
+          view.edited = false;
+          formatPage(view);
+        }
       } catch (err) {
         console.error(err);
         failed++;
@@ -524,6 +572,63 @@ function saveText() {
   showStatus(`${name} を保存しました`);
 }
 
+/* ---------- 検索できるPDF ---------- */
+
+// Pages without text of their own get the invisible text OCR read on them, so the PDF can be
+// searched and copied from (the same idea as Scribe OCR and OCRmyPDF). Pages that have text
+// are left as they are.
+const needsLayer = (view) => !view.hadText;
+
+async function saveSearchable() {
+  if (state.busy) return;
+  const unread = state.pages.filter((v) => needsLayer(v) && !v.layer);
+  if (unread.length) await ocrPages(unread, { keepEdited: true });
+  if (state.pages.some((v) => needsLayer(v) && !v.layer)) return; // OCR failed and said so
+  state.busy = true;
+  updateUi();
+  showStatus("検索できるPDFを作成中…", { sticky: true });
+  try {
+    const name = `${baseName(state.name)}_OCR.pdf`;
+    download(new Blob([await searchablePdf()], { type: "application/pdf" }), name);
+    showStatus(`${name} を保存しました。OCRで読み取ったページの文字を、検索やコピーに使えます`, { ms: 6000 });
+  } catch (err) {
+    console.error(err);
+    const locked = err?.name === "EncryptedPDFError" || /encrypt/i.test(err?.message);
+    showStatus(locked ? "パスワードのかかったPDFは、検索できるPDFにできません" : "検索できるPDFを作れませんでした", { error: true });
+  } finally {
+    state.busy = false;
+    updateUi();
+  }
+}
+
+async function searchablePdf() {
+  const { PDFDocument, degrees } = await loadPdfLib();
+  const doc = await PDFDocument.load(state.bytes);
+  const pages = doc.getPages();
+  for (const view of state.pages) {
+    if (!needsLayer(view)) continue;
+    const page = pages[view.num - 1];
+    const [layer] = await doc.embedPdf(view.layer);
+    page.drawPage(layer, { ...layerPlacement(page), rotate: degrees(rotationOf(page)) });
+  }
+  return doc.save();
+}
+
+const rotationOf = (page) => ((page.getRotation().angle % 360) + 360) % 360;
+
+// Where the text layer goes on `page`. OCR read the page as it is shown, which is the page's
+// box turned clockwise by its rotation, so the layer is turned back the other way; pdf-lib
+// turns it around its lower-left corner.
+function layerPlacement(page) {
+  const { x, y, width, height } = page.getCropBox();
+  switch (rotationOf(page)) {
+    case 90: return { x: x + width, y, width: height, height: width };
+    case 180: return { x: x + width, y: y + height, width, height };
+    case 270: return { x, y: y + height, width: height, height: width };
+    default: return { x, y, width, height };
+  }
+}
+
 /* ---------- UI state ---------- */
 
 function updateUi() {
@@ -533,6 +638,7 @@ function updateUi() {
   const anyText = state.pages.some((v) => !isEmpty(v));
   els.copyAll.disabled = state.busy || !anyText;
   els.saveTxt.disabled = state.busy || !anyText;
+  els.savePdf.disabled = state.busy || !state.pages.some(needsLayer);
   els.ocrEmpty.disabled = state.busy || !state.pages.some(isEmpty);
   els.togglePreview.disabled = !has;
   els.fileInput.disabled = state.busy;
@@ -540,7 +646,7 @@ function updateUi() {
 }
 
 els.fileInput.addEventListener("change", () => {
-  openFile(els.fileInput.files[0]);
+  openFiles([...els.fileInput.files]);
   els.fileInput.value = "";
 });
 els.joinLines.addEventListener("change", () => {
@@ -556,14 +662,16 @@ els.togglePreview.addEventListener("click", () => {
 els.ocrEmpty.addEventListener("click", () => ocrPages(state.pages.filter(isEmpty)));
 els.copyAll.addEventListener("click", () => copyWithMessage(allText(), "全ページの文字をコピーしました"));
 els.saveTxt.addEventListener("click", saveText);
+els.savePdf.addEventListener("click", saveSearchable);
+addNextTool({ saveBtn: els.savePdf, save: saveSearchable, kind: "pdf" });
 els.pages.addEventListener("input", () => updateUi());
 
 window.addEventListener("beforeunload", (e) => {
   if (state.pages.some((p) => p.edited)) e.preventDefault();
 });
 
-// Drag & drop a PDF anywhere on the page.
-onFileDrop((files) => openFile(files[0]));
+// Drag & drop a PDF or photos anywhere on the page.
+onFileDrop(openFiles);
 
 // Keeps this tool working without a network once it has been opened.
 registerOffline([
@@ -580,4 +688,4 @@ registerOffline([
 updateUi();
 
 // Hook for automated tests.
-window.__pdfExtract = { readTextLines, state, openFile, ocrPages, allText, joinParagraphs, ocrLines };
+window.__pdfExtract = { readTextLines, state, openFiles, ocrPages, allText, joinParagraphs, ocrLines, photosToPdf, searchablePdf };
