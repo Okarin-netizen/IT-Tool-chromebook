@@ -8,6 +8,7 @@ import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib, loadFontkit } from "../shared/js/pdf-lib.js";
 import { hexToRgb } from "../shared/js/color.js";
 import { canvasToBlob } from "../shared/js/canvas.js";
+import { History } from "../shared/js/history.js";
 
 const FONT_FAMILY = "PdfTextJP";
 const LINE_HEIGHT = 1.25; // must match .tbox line-height in style.css
@@ -20,6 +21,8 @@ const els = {
   imageInput: $("image-input"),
   fontSize: $("font-size"),
   deleteBtn: $("delete-btn"),
+  undoBtn: $("undo-btn"),
+  redoBtn: $("redo-btn"),
   zoomIn: $("zoom-in"),
   zoomOut: $("zoom-out"),
   zoomLabel: $("zoom-label"),
@@ -116,10 +119,12 @@ function resetDocument() {
   state.pdf?.destroy();
   state.pages = [];
   state.hasForm = false;
-  state.items.forEach((item) => item.url && URL.revokeObjectURL(item.url));
+  // Photos taken out are kept for undo until another PDF is opened.
+  for (const record of history.steps.flat()) if (record.item.url) URL.revokeObjectURL(record.item.url);
   state.items = [];
   state.active = null;
   state.dirty = false;
+  history.reset();
   els.pages.replaceChildren();
   updateActiveUi();
 }
@@ -249,7 +254,7 @@ function setScale(scale) {
 /* ---------- text items ---------- */
 
 function addItem(view, x, y) {
-  const item = { type: "text", page: view.num, x, y, size: state.size, color: state.color, text: "" };
+  const item = { id: nextItemId++, type: "text", page: view.num, x, y, size: state.size, color: state.color, text: "" };
 
   const box = document.createElement("div");
   box.className = "titem";
@@ -285,6 +290,7 @@ function addItem(view, x, y) {
   });
   ta.addEventListener("focus", () => setActive(item));
   ta.addEventListener("blur", () => {
+    recordChange(); // leaving the box ends the typing: it becomes one undo step
     // Drop boxes that were opened but never typed into.
     setTimeout(() => {
       if (!item.text.trim() && document.activeElement !== ta) removeItem(item);
@@ -338,9 +344,66 @@ function removeItem(item) {
   if (i === -1) return;
   state.items.splice(i, 1);
   item.box.remove();
-  if (item.url) URL.revokeObjectURL(item.url);
   if (state.active === item) setActive(null);
   if (item.type === "image" || item.text.trim()) state.dirty = true;
+  recordChange();
+}
+
+/* ---------- undo / redo ---------- */
+
+// A step is each item with where it was and what it said; the items and their boxes are reused.
+// Empty text boxes (just opened, nothing typed yet) are left out.
+const history = new History(state, {
+  take: () => state.items
+    .filter((item) => item.type === "image" || item.text.trim())
+    .map((item) => item.type === "text"
+      ? { item, x: item.x, y: item.y, size: item.size, color: item.color, text: item.text }
+      : { item, x: item.x, y: item.y, w: item.w, h: item.h }),
+  apply: restore,
+});
+
+let nextItemId = 1;
+let restoring = false; // taking a focused box away while undoing must not record a step
+const stepKey = (step) => JSON.stringify(step.map(({ item, ...values }) => [item.id, values]));
+
+// Records a new step, unless nothing changed since the last one.
+function recordChange() {
+  if (restoring) return;
+  if (stepKey(history.take()) !== stepKey(history.steps[history.pos])) history.record();
+  updateUndoUi();
+}
+
+function restore(step) {
+  const kept = new Set(step.map((r) => r.item));
+  restoring = true;
+  for (const item of state.items) if (!kept.has(item)) item.box.remove();
+  restoring = false;
+  for (const { item, ...values } of step) {
+    Object.assign(item, values);
+    if (item.type === "text") item.el.value = item.text;
+    if (!item.box.isConnected) state.pages[item.page - 1].layer.append(item.box);
+    layoutItem(item);
+  }
+  state.items = step.map((r) => r.item);
+  if (state.active && !kept.has(state.active)) setActive(null);
+  state.dirty = true;
+}
+
+function undo() {
+  recordChange(); // what was typed in the box that has focus
+  if (history.undo()) showStatus("元に戻しました");
+  updateUndoUi();
+}
+
+function redo() {
+  recordChange();
+  if (history.redo()) showStatus("やり直しました");
+  updateUndoUi();
+}
+
+function updateUndoUi() {
+  els.undoBtn.disabled = !history.canUndo;
+  els.redoBtn.disabled = !history.canRedo;
 }
 
 function setActive(item) {
@@ -386,6 +449,7 @@ function enableDrag(item, handle) {
     if (!start) return;
     start = null;
     focusItem(item);
+    recordChange();
   };
   handle.addEventListener("pointerup", end);
   handle.addEventListener("pointercancel", end);
@@ -466,7 +530,7 @@ async function addImageFile(file) {
 }
 
 function addImageItem(view, img, x, y, w, h) {
-  const item = { type: "image", page: view.num, x, y, w, h, bytes: img.bytes, format: img.format, url: img.url };
+  const item = { id: nextItemId++, type: "image", page: view.num, x, y, w, h, bytes: img.bytes, format: img.format, url: img.url };
 
   const box = document.createElement("div");
   box.className = "titem iitem";
@@ -494,6 +558,7 @@ function addImageItem(view, img, x, y, w, h) {
   state.items.push(item);
   state.dirty = true;
   layoutItem(item);
+  recordChange();
 
   box.addEventListener("focus", () => setActive(item));
   box.addEventListener("keydown", (e) => {
@@ -536,6 +601,7 @@ function enableResize(item, handle) {
     if (!start) return;
     start = null;
     item.box.focus();
+    recordChange();
   };
   handle.addEventListener("pointerup", end);
   handle.addEventListener("pointercancel", end);
@@ -650,6 +716,8 @@ els.imageInput.addEventListener("change", async () => {
 
 els.deleteBtn.addEventListener("pointerdown", (e) => e.preventDefault());
 els.deleteBtn.addEventListener("click", () => state.active && removeItem(state.active));
+els.undoBtn.addEventListener("click", undo);
+els.redoBtn.addEventListener("click", redo);
 
 els.zoomIn.addEventListener("click", () => state.pdf && setScale(clampScale(state.scale * 1.2)));
 els.zoomOut.addEventListener("click", () => state.pdf && setScale(clampScale(state.scale / 1.2)));
@@ -657,9 +725,19 @@ els.saveBtn.addEventListener("click", save);
 addNextTool({ saveBtn: els.saveBtn, save: save, kind: "pdf" });
 
 document.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+  if (!e.ctrlKey && !e.metaKey) return;
+  const key = e.key.toLowerCase();
+  if (key === "s") {
     e.preventDefault();
     save();
+  } else if (e.target.closest("textarea, input, select")) {
+    // Inside a text box, Ctrl+Z undoes the typing there, as usual.
+  } else if (key === "z" && !e.shiftKey) {
+    e.preventDefault();
+    undo();
+  } else if (key === "y" || (key === "z" && e.shiftKey)) {
+    e.preventDefault();
+    redo();
   }
 });
 
@@ -693,4 +771,4 @@ registerOffline([
 ]);
 
 // Hook for automated tests.
-window.__pdfText = { state, openFile, addItem, addImageFile, save, setScale, fontReady };
+window.__pdfText = { state, openFile, addItem, addImageFile, save, setScale, fontReady, undo, redo };
