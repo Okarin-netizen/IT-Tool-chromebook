@@ -12,7 +12,7 @@ const SHARED = [
   "js/offline.js", "js/status.js", "js/files.js", "js/storage.js", "js/pdf.js", "js/font-jp.js",
   "js/zip.js", "js/unzip.js", "js/ink.js", "js/history.js", "js/lazy.js", "js/page-viewer.js", "js/pdf-lib.js", "js/password.js", "js/kv.js", "js/heic.js", "js/handoff.js",
   "js/color.js", "js/canvas.js", "js/dates.js", "js/random.js", "js/clipboard.js", "js/fullscreen.js",
-  "js/sortable.js", "js/imposition.js", "js/markup.js", "js/tools.js",
+  "js/sortable.js", "js/imposition.js", "js/markup.js", "js/tools.js", "js/range.js",
 ].map((f) => new URL(`shared/${f}`, ROOT).href);
 
 function rememberVisit() {

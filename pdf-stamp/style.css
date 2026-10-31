@@ -112,12 +112,11 @@ body {
 .pos-grid {
   margin-left: auto;
   display: grid;
-  grid-template-columns: repeat(3, 28px);
+  grid-template-columns: repeat(3, 28px) 36px;
   grid-template-rows: 22px 22px;
   row-gap: 26px;
   column-gap: 4px;
   padding: 4px;
-  width: 104px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--subtle);
@@ -131,6 +130,10 @@ body {
 }
 .pos:hover { border-color: var(--accent); }
 .pos.selected { background: var(--accent); border-color: var(--accent); }
+/* "Outside" sits apart from the six fixed positions: right on odd pages, left on even ones. */
+.pos.outside { margin-left: 8px; border-style: dashed; }
+.pos.outside.selected { border-style: solid; }
+.help.error { color: #c0392b; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {

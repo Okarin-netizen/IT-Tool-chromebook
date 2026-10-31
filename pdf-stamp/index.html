@@ -54,11 +54,14 @@
               <button type="button" class="pos" data-pos="top-left" title="左上" aria-label="左上"></button>
               <button type="button" class="pos" data-pos="top-center" title="上の中央" aria-label="上の中央"></button>
               <button type="button" class="pos" data-pos="top-right" title="右上" aria-label="右上"></button>
+              <button type="button" class="pos outside" data-pos="top-outside" title="上の外側（奇数ページは右、偶数ページは左）" aria-label="上の外側"></button>
               <button type="button" class="pos" data-pos="bottom-left" title="左下" aria-label="左下"></button>
               <button type="button" class="pos selected" data-pos="bottom-center" title="下の中央" aria-label="下の中央"></button>
               <button type="button" class="pos" data-pos="bottom-right" title="右下" aria-label="右下"></button>
+              <button type="button" class="pos outside" data-pos="bottom-outside" title="下の外側（奇数ページは右、偶数ページは左）" aria-label="下の外側"></button>
             </div>
           </div>
+          <p id="num-outside-help" class="help" hidden>外側：奇数ページは右、偶数ページは左に入ります。両面印刷して綴じても、番号が紙の外側にそろいます。</p>
           <label class="row">大きさ
             <select id="num-size">
               <option value="9">9</option>
@@ -89,7 +92,10 @@
           <label class="row">最初の番号
             <input id="num-start" type="number" value="1" min="0" max="9999" step="1">
           </label>
-          <label class="check-row"><input id="num-skip-first" type="checkbox"> 1ページ目（表紙）には入れない</label>
+          <label class="row">入れるページ
+            <input id="num-range" type="text" inputmode="numeric" placeholder="すべて" autocomplete="off" maxlength="80">
+          </label>
+          <p id="num-range-help" class="help">空なら全部のページ。「2-」で表紙をのぞく、「3-10」で3〜10ページだけ。番号は入れたページだけで数えます。</p>
           <label id="num-scope-row" class="row" hidden title="いくつものPDFを開いたときの番号のつけ方">複数のPDF
             <select id="num-scope">
               <option value="all">通し番号</option>

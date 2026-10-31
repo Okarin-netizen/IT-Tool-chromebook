@@ -336,6 +336,29 @@ const TOOLS = {
       t.expectName(zip, "番号・ヘッダー・透かし入り_2件.zip");
       const names = fixtures.zipNames(zip.bytes);
       t.expect(names.join(",") === "1組_番号・ヘッダー・透かし入り.pdf,2組_番号・ヘッダー・透かし入り.pdf", `ZIPの中身が違う: ${names.join(", ")}`);
+      // Numbers on a range of pages only, counted among themselves, on the outside edge
+      // (right on odd pages, left on even ones).
+      const placed = await t.page.evaluate(() => {
+        const { layoutPage, readSettings } = __pdfStamp;
+        const s = readSettings();
+        s.hf.on = false;
+        s.wm.on = false;
+        s.num = { ...s.num, on: true, format: "{n}/{total}", pos: "bottom-outside", range: "2-4", start: 1, margin: 20 };
+        return [0, 1, 2, 3, 4].map((index) => layoutPage({ index, count: 5, file: "a.pdf" }, 100, 100, s, () => 10)
+          .map((d) => `${d.text}@${d.x}`).join());
+      });
+      t.expect(JSON.stringify(placed) === '["","1/3@20","2/3@70","3/3@20",""]', `範囲・外側の番号が違う: ${JSON.stringify(placed)}`);
+      await t.page.fill("#num-range", "表紙");
+      t.expect(await t.page.isDisabled("#save-btn"), "読めない範囲でも保存できてしまう");
+      await t.page.fill("#num-range", "２〜");
+      await t.until(() => !document.querySelector("#save-btn").disabled);
+      await t.page.click(".pos[data-pos='bottom-outside']");
+      t.expect(await t.page.isVisible("#num-outside-help"), "外側の説明が出ない");
+      await t.shot("range-outside");
+      // Settings saved before page ranges: "1ページ目には入れない" reads as the range "2-".
+      await t.page.evaluate(() => localStorage.setItem("pdf-stamp-settings", JSON.stringify({ numPos: "top-right", numSkipFirst: true })));
+      await t.page.reload();
+      t.expect(await t.page.inputValue("#num-range") === "2-", "保存済みの「1ページ目には入れない」が範囲にならない");
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.pdf("プリント.pdf", 3)]);
