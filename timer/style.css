@@ -15,6 +15,10 @@
 /* Break phases switch the accent to green. */
 body.rest { --accent: #2b8463; --accent-dark: #226b50; }
 body.stopwatch { --accent: #3565c9; --accent-dark: #2a52a8; }
+/* The last minutes of a timer: orange, then red. */
+body.warn { --accent: #d9480f; --accent-dark: #b33c0c; }
+body.urgent { --accent: #e03131; --accent-dark: #c92a2a; }
+body.warn .display, body.urgent .display { color: var(--accent); }
 
 html, body { min-height: 100%; margin: 0; }
 
@@ -124,6 +128,17 @@ body.done .display { animation: blink 1s steps(2, start) infinite; color: var(--
   color: var(--text);
 }
 .check { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.check input { accent-color: var(--accent); }
+.field input.time { width: 120px; }
+
+/* 試験モード: the times are read from the back of the classroom. */
+.exam-board { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 40px; }
+.exam-board div { display: flex; flex-direction: column; align-items: center; }
+.exam-board span { font-size: 14px; color: var(--muted); }
+.exam-board b { font-size: clamp(32px, min(9vw, 8vh), 72px); font-variant-numeric: tabular-nums; line-height: 1.1; }
+body.exam .dial { width: min(52vw, 42vh); }
+/* While a test runs, only the clock, the times and the buttons stay. */
+body.exam.running .presets, body.exam.running .custom { display: none; }
 
 .dots { display: flex; gap: 8px; }
 .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); }
@@ -188,6 +203,7 @@ body.fullscreen .laps,
 body.fullscreen .hint { display: none; }
 body.fullscreen .stage { justify-content: center; }
 body.fullscreen .dial { width: min(90vw, 75vh); }
+body.fullscreen.exam .dial { width: min(60vw, 50vh); }
 
 @media (prefers-color-scheme: dark) {
   :root {
@@ -204,6 +220,8 @@ body.fullscreen .dial { width: min(90vw, 75vh); }
   }
   body.rest { --accent: #6fcf9f; --accent-dark: #8fdcb5; }
   body.stopwatch { --accent: #8fb0f0; --accent-dark: #a9c2f4; }
+  body.warn { --accent: #ffa94d; --accent-dark: #ffc078; }
+  body.urgent { --accent: #ff8787; --accent-dark: #ffa8a8; }
   .btn, .field input { background: #1f2329; }
   .btn:hover:not(:disabled) { background: #3a3f48; }
 }

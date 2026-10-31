@@ -49,6 +49,12 @@
       <div id="display" class="display" role="timer" aria-live="off">25:00</div>
     </div>
 
+    <div id="exam-board" class="exam-board" hidden>
+      <div><span>開始</span><b id="exam-start">--:--</b></div>
+      <div><span>終了</span><b id="exam-end">--:--</b></div>
+      <div><span>いまの時刻</span><b id="exam-now">--:--</b></div>
+    </div>
+
     <!-- タイマー: 時間の設定 -->
     <section id="timer-setup" class="setup" hidden>
       <div class="presets" id="presets"></div>
@@ -57,6 +63,11 @@
         <label class="field"><input id="custom-sec" type="number" min="0" max="59" value="0" inputmode="numeric"> 秒</label>
         <button id="custom-set" class="btn">セット</button>
       </div>
+      <div class="custom">
+        <label class="field" title="この時刻に終わるタイマー（テストの終わりなど）"><input id="until-time" type="time" class="time"> まで</label>
+        <button id="until-set" class="btn">セット</button>
+      </div>
+      <label class="check"><input id="exam-on" type="checkbox"> 試験モード（始まりと終わりの時刻を大きく出す）</label>
     </section>
 
     <div class="controls">
