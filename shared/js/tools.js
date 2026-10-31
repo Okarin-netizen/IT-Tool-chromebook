@@ -16,6 +16,7 @@ export const TOOLS = [
   { id: "image-resize", name: "画像を小さく", takes: ["image"] },
   { id: "image-annotate", name: "画像に書き込み", takes: ["image"] },
   { id: "class-picker", name: "名前ルーレット・班分け" },
+  { id: "class-screen", name: "授業の画面" },
   { id: "qr-maker", name: "QRコード作成" },
   { id: "typing", name: "タイピング練習" },
   { id: "calc", name: "関数電卓・グラフ" },

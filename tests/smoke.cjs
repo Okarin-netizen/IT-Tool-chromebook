@@ -732,6 +732,50 @@ const TOOLS = {
     },
   },
 
+  "class-screen": {
+    async run(t) {
+      // The meter turns red over the line and counts once the room stays loud.
+      const meter = await t.page.evaluate(() => {
+        const { meterFrame, state } = __classScreen;
+        meterFrame(-5, 1000);
+        meterFrame(-5, 1700);
+        const loud = { count: state.overCount, word: document.querySelector("#meter-word").textContent };
+        for (let i = 0; i < 120; i++) meterFrame(-100, 2000 + i * 16);
+        return { loud, mood: document.querySelector("#meter").dataset.mood, level: state.level };
+      });
+      t.expect(meter.loud.count === 1, `線をこえた回数が数えられない: ${meter.loud.count}`);
+      t.expect(meter.level === 0, `静かになってもメーターが下がらない: ${meter.level}`);
+      await t.page.click(".tab[data-mode='signal']");
+      await t.page.click(".light[data-light='0']");
+      await t.page.keyboard.press("3");
+      t.expect(await t.page.getAttribute(".light.green", "aria-checked") === "true", "キーの3で緑にならない");
+      await t.page.click(".signal-words summary");
+      await t.page.fill(".signal-input[data-light='2']", "相談タイム");
+      t.expect(await t.page.textContent(".light.green .light-label") === "相談タイム", "信号の言葉を変えられない");
+      await t.shot("signal");
+      await t.page.click(".tab[data-mode='dice']");
+      await t.page.emulateMedia({ reducedMotion: "reduce" });
+      await t.page.selectOption("#dice-count", "3");
+      await t.page.click("#roll-btn");
+      const dice = await t.page.evaluate(() => ({ values: __classScreen.state.dice, faces: document.querySelectorAll(".die").length, total: document.querySelector("#dice-total").textContent }));
+      const sum = dice.values.reduce((a, b) => a + b, 0);
+      t.expect(dice.faces === 3 && dice.values.every((v) => v >= 1 && v <= 6) && dice.total === `合計 ${sum}`, `サイコロが違う: ${JSON.stringify(dice)}`);
+      await t.page.click(".tab[data-mode='score']");
+      await t.page.selectOption("#score-step", "5");
+      await t.page.click(".team:first-child .btn.primary");
+      await t.page.click(".team:first-child .btn.primary");
+      await t.page.click("#team-add");
+      t.expect(await t.page.textContent(".team:first-child .team-points") === "10", "得点が増えない");
+      await t.shot("score");
+      await t.page.reload();
+      const kept = await t.page.evaluate(() => ({ mode: __classScreen.settings.mode, teams: __classScreen.settings.teams.length, light: __classScreen.settings.light }));
+      t.expect(kept.mode === "score" && kept.teams === 3 && kept.light === 2, `設定が残らない: ${JSON.stringify(kept)}`);
+    },
+    async offline(t) {
+      await t.page.locator("#roll-btn").waitFor({ state: "attached" });
+    },
+  },
+
   "qr-maker": {
     async run(t) {
       await t.page.fill("#text", "https://example.com/アンケート");
