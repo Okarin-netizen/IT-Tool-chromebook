@@ -6,6 +6,8 @@
 //   stamp:  { type, page, kind, text, color, x, y, w, h }
 // plus the tool's own types, which only need x, y, w, h. `page` is the id of a page view.
 
+import { canvasToBlob, pixelRatio } from "./canvas.js";
+
 export const MARKER_FACTOR = 6; // highlighter width = pen width × this
 export const SEAL_COLOR = "#d7261e";
 export const TEXT_FONT = 'system-ui, "Noto Sans JP", sans-serif';
@@ -172,7 +174,7 @@ export function drawItems(ctx, items, drawItem) {
 
 // A small canvas showing `draw` (in units of w × h) fitted into a `box` pixel square.
 export function previewCanvas(draw, w, h, box = 50) {
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = pixelRatio();
   const k = Math.min(box / w, box / h, 2.2);
   const canvas = document.createElement("canvas");
   canvas.width = Math.ceil(w * k * dpr);
@@ -207,7 +209,7 @@ export async function renderInkImage(items, { width, height }, drawItem) {
   const ctx = canvas.getContext("2d");
   ctx.setTransform(k, 0, 0, k, -box.x * k, -box.y * k);
   drawItems(ctx, items, drawItem);
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+  const blob = await canvasToBlob(canvas, "image/png");
   canvas.width = canvas.height = 0;
   return { box, png: new Uint8Array(await blob.arrayBuffer()) };
 }

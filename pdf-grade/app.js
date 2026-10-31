@@ -12,6 +12,8 @@ import { readZip } from "../shared/js/unzip.js";
 import { kvGet, kvSet, kvDelete } from "../shared/js/kv.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
+import { pixelRatio } from "../shared/js/canvas.js";
+import { dateText } from "../shared/js/dates.js";
 
 const SCORE_H = 34; // height of a new score, in page points
 const OUT_SUFFIX = "_採点済";
@@ -527,7 +529,7 @@ const viewer = createPageViewer({
   views: () => state.pages.values(),
   pdfOf: (view) => view.file.pdf,
   onRender: (view) => {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = pixelRatio();
     view.ink.width = Math.floor(view.viewport.width * state.scale * dpr);
     view.ink.height = Math.floor(view.viewport.height * state.scale * dpr);
     renderInk(view);
@@ -817,11 +819,6 @@ function scoreCsv(names) {
   return new TextEncoder().encode(`﻿${rows.map((r) => r.map(csvCell).join(",")).join("\r\n")}\r\n`);
 }
 
-function dateStamp() {
-  const d = new Date();
-  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-}
-
 // Builds every student's PDF in turn and hands each to `write(name, bytes)`.
 async function buildAll(write) {
   await document.fonts.ready;
@@ -835,7 +832,7 @@ async function buildAll(write) {
     await write(names[i], bytes);
   }
   const hasScores = state.files.some(scoreOf);
-  if (hasScores) await write(`点数一覧_${dateStamp()}.csv`, scoreCsv(names));
+  if (hasScores) await write(`点数一覧_${dateText(new Date(), "")}.csv`, scoreCsv(names));
   return { rebuiltCount, hasScores };
 }
 
@@ -871,7 +868,7 @@ const saveZip = () => guarded(async () => {
   const entries = [];
   const result = await buildAll((name, bytes) => entries.push({ name, bytes }));
   showStatus("ZIPにまとめています…", { sticky: true });
-  download(makeZip(entries), `採点済_${dateStamp()}.zip`);
+  download(makeZip(entries), `採点済_${dateText(new Date(), "")}.zip`);
   state.dirty = false;
   showStatus(doneMessage(result, "ZIPで保存", "ダウンロードフォルダを確認してください"));
 });

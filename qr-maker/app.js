@@ -3,6 +3,8 @@ import { download } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { canvasToBlob } from "../shared/js/canvas.js";
+import { copyImage } from "../shared/js/clipboard.js";
 import qrcode from "../shared/vendor/qrcode-generator-2.0.4/qrcode.mjs";
 
 // Never change a key (or the shape of what is saved) once the tool is in use. Add a new key instead.
@@ -95,7 +97,7 @@ function update() {
   els.info.textContent = `${new TextEncoder().encode(text).length}バイト・${n}×${n}マス。スマートフォンのカメラで読み取れるか確かめてから配ってください。`;
 }
 
-const toBlob = () => new Promise((resolve) => els.preview.toBlob(resolve, "image/png"));
+const toBlob = () => canvasToBlob(els.preview, "image/png");
 
 async function save() {
   if (!current) return;
@@ -106,12 +108,8 @@ async function save() {
 
 async function copy() {
   if (!current) return;
-  try {
-    await navigator.clipboard.write([new ClipboardItem({ "image/png": toBlob() })]);
-    showStatus("コピーしました。ドキュメントやスライドに Ctrl+V で貼り付けられます");
-  } catch {
-    showStatus("コピーできませんでした。「PNGで保存」を使ってください", { error: true });
-  }
+  if (await copyImage(toBlob())) showStatus("コピーしました。ドキュメントやスライドに Ctrl+V で貼り付けられます");
+  else showStatus("コピーできませんでした。「PNGで保存」を使ってください", { error: true });
 }
 
 for (const el of [els.text, els.caption]) el.addEventListener("input", update);
