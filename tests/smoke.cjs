@@ -478,6 +478,41 @@ const TOOLS = {
       const [big] = await t.downloads(1);
       const size = (await t.expectPdfPages(big, 2)).getPage(0).getSize();
       t.expect(Math.round(size.width) === 1190 && Math.round(size.height) === 842, `A3横になっていない: ${size.width}×${size.height}`);
+      await t.page.click("input[name=binding][value=left] + span");
+      await t.page.selectOption("#paper", "same");
+
+      // Printers. Settings saved before the choice existed print both sides on the short edge.
+      await t.page.evaluate(() => localStorage.setItem("pdf-booklet-settings-v1", JSON.stringify({ binding: "left", paper: "same", backCover: false })));
+      await t.page.reload();
+      t.expect(await t.page.inputValue("#printer") === "short", "前の設定で、両面・短辺とじになっていない");
+      await t.setFiles("#file-input", [t.pdf("学級通信.pdf", 6)]);
+      await t.until(() => __pdfBooklet.state.sides.length === 4);
+      const turns = (settings, options) => t.page.evaluate(async ([settings, options]) => {
+        const { bytes } = await __pdfBooklet.buildPdf({ binding: "left", paper: "same", backCover: false, ...settings }, options);
+        const { PDFDocument } = window.PDFLib; // loaded by buildPdf
+        return (await PDFDocument.load(bytes)).getPages().map((page) => page.getRotation().angle).join(",");
+      }, [settings, options]);
+      t.expect(await turns({ printer: "short" }) === "0,0,0,0", "短辺とじで回転している");
+      // Long edge: the backs are turned upside down.
+      t.expect(await turns({ printer: "long" }) === "0,180,0,180", `長辺とじで裏が180°回っていない: ${await turns({ printer: "long" })}`);
+      // The test print is the first sheet only: its front and back.
+      t.expect(await turns({ printer: "long" }, { firstSheet: true }) === "0,180", "試し刷りが1枚目の表と裏になっていない");
+      t.expect(await turns({ printer: "single", backTurn: true }, { part: "back" }) === "180,180", "片面の裏をさかさまにできない");
+
+      // One-sided: the fronts and the backs are saved as two PDFs, to print one after the other.
+      await t.page.selectOption("#printer", "single");
+      t.expect(await t.page.isVisible("#back-btn") && await t.page.isVisible("#flip-figure"), "片面のときの裏面のボタンと図が出ない");
+      t.expect((await t.page.textContent("#print-btn")).includes("表面"), "片面のとき、印刷ボタンが表面になっていない");
+      await t.shot("single");
+      await t.page.click("#save-btn");
+      const [front, back] = await t.downloads(2);
+      t.expectName(front, "学級通信_冊子_表.pdf");
+      t.expectName(back, "学級通信_冊子_裏.pdf");
+      await t.expectPdfPages(front, 2);
+      const backDoc = await t.expectPdfPages(back, 2);
+      t.expect(backDoc.getPage(0).getRotation().angle === 0, "片面の裏が、選んでいないのに回っている");
+      t.expect(JSON.parse(await t.page.evaluate(() => localStorage.getItem("pdf-booklet-settings-v1"))).printer === "single", "プリンターの選択が保存されない");
+      await t.page.selectOption("#printer", "short");
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.pdf("学級通信.pdf", 3)]);

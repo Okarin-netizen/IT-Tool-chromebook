@@ -27,7 +27,8 @@
       <span id="file-name" class="file-name"></span>
     </div>
     <div class="group end">
-      <button id="print-btn" class="btn" disabled title="できたPDFを新しいタブで開きます。そこから印刷できます"><svg class="i" aria-hidden="true"><use href="#i-print"/></svg>印刷用に開く</button>
+      <button id="print-btn" class="btn" disabled title="できたPDFを新しいタブで開きます。そこから印刷できます"><svg class="i" aria-hidden="true"><use href="#i-print"/></svg><span id="print-label">印刷用に開く</span></button>
+      <button id="back-btn" class="btn" disabled hidden title="裏面だけのPDFを新しいタブで開きます。表面を刷った紙を入れ直してから印刷します"><svg class="i" aria-hidden="true"><use href="#i-print"/></svg>裏面を印刷用に開く</button>
       <button id="save-btn" class="btn primary" disabled><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>PDFを保存</button>
     </div>
   </header>
@@ -53,6 +54,22 @@
           <p id="paper-help" class="help"></p>
           <label class="check-row"><input id="back-cover" type="checkbox"> 最後のページを裏表紙にする</label>
           <p class="help">ページ数が4の倍数でないときは白紙を足します。ふつうは最後に足し、これを選ぶと最後のページの前に足します。</p>
+        </div>
+      </section>
+
+      <section class="box">
+        <b>プリンター</b>
+        <div class="opts">
+          <label class="row">両面印刷
+            <select id="printer">
+              <option value="short">短辺とじができる</option>
+              <option value="long">長辺とじだけ</option>
+              <option value="single">できない（片面だけ）</option>
+            </select>
+          </label>
+          <p id="printer-help" class="help"></p>
+          <label id="back-turn-row" class="check-row" hidden><input id="back-turn" type="checkbox"> 裏面を上下さかさまにする</label>
+          <button id="test-btn" class="btn small" type="button" disabled title="1枚目の表と裏だけのPDFを開きます。紙の向きを確かめてから全部を刷れます">1枚目だけ試し刷り</button>
         </div>
       </section>
 
@@ -125,11 +142,17 @@
 
       <section class="box how">
         <b>印刷のしかた</b>
-        <ol>
-          <li>「印刷用に開く」で開いたPDFを印刷します（<kbd>Ctrl</kbd>＋<kbd>P</kbd>）。</li>
-          <li><b>両面印刷</b>をオンにして、<b>短辺で綴じる</b>（短辺とじ）を選びます。</li>
-          <li>出てきた紙を順番のまま重ねて半分に折り、折り目をホチキスでとめます。</li>
-        </ol>
+        <ol id="how-steps"></ol>
+        <figure id="flip-figure" class="flip-figure" hidden>
+          <svg viewBox="0 0 220 70" aria-hidden="true">
+            <rect x="6" y="14" width="70" height="44" rx="3"/>
+            <text x="41" y="41">表</text>
+            <path class="arrow" d="M86 30c18-18 40-18 50 0M130 22l6 8 8-5"/>
+            <rect x="144" y="14" width="70" height="44" rx="3" class="back"/>
+            <text x="179" y="41">裏</text>
+          </svg>
+          <figcaption>表を刷った紙の束を裏返して、同じ向きのままトレイに戻します。向きが合わなかったら「裏面を上下さかさまにする」を切りかえます。</figcaption>
+        </figure>
       </section>
     </aside>
 
@@ -140,7 +163,7 @@
         <ol>
           <li>「PDFを開く」を押すか、PDFをここにドラッグします。</li>
           <li>左で、とじる側（横書きは左とじ、縦書きは右とじ）と用紙の大きさを選びます。右に、紙1枚ずつの表と裏が表示されます。ページの順番は、上の一覧でドラッグして変えられます。</li>
-          <li>「印刷用に開く」から両面印刷するか、「PDFを保存」でダウンロードします。</li>
+          <li>「印刷用に開く」から両面印刷するか、「PDFを保存」でダウンロードします。両面印刷の短辺とじができないプリンターでは、左の「プリンター」で選び直してください。「1枚目だけ試し刷り」で向きを先に確かめられます。</li>
         </ol>
         <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。</p>
       </section>

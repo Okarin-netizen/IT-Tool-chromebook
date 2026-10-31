@@ -25,6 +25,15 @@ const els = {
   fileName: $("file-name"),
   saveBtn: $("save-btn"),
   printBtn: $("print-btn"),
+  printLabel: $("print-label"),
+  backBtn: $("back-btn"),
+  testBtn: $("test-btn"),
+  printer: $("printer"),
+  printerHelp: $("printer-help"),
+  backTurnRow: $("back-turn-row"),
+  backTurn: $("back-turn"),
+  howSteps: $("how-steps"),
+  flipFigure: $("flip-figure"),
   viewer: $("viewer"),
   welcome: $("welcome"),
   sheets: $("sheets"),
@@ -72,6 +81,8 @@ function readSettings() {
     binding: bindingInputs.find((el) => el.checked)?.value ?? "left",
     paper: els.paper.value,
     backCover: els.backCover.checked,
+    printer: els.printer.value,
+    backTurn: els.backTurn.checked,
     spine: {
       on: els.spineOn.checked,
       mode: els.spineMode.value,
@@ -89,6 +100,10 @@ function restoreSettings() {
   if (saved.binding) for (const el of bindingInputs) el.checked = el.value === saved.binding;
   if ([...els.paper.options].some((o) => o.value === saved.paper)) els.paper.value = saved.paper;
   els.backCover.checked = !!saved.backCover;
+  // Settings saved before the printer could be chosen print as they did then: both sides,
+  // flipped on the short edge.
+  if ([...els.printer.options].some((o) => o.value === saved.printer)) els.printer.value = saved.printer;
+  els.backTurn.checked = !!saved.backTurn;
   const spine = saved.spine ?? {};
   els.spineOn.checked = !!spine.on;
   const fields = [[els.spineMode, spine.mode], [els.spinePos, spine.pos], [els.spineSubject, String(spine.subject)],
@@ -531,6 +546,9 @@ function syncControls(settings = readSettings()) {
   const ready = !!state.file && !state.busy;
   els.saveBtn.disabled = !ready;
   els.printBtn.disabled = !ready;
+  els.backBtn.disabled = !ready;
+  els.testBtn.disabled = !ready;
+  syncPrinter(settings.printer);
   const first = state.pages[state.order[0]] ?? A4;
   const layout = sheetLayout(first, settings.paper);
   for (const el of bindingInputs) el.disabled = layout.stacked;
@@ -549,8 +567,52 @@ function syncControls(settings = readSettings()) {
   els.summary.hidden = !state.file;
   if (!state.file) return;
   const { total, blanks } = planBooklet(state.order.length, settings);
-  els.summaryText.textContent = `${state.pages.length}ページ → ${sheet}の紙${total / 4}枚（両面）。`
+  const sides = settings.printer === "single" ? "表と裏を1回ずつ" : "両面";
+  els.summaryText.textContent = `${state.pages.length}ページ → ${sheet}の紙${total / 4}枚（${sides}）。`
     + (blanks ? `ページ数を4の倍数にするため、白紙を${blanks}ページ足しました。` : "");
+}
+
+// What to set in the print dialog, and how to put the paper back in, for each kind of printer.
+const PRINTERS = {
+  short: {
+    help: "ふつうの両面印刷です。",
+    steps: [
+      "「印刷用に開く」で開いたPDFを印刷します（<kbd>Ctrl</kbd>＋<kbd>P</kbd>）。",
+      "<b>両面印刷</b>をオンにして、<b>短辺で綴じる</b>（短辺とじ）を選びます。",
+      "出てきた紙を順番のまま重ねて半分に折り、折り目をホチキスでとめます。",
+    ],
+    opened: "新しいタブで開きました。両面印刷・短辺とじで印刷してください",
+  },
+  long: {
+    help: "長辺とじでも正しい向きになるように、裏の面を上下さかさまにしたPDFを作ります。",
+    steps: [
+      "「印刷用に開く」で開いたPDFを印刷します（<kbd>Ctrl</kbd>＋<kbd>P</kbd>）。",
+      "<b>両面印刷</b>をオンにして、<b>長辺で綴じる</b>（長辺とじ）を選びます。",
+      "出てきた紙を順番のまま重ねて半分に折り、折り目をホチキスでとめます。",
+    ],
+    opened: "新しいタブで開きました。両面印刷・長辺とじで印刷してください",
+  },
+  single: {
+    help: "表の面と裏の面を、別々のPDFにします。表を刷った紙を入れ直して、裏を刷ります。",
+    steps: [
+      "「表面を印刷用に開く」で開いたPDFを、片面で印刷します。",
+      "出てきた紙の束を、順番を変えずに裏返してトレイに戻します（下の図）。",
+      "「裏面を印刷用に開く」で開いたPDFを、片面で印刷します。",
+      "紙を順番のまま重ねて半分に折り、折り目をホチキスでとめます。",
+    ],
+    opened: "新しいタブで開きました。片面で印刷してください",
+  },
+};
+
+function syncPrinter(printer) {
+  const single = printer === "single";
+  const info = PRINTERS[printer];
+  els.printerHelp.textContent = `${info.help}はじめは「1枚目だけ試し刷り」で向きを確かめると安心です。`;
+  els.howSteps.innerHTML = info.steps.map((step) => `<li>${step}</li>`).join("");
+  els.printLabel.textContent = single ? "表面を印刷用に開く" : "印刷用に開く";
+  els.backBtn.hidden = !single;
+  els.backTurnRow.hidden = !single;
+  els.flipFigure.hidden = !single;
 }
 
 function update() {
@@ -562,8 +624,10 @@ function update() {
 
 /* ---------- saving ---------- */
 
-async function buildPdf(settings) {
-  const { PDFDocument, rgb } = await loadPdfLib();
+// Which sides of the sheets go into the PDF: "all", or (片面) only the "front" or "back"
+// sides. `firstSheet` keeps only the first sheet, for a test print.
+async function buildPdf(settings, { part = "all", firstSheet = false } = {}) {
+  const { PDFDocument, rgb, degrees } = await loadPdfLib();
   let src = await PDFDocument.load(state.file.bytes, { ignoreEncryption: true });
   const rebuilt = src.isEncrypted;
   if (rebuilt) {
@@ -575,8 +639,14 @@ async function buildPdf(settings) {
   const pages = await embedPages(out, src);
   const layout = sheetLayout(pages[state.order[0]], settings.paper);
   const bands = spineBands(layout, settings.spine);
+  const turnBacks = settings.printer === "long" || (settings.printer === "single" && settings.backTurn);
   for (const [i, slots] of bookletSides(settings).entries()) {
+    const back = i % 2 === 1;
+    if (firstSheet && i > 1) break;
+    if ((part === "front" && back) || (part === "back" && !back)) continue;
     const sheet = out.addPage([layout.width, layout.height]);
+    // A printer that flips the paper on the long edge prints the back upside down.
+    if (back && turnBacks) sheet.setRotation(degrees(180));
     slots.forEach((index, slot) => {
       if (index !== null) placePage(sheet, pages[index], layout.cells[slot]);
     });
@@ -590,15 +660,21 @@ async function buildPdf(settings) {
 }
 
 
-// Builds the booklet PDF; returns { blob, name, rebuilt }, or null when it failed (and said so).
-async function makeBooklet() {
+// File name endings for the parts of the booklet.
+const PART_NAMES = { all: "", front: "_表", back: "_裏" };
+
+// Builds the booklet PDF (see buildPdf for `part`); returns { blob, name, rebuilt }, or null
+// when it failed (and said so).
+async function makeBooklet(part = "all", { firstSheet = false } = {}) {
   if (!state.file || state.busy) return null;
   state.busy = true;
   syncControls();
   showStatus("PDFを作成中…", { sticky: true });
   try {
-    const { bytes, rebuilt } = await buildPdf(readSettings());
-    return { blob: new Blob([bytes], { type: "application/pdf" }), name: `${baseName(state.file.name)}_冊子.pdf`, rebuilt };
+    const { bytes, rebuilt } = await buildPdf(readSettings(), { part, firstSheet });
+    const ending = firstSheet ? "_試し刷り" : PART_NAMES[part];
+    const name = `${baseName(state.file.name)}_冊子${ending}.pdf`;
+    return { blob: new Blob([bytes], { type: "application/pdf" }), name, rebuilt };
   } catch (err) {
     console.error(err);
     showStatus("PDFを作れませんでした", { error: true });
@@ -609,21 +685,27 @@ async function makeBooklet() {
   }
 }
 
+// Saves the booklet: one PDF, or (片面) one for the fronts and one for the backs.
 async function save() {
-  const result = await makeBooklet();
-  if (!result) return;
-  download(result.blob, result.name);
+  const parts = readSettings().printer === "single" ? ["front", "back"] : ["all"];
+  let result;
+  for (const part of parts) {
+    result = await makeBooklet(part);
+    if (!result) return;
+    download(result.blob, result.name);
+  }
   showStatus(result.rebuilt
     ? "保存しました（保護されたPDFは、元のページを画像として保存しています）"
     : "保存しました（ダウンロードフォルダを確認してください）");
 }
 
-// Opens the booklet in a new tab, where Chrome's PDF viewer can print it.
-async function openForPrint() {
+// Opens the booklet (or a part of it, see buildPdf) in a new tab, where Chrome's PDF viewer
+// can print it.
+async function openForPrint(part = "all", { firstSheet = false } = {}) {
   if (!state.file || state.busy) return;
   // The tab is opened right away, while the click still counts, so it is not blocked as a pop-up.
   const tab = window.open("", "_blank");
-  const result = await makeBooklet();
+  const result = await makeBooklet(part, { firstSheet });
   if (!result) {
     tab?.close();
     return;
@@ -636,7 +718,7 @@ async function openForPrint() {
   const url = URL.createObjectURL(result.blob);
   tab.location.href = url;
   setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
-  showStatus("新しいタブで開きました。両面印刷・短辺とじで印刷してください", { ms: 6000 });
+  showStatus(PRINTERS[readSettings().printer].opened, { ms: 6000 });
 }
 
 /* ---------- events ---------- */
@@ -646,11 +728,15 @@ els.fileInput.addEventListener("change", () => {
   els.fileInput.value = "";
 });
 els.saveBtn.addEventListener("click", save);
-els.printBtn.addEventListener("click", openForPrint);
+els.printBtn.addEventListener("click", () => openForPrint(readSettings().printer === "single" ? "front" : "all"));
+els.backBtn.addEventListener("click", () => openForPrint("back"));
+// 片面: the test print holds the front and then the back of the first sheet, to print one
+// at a time.
+els.testBtn.addEventListener("click", () => openForPrint("all", { firstSheet: true }));
 els.orderReset.addEventListener("click", () => setOrder(state.pages.map((_, i) => i)));
 addNextTool({ saveBtn: els.saveBtn, save, kind: "pdf" });
 const settingInputs = [
-  ...bindingInputs, els.paper, els.backCover,
+  ...bindingInputs, els.paper, els.backCover, els.printer, els.backTurn,
   els.spineOn, els.spineMode, els.spinePos, els.spineSubject, els.spineGrade, els.spineColor, els.spineWidth,
 ];
 for (const el of settingInputs) el.addEventListener("change", update);
