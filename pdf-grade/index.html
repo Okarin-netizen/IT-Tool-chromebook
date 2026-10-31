@@ -18,7 +18,9 @@
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
     <symbol id="i-down" viewBox="0 0 24 24"><path d="M5 9l7 7 7-7"/></symbol>
     <symbol id="i-eraser" viewBox="0 0 24 24"><path d="M5 15l9-9 5 5-8 8H9z"/><path d="M9 11l5 5M9 19h11"/></symbol>
+    <symbol id="i-focus" viewBox="0 0 24 24"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/><rect x="8" y="9" width="8" height="6"/></symbol>
     <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-hide" viewBox="0 0 24 24"><path d="M3 12s3-6 9-6 9 6 9 6-3 6-9 6-9-6-9-6z"/><circle cx="12" cy="12" r="2.5"/><path d="M4 4l16 16"/></symbol>
     <symbol id="i-marker" viewBox="0 0 24 24"><path d="M14 4l6 6-8 8H6v-6z"/><path d="M4 21h9"/></symbol>
     <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 19V6a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v2"/><path d="M4 19l3-8h14l-3 8z"/></symbol>
     <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/></symbol>
@@ -124,6 +126,8 @@
     <div class="group" role="group" aria-label="提出者の移動">
       <button id="prev-btn" class="btn" disabled title="前の人へ (Shift+N)"><svg class="i" aria-hidden="true"><use href="#i-up"/></svg>前の人</button>
       <button id="next-btn" class="btn" disabled title="次の人へ (N)"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>次の人</button>
+      <button id="focus-btn" class="btn" disabled aria-pressed="false" title="問題の部分を囲むと、全員の同じ場所を続けて表示して1問ずつ採点できます"><svg class="i" aria-hidden="true"><use href="#i-focus"/></svg><span id="focus-label">設問ごと</span></button>
+      <button id="anon-btn" class="btn" aria-pressed="false" title="採点中は名前を番号に置きかえて隠す（保存するファイル名はそのまま）"><svg class="i" aria-hidden="true"><use href="#i-hide"/></svg>名前を隠す</button>
     </div>
 
     <div class="group end">
@@ -156,6 +160,7 @@
         <ol>
           <li>「PDFを追加」で提出されたPDFをまとめて選びます（Ctrl+A で全部選べます）。PDFの入ったZIPや「フォルダ」、ドラッグでもOKです。</li>
           <li>全員のPDFが名前順に縦につながって表示されます。左の一覧や「次の人」で移動できます。</li>
+          <li>1問ずつ全員を採点したいときは「設問ごと」を押して問題の部分を囲むと、全員の同じ場所だけが続けて出ます。「名前を隠す」で名前を番号にできます（保存するファイル名はそのままです）。</li>
           <li>「ペン」で書き込み、「記号」で ○ × ✓ 花丸 や「済」「よくできました」などを押します。</li>
           <li>「点数」で点数の場所をクリックして数字を入力します（1人に1つ）。設問ごとの点も置けて、合計は自動で出ます。「コメント」でよく使う言葉を選んで置けます。「文字」で自由に書くこともできます。</li>
           <li>「まとめて保存」で、1人ずつのPDF（<code>元の名前_採点済.pdf</code>）と点数一覧（CSV）を1つのZIPにして保存します。</li>

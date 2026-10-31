@@ -5,7 +5,7 @@ import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { History } from "../shared/js/history.js";
 import {
-  TEXT_FONT, textWidth, drawStroke, drawStamp, hits, renderInkImage, createInkEditor,
+  TEXT_FONT, textWidth, drawStroke, drawStamp, hits, renderInkImage, createInkEditor, trackPointer,
 } from "../shared/js/ink.js";
 import { createStamps, createMenus, syncToolbar, bindToolbar } from "../shared/js/markup.js";
 import { makeZip } from "../shared/js/zip.js";
@@ -57,6 +57,9 @@ const els = {
   zoomLabel: $("zoom-label"),
   prevBtn: $("prev-btn"),
   nextBtn: $("next-btn"),
+  focusBtn: $("focus-btn"),
+  focusLabel: $("focus-label"),
+  anonBtn: $("anon-btn"),
   folderSaveBtn: $("folder-save-btn"),
   saveBtn: $("save-btn"),
   filesCount: $("files-count"),
@@ -99,6 +102,11 @@ const state = {
   comment: "", // the comment the comment tool places
   scale: 1,
   dirty: false,
+  // Grading one question across everyone: only this part of this page is shown, in page
+  // points ({ num, x, y, w, h }), or null for whole PDFs.
+  focus: null,
+  anonymous: false, // names on screen are replaced by numbers (saved files keep them)
+  toolBeforeArea: "pen", // the tool to go back to once the question's area is chosen
 };
 let nextId = 1;
 
@@ -343,6 +351,8 @@ function showFiles(added) {
   const wasEmpty = state.files.length === added;
   if (added) setScale(wasEmpty ? viewer.fitWidthScale() : state.scale);
   if (wasEmpty && added) els.viewer.scrollTop = 0;
+  showNames();
+  applyFocus();
   refreshAllRows();
   updateCurrent();
   updateUi();
@@ -436,7 +446,6 @@ function buildFileView(file) {
 function buildDocSection(file) {
   const title = document.createElement("span");
   title.className = "doc-title";
-  title.textContent = file.name;
   const score = document.createElement("span");
   score.className = "doc-score";
   const head = document.createElement("div");
@@ -447,13 +456,12 @@ function buildDocSection(file) {
   const section = document.createElement("section");
   section.className = "doc";
   section.append(head, pages);
-  Object.assign(file, { section, head, headScore: score, pagesEl: pages });
+  Object.assign(file, { section, head, headTitle: title, headScore: score, pagesEl: pages });
 }
 
 function buildFileRow(file) {
   const name = document.createElement("span");
   name.className = "file-name";
-  name.textContent = baseName(file.name);
   const meta = document.createElement("span");
   meta.className = "file-meta";
   const jump = document.createElement("button");
@@ -472,6 +480,7 @@ function buildFileRow(file) {
   row.className = "file-row";
   row.append(jump, dl, del);
   file.row = row;
+  file.rowName = name;
   file.rowMeta = meta;
 }
 
@@ -501,11 +510,10 @@ function createPageView(file, num, viewport) {
   selbox.append(resize);
   const label = document.createElement("div");
   label.className = "page-num";
-  label.textContent = `${baseName(file.name)}　${num} / ${file.pdf.numPages}`;
   el.append(canvas, ink, selbox, label);
   file.pagesEl.append(el);
 
-  const view = { id: nextId++, file, num, viewport, el, canvas, ink, selbox, rendered: false, task: null };
+  const view = { id: nextId++, file, num, viewport, el, canvas, ink, selbox, label, rendered: false, task: null };
   ink.addEventListener("pointerdown", (e) => onPointerDown(e, view));
   ink.addEventListener("dblclick", (e) => onDoubleClick(e, view));
   resize.addEventListener("pointerdown", (e) => editor.onResizeDown(e, view));
@@ -527,6 +535,7 @@ function removeFile(file) {
   file.section.remove();
   file.row.remove();
   state.files = state.files.filter((f) => f !== file);
+  showNames();
   autosaveOn = true;
   state.items = state.items.filter((i) => state.pages.has(i.page));
   // Undo steps could bring back ink for pages that are gone, so start the history over.
@@ -580,7 +589,9 @@ function toggleFiles(show = !document.body.classList.contains("show-files")) {
 }
 
 function updateCurrent() {
-  const top = els.viewer.scrollTop + els.viewer.clientHeight * 0.3;
+  // Answers boxed by question are short, so several fit in the top part of the screen: then
+  // the one at the very top is the current one.
+  const top = els.viewer.scrollTop + (state.focus ? 40 : els.viewer.clientHeight * 0.3);
   let current = state.files[0] ?? null;
   for (const file of state.files) {
     if (file.section.offsetTop <= top) current = file;
@@ -623,7 +634,10 @@ const viewer = createPageViewer({
     renderInk(view);
   },
   onRelease: (view) => (view.ink.width = view.ink.height = 0),
-  onScale: (view) => editor.updateSelbox(view),
+  onScale: (view) => {
+    editor.updateSelbox(view);
+    focusView(view);
+  },
 });
 
 function setScale(scale) {
@@ -641,7 +655,9 @@ function onPointerDown(e, view) {
   const [x, y] = point;
   const tolerance = 4 / state.scale;
 
-  if (state.tool === "pen" || state.tool === "marker") {
+  if (state.tool === "area") {
+    chooseAreaFrom(e, view, point);
+  } else if (state.tool === "pen" || state.tool === "marker") {
     editor.drawStrokeFrom(e, view, point);
   } else if (state.tool === "eraser") {
     editor.eraseFrom(e, view, point);
@@ -714,6 +730,106 @@ function newQscore(view, x, y) {
 function setNextQ(q) {
   state.nextQ = Math.max(1, Math.min(99, Math.round(q) || 1));
   els.qNext.value = state.nextQ;
+}
+
+/* ---------- names and grading by question ---------- */
+
+// What a student is called on screen: their file name, or only a number while names are hidden.
+function displayName(file, full = false) {
+  if (state.anonymous) return `${state.files.indexOf(file) + 1}番`;
+  return full ? file.name : baseName(file.name);
+}
+
+function showNames() {
+  for (const file of state.files) {
+    file.headTitle.textContent = displayName(file, true);
+    file.rowName.textContent = displayName(file);
+    for (const view of file.views) view.label.textContent = `${displayName(file)}　${view.num} / ${file.pdf.numPages}`;
+  }
+}
+
+function setAnonymous(on) {
+  state.anonymous = on;
+  els.anonBtn.setAttribute("aria-pressed", String(on));
+  els.anonBtn.classList.toggle("selected", on);
+  showNames();
+}
+
+// Dragging out a box on one page picks the question: that part of that page is then shown
+// for every student, one after another.
+function chooseAreaFrom(e, view, [x0, y0]) {
+  e.preventDefault();
+  const box = document.createElement("div");
+  box.className = "area-box";
+  view.el.append(box);
+  let rect = { x: x0, y: y0, w: 0, h: 0 };
+  const { width: W, height: H } = view.viewport;
+  trackPointer(e, (ev) => editor.pagePoint(ev, view), ([x, y]) => {
+    x = Math.max(0, Math.min(W, x));
+    y = Math.max(0, Math.min(H, y));
+    rect = { x: Math.min(x0, x), y: Math.min(y0, y), w: Math.abs(x - x0), h: Math.abs(y - y0) };
+    const s = state.scale;
+    Object.assign(box.style, { left: `${rect.x * s}px`, top: `${rect.y * s}px`, width: `${rect.w * s}px`, height: `${rect.h * s}px` });
+  }, (cancelled) => {
+    box.remove();
+    if (cancelled || rect.w < 10 || rect.h < 10) {
+      showStatus("問題の部分を、ドラッグで四角く囲んでください");
+      return;
+    }
+    setFocus({ num: view.num, ...rect }, view.file);
+  });
+}
+
+function setFocus(focus, keep = state.current) {
+  state.focus = focus;
+  document.body.classList.toggle("focus-mode", !!focus);
+  applyFocus();
+  if (state.tool === "area") setTool(state.toolBeforeArea, { hint: false });
+  updateUi();
+  if (keep) scrollToFile(keep);
+  if (focus) showStatus(`全員の ${focus.num}ページの同じ場所を続けて表示しています。「次の人」(N) で進めて採点できます`);
+}
+
+function applyFocus() {
+  for (const view of state.pages.values()) focusView(view);
+}
+
+// Shows only the chosen part of the chosen page, centred; the rest of the page is clipped
+// away and takes no room.
+function focusView(view) {
+  const f = state.focus;
+  const style = view.el.style;
+  if (!f) {
+    style.display = style.clipPath = style.marginTop = style.marginBottom = style.left = "";
+    return;
+  }
+  if (view.num !== f.num) {
+    style.display = "none";
+    return;
+  }
+  const s = state.scale;
+  const { width: W, height: H } = view.viewport;
+  // A page smaller than the chosen box shows what it has.
+  const x = Math.min(f.x, W), y = Math.min(f.y, H);
+  const right = Math.max(0, W - x - f.w), bottom = Math.max(0, H - y - f.h);
+  style.display = "";
+  style.clipPath = `inset(${y * s}px ${right * s}px ${bottom * s}px ${x * s}px)`;
+  style.marginTop = `${-y * s}px`;
+  style.marginBottom = `${-bottom * s}px`;
+  style.left = `${(W / 2 - (x + (W - x - right)) / 2) * s}px`;
+}
+
+function toggleFocus() {
+  commitEditor();
+  if (state.focus) {
+    setFocus(null);
+    showStatus("PDF全体の表示に戻しました");
+  } else if (state.tool === "area") {
+    setTool(state.toolBeforeArea);
+  } else {
+    state.toolBeforeArea = state.tool;
+    setTool("area");
+  }
 }
 
 /* ---------- the comment bank ---------- */
@@ -852,6 +968,7 @@ function hintForTool() {
     case "score": return "点数を入れたい場所をクリックして数字を入力し、Enter（1人に1つ。設問の点があるときは合計が入ります）";
     case "qscore": return `設問の横をクリックして点を入力し、Enter（次は問${state.nextQ}）`;
     case "comment": return `置きたい場所をクリックしてください（${state.comment}）`;
+    case "area": return "採点したい問題の部分を、ドラッグで四角く囲んでください（全員の同じ場所が続けて出ます）";
     default: return "書いたものをドラッグして動かせます。文字・点数はダブルクリックで書き直し";
   }
 }
@@ -880,6 +997,11 @@ function updateUi() {
   const open = state.files.length > 0;
   syncToolbar(els, state, history, open);
   els.scoreBtn.classList.toggle("selected", state.tool === "score" || state.tool === "qscore");
+  const focusing = !!state.focus || state.tool === "area";
+  els.focusBtn.classList.toggle("selected", focusing);
+  els.focusBtn.setAttribute("aria-pressed", String(focusing));
+  els.focusBtn.disabled = !open;
+  els.focusLabel.textContent = state.focus ? "全体に戻す" : "設問ごと";
   els.saveBtn.disabled = !open || saving;
   els.folderSaveBtn.disabled = !open || saving;
   scheduleAutosave();
@@ -1113,6 +1235,8 @@ els.zoomIn.addEventListener("click", () => state.files.length && setScale(clampS
 els.zoomOut.addEventListener("click", () => state.files.length && setScale(clampScale(state.scale / 1.2)));
 els.prevBtn.addEventListener("click", () => stepFile(-1));
 els.nextBtn.addEventListener("click", () => stepFile(1));
+els.focusBtn.addEventListener("click", toggleFocus);
+els.anonBtn.addEventListener("click", () => setAnonymous(!state.anonymous));
 els.saveBtn.addEventListener("click", saveZip);
 els.resumeBtn.addEventListener("click", resumeSession);
 els.discardBtn.addEventListener("click", () => {
@@ -1161,6 +1285,7 @@ document.addEventListener("keydown", (e) => {
   } else if (e.key === "Escape") {
     closeMenus();
     select(null);
+    if (state.tool === "area") setTool(state.toolBeforeArea);
   } else if (key === "n") {
     stepFile(e.shiftKey ? -1 : 1);
   } else if (SHORTCUTS[key]) {
@@ -1201,4 +1326,4 @@ document.fonts.ready.then(renderStampChoices);
 offerResume();
 
 // Hook for automated tests.
-window.__pdfGrade = { state, addFiles, buildPdf, saveZip, setScale, setTool, undo, redo, commit, renderInk, stepFile, autosave, resumeSession, scoreCsv };
+window.__pdfGrade = { state, addFiles, buildPdf, saveZip, setScale, setTool, undo, redo, commit, renderInk, stepFile, autosave, resumeSession, scoreCsv, setFocus, setAnonymous };
