@@ -716,9 +716,16 @@ const TOOLS = {
       const sizes = await t.page.$$eval(".group-card ul", (uls) => uls.map((u) => u.children.length).join());
       t.expect(sizes === "3,2,2", `班の人数が違う: ${sizes}`);
       await t.shot("groups");
-      // The roster is kept for the next lesson.
+      await seatChange(t);
+      // The roster is kept for the next lesson, and so are the seats.
       await t.page.reload();
       t.expect((await t.page.inputValue("#names")).split("\n").length === 7, "名簿が保存されていない");
+      t.expect(await t.page.evaluate(() => __classPicker.store.lists[0].seats.plan.filter(Boolean).length) === 7, "席が保存されていない");
+      // A roster saved before 席替え existed opens with the default classroom.
+      await t.page.evaluate(() => localStorage.setItem("class-picker-v1", JSON.stringify({ lists: [{ title: "1組", names: "青木\n井上", picked: [] }], current: 0, noRepeat: true })));
+      await t.page.reload();
+      const old = await t.page.evaluate(() => ({ names: __classPicker.names().length, seats: __classPicker.store.lists[0].seats }));
+      t.expect(old.names === 2 && old.seats.cols === 6 && old.seats.rows === 6 && !old.seats.plan.length, `前の版の名簿が開けない: ${JSON.stringify(old)}`);
     },
     async offline(t) {
       await t.page.locator("#spin-btn").waitFor();
@@ -857,6 +864,59 @@ const TOOLS = {
     },
   },
 };
+
+// 席替え with conditions: the conditions hold every time, seats can be swapped and taken out of
+// use, and the chart turns around for the teacher's desk. 班分け keeps the pair apart too.
+async function seatChange(t) {
+  await t.page.click("#conditions summary");
+  await t.page.fill("#front-names", "青木\n大野");
+  await t.page.fill("#apart-pairs", "井上 上田\n加藤、木村");
+  await t.page.click(".tab[data-mode='seats']");
+  await t.page.fill("#seat-cols", "4");
+  await t.page.dispatchEvent("#seat-cols", "change");
+  await t.page.fill("#seat-rows", "2");
+  await t.page.dispatchEvent("#seat-rows", "change");
+  await t.page.fill("#seat-front", "1");
+  await t.page.dispatchEvent("#seat-front", "change");
+  await t.page.click("#seat-unused");
+  await t.page.click(".seat[data-seat='7']");
+  await t.page.click("#seat-unused");
+  await t.page.click("#seat-btn");
+  const plan = await t.page.evaluate(() => __classPicker.store.lists[0].seats.plan);
+  t.expect(plan.filter(Boolean).length === 7 && !plan[7], `7人が使える席に座っていない: ${plan}`);
+  const checks = await t.page.evaluate(() => {
+    const { arrangeSeats, splitGroups, seatProblems, names } = __classPicker;
+    const options = { cols: 4, rows: 2, frontRows: 1, unused: [7], front: ["青木", "大野"], apart: [["井上", "上田"], ["加藤", "木村"]] };
+    let seatFails = 0;
+    let groupFails = 0;
+    for (let k = 0; k < 200; k++) {
+      const { plan, ok } = arrangeSeats(names(), options);
+      const p = seatProblems(plan, options);
+      if (!ok || p.apart.length || p.front.length || plan.filter(Boolean).length !== 7) seatFails++;
+      if (splitGroups(names(), "count", 3, options.apart).broken.length) groupFails++;
+    }
+    // Five people for four front seats cannot all sit in front: the best plan is returned and says so.
+    const tight = arrangeSeats(names(), { ...options, front: ["青木", "大野", "江藤", "加藤", "木村"] }, 50);
+    const full = arrangeSeats([...names(), "追加1", "追加2"], options);
+    return { seatFails, groupFails, tight: tight.ok === false && tight.problems.front.length === 1, full };
+  });
+  t.expect(checks.seatFails === 0, `条件を満たさない席替えがあった: ${checks.seatFails}/200回`);
+  t.expect(checks.groupFails === 0, `離したい2人が同じ班になった: ${checks.groupFails}/200回`);
+  t.expect(checks.tight, "満たせない条件のとき、いちばん近い並びと守れなかった条件が返らない");
+  t.expect(checks.full === null, "席より人が多いのに席替えできてしまう");
+  // Swapping two seats.
+  const [a, b] = [plan[0], plan[5]];
+  await t.page.click(".seat[data-seat='0']");
+  await t.page.click(".seat[data-seat='5']");
+  const swapped = await t.page.evaluate(() => __classPicker.store.lists[0].seats.plan);
+  t.expect(swapped[0] === b && swapped[5] === a, "席を入れかえられない");
+  await t.page.selectOption("#seat-view", "teacher");
+  const first = await t.page.$eval("#seat-grid .seat", (el) => el.dataset.seat);
+  t.expect(first === "7", `教卓から見た向きで、いちばん後ろの右が最初にならない: ${first}`);
+  t.expect(!(await t.page.isDisabled("#seat-print")), "席を決めたのに印刷できない");
+  await t.shot("seats");
+  await t.page.selectOption("#seat-view", "students");
+}
 
 // Question scores count up 問1, 問2, …, their sum goes into the score, and the CSV gets a
 // column for each question. Another student starts again at 問1.
