@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 外部への通信をブラウザの仕組みで禁止する（動画やデータが外に出ないことを保証） -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file: blob: 'unsafe-eval' 'wasm-unsafe-eval'; worker-src 'self' blob:; manifest-src 'self'; connect-src data: blob:; img-src 'self' file: data: blob:; media-src blob:; style-src 'self' file: 'unsafe-inline'; font-src 'self' file: data:; form-action 'none'; base-uri 'none'">
+<title>かおかくし</title>
+<meta name="description" content="動画に写った顔を自動で見つけて、モザイク・ぼかし・目線を入れたMP4を作ります。">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#c2571a">
+<link rel="stylesheet" href="../shared/css/base.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<svg class="sprite" aria-hidden="true">
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M3 15h18M8 5v4M16 5v4M8 15v4M16 15v4"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+  <symbol id="i-step-back" viewBox="0 0 24 24"><path d="M6 5v14M18 6l-8 6 8 6z"/></symbol>
+  <symbol id="i-step-fwd" viewBox="0 0 24 24"><path d="M18 5v14M6 6l8 6-8 6z"/></symbol>
+</svg>
+<header class="toolbar">
+  <div class="group">
+    <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+    <span class="app-title">かおかくし</span>
+    <span class="sub">動画に写った顔へ自動でモザイク・ぼかし・目線を入れる</span>
+  </div>
+  <div class="group end">
+    <button class="offline" id="offlineBadge" title="このアプリはインターネットと通信しません">
+      <svg class="i" aria-hidden="true"><use href="#i-lock"/></svg><span><strong>オフラインで動作中</strong><small id="offlineSub">外部への通信はブロックされています</small></span>
+    </button>
+    <div class="ai-status" id="aiStatus"><span class="dot"></span><span id="aiStatusText">AIを準備しています…</span></div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="side">
+    <section class="card safe" aria-label="安心して使うために">
+      <h2><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg>安心して使うために</h2>
+      <ul>
+        <li>動画は<strong>このパソコンの中だけ</strong>で処理します。インターネットには送りません。</li>
+        <li>見つけた顔の位置などのデータは保存しません。アプリを閉じると消えます。</li>
+        <li>Wi-Fiを切ったりLANケーブルを抜いたりしても、そのまま使えます。</li>
+        <li>名札や顔を隠すなど、<strong>子どもを守るため</strong>の道具です。</li>
+      </ul>
+      <a href="#" id="safeLink">くわしい説明を読む</a>
+    </section>
+    <section class="card">
+      <h2><span class="num">1</span>動画を選ぶ</h2>
+      <label class="drop" id="drop">
+        <input type="file" id="fileInput" accept="video/*,.mp4,.mov,.m4v,.webm,.mkv" hidden>
+        <strong>ここをクリック</strong>またはドラッグ＆ドロップ<br><small>MP4 / MOV（iPhone）/ WebM など</small>
+      </label>
+      <div class="vinfo" id="videoInfo" hidden></div>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">2</span>顔を探す</h2>
+      <div class="field">
+        <label>探し方
+          <select id="scanMode">
+            <option value="fast">速い（大きく写った顔向け）</option>
+            <option value="normal" selected>ふつう</option>
+            <option value="small">小さい顔も（集合・遠くの人、時間がかかります）</option>
+          </select></label>
+      </div>
+      <div class="field">
+        <label>見つける感度
+          <select id="sensitivity">
+            <option value="0.6">ひかえめ（顔以外を間違えにくい）</option>
+            <option value="0.45" selected>ふつう</option>
+            <option value="0.32">たくさん（見逃しにくい）</option>
+          </select></label>
+      </div>
+      <label class="check"><input type="checkbox" id="everyOther"> 1コマおきに調べて時間を短くする</label>
+      <button class="btn primary block" id="scanBtn" disabled>顔を探す</button>
+      <p class="hint" id="scanInfo">動画を選んでから押してください。</p>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">3</span>隠し方</h2>
+      <div class="seg" id="methodSeg">
+        <button class="seg-btn active" data-method="mosaic">モザイク</button>
+        <button class="seg-btn" data-method="blur">ぼかし</button>
+        <button class="seg-btn" data-method="eyebar">目線</button>
+        <button class="seg-btn" data-method="fill">塗りつぶし</button>
+      </div>
+      <div class="field">
+        <label>強さ <output id="strengthOut">3</output>
+          <input type="range" id="strength" min="1" max="5" step="1" value="3"></label>
+      </div>
+      <div class="field two">
+        <label>隠す範囲
+          <select id="area">
+            <option value="1.15">顔だけ</option>
+            <option value="1.45" selected>頭まで</option>
+            <option value="1.8">広め</option>
+          </select></label>
+        <label>形
+          <select id="shape">
+            <option value="ellipse" selected>だ円</option>
+            <option value="rect">四角</option>
+          </select></label>
+      </div>
+      <div class="field" id="colorField">
+        <label>色（目線・塗りつぶし）
+          <input type="color" id="fillColor" value="#000000"></label>
+      </div>
+      <p class="hint">名札やゼッケンなどは、プレビューの上の「範囲を追加」で四角く隠せます。</p>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">4</span>書き出す</h2>
+      <div class="field two">
+        <label>大きさ
+          <select id="outSize">
+            <option value="0" selected>元のまま</option>
+            <option value="1080">フルHD（1080）まで</option>
+            <option value="720">HD（720）まで</option>
+          </select></label>
+        <label>画質
+          <select id="outQuality">
+            <option value="high" selected>きれい</option>
+            <option value="medium">ふつう（ファイル小）</option>
+          </select></label>
+      </div>
+      <label class="check"><input type="checkbox" id="dropAudio"> 音声を消す（声で人がわかる場合など）</label>
+      <button class="btn primary block" id="exportBtn" disabled>モザイク入りの動画を保存（MP4）</button>
+      <p class="hint" id="exportInfo">顔を探したあとで保存できます。</p>
+    </section>
+
+    <p class="foot">© 2026 技術 岡田　MITライセンス　<a href="#" id="aboutLink">このアプリについて・変更履歴</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="viewbar">
+      <span class="ptitle" id="vTitle">動画が選ばれていません</span>
+      <span class="spacer"></span>
+      <label class="check"><input type="checkbox" id="showBoxes" checked> 顔の枠を表示</label>
+      <label class="check"><input type="checkbox" id="showOriginal"> 加工前を表示</label>
+      <button class="btn small" id="addMaskBtn" disabled title="プレビューの上をドラッグして、隠す四角を追加します">＋ 範囲を追加</button>
+    </div>
+    <div class="stage" id="stage">
+      <div class="empty" id="emptyMsg">
+        <div class="empty-icon"><svg class="i" aria-hidden="true"><use href="#i-film"/></svg></div>
+        <p>左の「1 動画を選ぶ」から動画を読み込んでください。<br>動画はこのパソコンの中だけで処理され、外へ送られることはありません。</p>
+      </div>
+      <canvas id="view" hidden></canvas>
+      <video id="video" playsinline preload="auto"></video>
+    </div>
+    <div class="transport" id="transport">
+      <button class="btn small" id="prevFrame" title="1コマ戻る（←キー）" disabled aria-label="1コマ戻る"><svg class="i" aria-hidden="true"><use href="#i-step-back"/></svg></button>
+      <button class="btn small primary" id="playBtn" title="再生／一時停止（スペースキー）" disabled><svg class="i" aria-hidden="true"><use href="#i-play"/></svg><span>再生</span></button>
+      <button class="btn small" id="nextFrame" title="1コマ進む（→キー）" disabled aria-label="1コマ進む"><svg class="i" aria-hidden="true"><use href="#i-step-fwd"/></svg></button>
+      <input type="range" id="seek" min="0" max="1000" value="0" step="1" disabled>
+      <span class="time" id="timeLabel">0:00.0 / 0:00.0</span>
+    </div>
+    <div class="lists">
+      <section class="listbox">
+        <div class="listhead"><strong>見つかった顔</strong> <span class="badge" id="trackCount">0</span>
+          <span class="spacer"></span>
+          <button class="btn small ghost" id="hideAll" disabled>すべて隠す</button>
+          <button class="btn small ghost" id="showAll" disabled>すべて隠さない</button>
+        </div>
+        <p class="hint inline">チェックを外した顔は隠しません（本人の了解がある先生など）。顔をクリックするとその場面へ移動します。プレビューの顔を直接クリックしても切り替えられます。</p>
+        <div class="tracks" id="trackList"></div>
+      </section>
+      <section class="listbox narrow">
+        <div class="listhead"><strong>追加した範囲</strong> <span class="badge" id="maskCount">0</span></div>
+        <p class="hint inline">「範囲を追加」で描いた四角です。隠す時間を秒で変えられます。</p>
+        <div id="maskList"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="busy" id="busy" hidden>
+  <div class="busy-box">
+    <div class="spinner"></div>
+    <p id="busyText">処理中…</p>
+    <div class="bar"><span id="busyBar"></span></div>
+    <canvas id="busyPreview" class="busy-preview" hidden></canvas>
+    <button class="btn small" id="busyCancel">中止</button>
+  </div>
+</div>
+
+<dialog id="aboutDialog">
+  <form method="dialog" class="about">
+    <h3>かおかくし <small class="ver">v1.0.2</small></h3>
+    <p>動画に写っている顔を自動で見つけて、モザイク・ぼかし・目線・塗りつぶしを入れた動画（MP4）を作るアプリです。インストールは不要で、Chromebook便利ツールの1つとして、ブラウザ（Chrome / Edge）で開くだけで動きます。一度開けば、インターネットにつながっていなくても使えます。</p>
+    <table class="info">
+      <tr><th>作者</th><td>技術 岡田</td></tr>
+      <tr><th>著作権</th><td>© 2026 技術 岡田</td></tr>
+      <tr><th>ライセンス</th><td>MITライセンス（作者名を残せば、配布・改変は自由です）</td></tr>
+      <tr><th>バージョン</th><td>1.0.1（2026年11月3日）</td></tr>
+    </table>
+
+    <h4>安心して使っていただくために</h4>
+    <p><strong>動画はインターネットに送られません。</strong>読み込み・顔の検出・加工・保存は、すべてこのパソコンのブラウザの中で行います。写真や動画を受け取るサーバーはありません。インターネット上のページ（GitHub Pages）から開いた場合も同じで、届くのはアプリのプログラムだけです。</p>
+    <p><strong>顔のデータは残りません。</strong>見つけた顔の位置はメモリの中だけで使い、ファイルにもインターネットにも保存しません。アプリを閉じると消えます。だれの顔かを見分ける機能はありません。</p>
+    <p><strong>自分で確かめられます。</strong>アプリを開いたあとでWi-Fiを切るか、LANケーブルを抜いてください。そのまま最後まで使えれば、通信していない証拠です。ブラウザの設定（コンテンツ セキュリティ ポリシー）で外部への通信も禁止しており、右上の「オフラインで動作中」がその状態を表しています。</p>
+    <p><strong>何のための道具か。</strong>行事の動画などを、子どもの顔や名札を隠して安全に共有するためのものです。だれかを見つけたり、見張ったりするための道具ではありません。</p>
+    <p><strong>正式な配布先。</strong>正式な配布先は作者のGitHub（github.com/Okarin-netizen）だけです。ほかの場所で配られているものは、改変されている可能性があります。プログラムはすべて公開しているので、だれでも中身を確認できます。</p>
+
+    <h4>ライセンス（配布・改変について）</h4>
+    <p>このアプリは <strong>MITライセンス</strong> です。「© 2026 技術 岡田」の表示とライセンス文（<a href="ライセンス.txt" target="_blank">ライセンス.txt</a>）を残していただければ、ほかの学校や先生への配布、改変、改変したものの配布を自由に行えます。</p>
+    <p class="hint">本ソフトウェアは無保証です。自動の顔検出は完ぺきではないため、保存した動画は公開する前に必ず最後まで確認してください。利用によって生じた損害について作者は責任を負いません。</p>
+
+    <h4>オフライン動作について</h4>
+    <p>動画の読み込み・顔の検出・モザイク加工・動画の書き出しは、すべてこのパソコンの中だけで行います。AIや動画処理の部品もこのサイトに同梱していて、一度開くとブラウザに保存されるため、インターネットに接続していなくても使えます。</p>
+    <p>さらに、ブラウザのセキュリティ設定（コンテンツ セキュリティ ポリシー）で外部への通信そのものを禁止しているため、動画がインターネットに送られることはありません。顔の情報はメモリの中だけで使い、アプリを閉じると消えます。</p>
+    <p class="hint" id="netState"></p>
+
+    <h4>変更履歴</h4>
+    <dl class="history">
+      <dt>v1.0.2　2026-11-03</dt>
+      <dd>Chromebook便利ツールに追加（ツール一覧から開ける、一度開けばオフラインでも使える、ほかのツールと同じ見た目）</dd>
+      <dt>v1.0.1　2026-11-03</dt>
+      <dd>「安心して使うために」の説明を追加（動画を外に送らないこと、顔のデータを残さないこと、自分で確かめる方法）</dd>
+      <dt>v1.0.0　2026-11-03</dt>
+      <dd>最初の版：動画の顔の自動検出と追跡、モザイク・ぼかし・目線・塗りつぶし、顔ごとに「隠す／隠さない」の切り替え、名札などを四角で隠す範囲の追加、加工前後の比較プレビュー、音声付きMP4での保存（音声を消すことも可能）</dd>
+    </dl>
+
+    <h4>参考にした考え方</h4>
+    <p class="hint">顔の範囲を少し広げて隠す方法は deface（MIT License）、検出が一瞬途切れても隠し続ける「追跡」の方法は Google Magritte（Apache License 2.0）と blur-face（MIT License）を参考にしました。これらのコードは含んでいません。</p>
+
+    <h4>使用しているソフトウェア</h4>
+    <p class="hint">顔の検出には Google MediaPipe（Apache License 2.0）、動画の読み込みと書き出しには Mediabunny（Mozilla Public License 2.0、改変なし）を使っています。詳しくは「<a href="ライセンス.txt" target="_blank">ライセンス.txt</a>」をご覧ください。</p>
+    <div class="row"><span class="spacer"></span><button class="btn primary">閉じる</button></div>
+  </form>
+</dialog>
+
+<script src="../shared/vendor/mediabunny-1.65.0/mediabunny.min.js"></script>
+<script src="../shared/vendor/mediapipe-tasks-vision-1.2.0/vision.js"></script>
+<script src="../shared/vendor/mediapipe-tasks-vision-1.2.0/wasm.js"></script>
+<script src="../shared/vendor/mediapipe-face-models/face-detector.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

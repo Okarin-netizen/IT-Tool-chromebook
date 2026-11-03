@@ -19,6 +19,8 @@ export const TOOLS = [
   { id: "class-screen", name: "授業の画面" },
   { id: "qr-maker", name: "QRコード作成" },
   { id: "typing", name: "タイピング練習" },
+  { id: "kaotori", name: "かおトリ" },
+  { id: "kaokakushi", name: "かおかくし" },
   { id: "calc", name: "関数電卓・グラフ" },
   { id: "todo", name: "時間割・課題チェックリスト" },
   { id: "timer", name: "タイマー・ポモドーロ" },

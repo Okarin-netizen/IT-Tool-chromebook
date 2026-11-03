@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; img-src 'self' file: data: blob:; style-src 'self' file: 'unsafe-inline'; connect-src data: blob:; form-action 'none'; base-uri 'none'">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>かおトリ 自己診断</title>
+<style>
+:root{--bg:#f4f5f7;--panel:#fff;--ink:#1d2433;--muted:#5f6b7a;--ok:#1f7a5a;--ng:#b42318;--line:#dde1e7}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 system-ui,"Yu Gothic UI","Meiryo",sans-serif}
+main{max-width:760px;margin:0 auto;padding:24px 16px}
+h1{font-size:20px;margin:0 0 4px}
+p{color:var(--muted);margin:0 0 16px}
+#summary{font-size:18px;font-weight:700;padding:12px 16px;border-radius:10px;background:var(--panel);border:1px solid var(--line);margin-bottom:12px}
+#summary.ok{color:var(--ok);border-color:#a7d7c0}#summary.ng{color:var(--ng);border-color:#f3b8b2}
+ul{list-style:none;margin:0;padding:0;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+li{padding:8px 14px;border-top:1px solid var(--line)}li:first-child{border-top:0}
+li .m{font-weight:700;margin-right:8px}li.ok .m{color:var(--ok)}li.ng .m{color:var(--ng)}
+li small{display:block;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<h1>かおトリ 自己診断</h1>
+<p>アプリの計算部分（情報の削除・サイズ調整・グループ分け・名前の対応づけ・台紙の並べ方）が正しく動くかを、このパソコンの中だけで確かめます。インターネットは使いません。</p>
+<div id="summary">確認中…</div>
+<ul id="list"></ul>
+</main>
+<script src="../core.js"></script>
+<script src="selftest.js"></script>
+</body>
+</html>

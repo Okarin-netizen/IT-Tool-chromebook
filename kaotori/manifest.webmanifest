@@ -1,0 +1,15 @@
+{
+  "name": "かおトリ",
+  "short_name": "かおトリ",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f1f3f6",
+  "theme_color": "#1f7a5a",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
