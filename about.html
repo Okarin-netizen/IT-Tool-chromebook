@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>このサイトについて - Chromebook便利ツール</title>
+  <meta name="author" content="技術 岡田">
+  <link rel="icon" href="pdf-text/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#f4f5f7">
+  <link rel="stylesheet" href="shared/css/site.css">
+</head>
+<body>
+  <aside class="side">
+    <a class="logo" href="./">Chromebook<br>便利ツール</a>
+    <nav aria-label="ツールのグループ">
+      <ul class="nav">
+        <li><a href="./">すべてのツール</a></li>
+        <li><a href="./#fav">お気に入り</a></li>
+        <li><a href="./#pdf">PDF</a></li>
+        <li><a href="./#class">授業で使う</a></li>
+        <li><a href="./#photo">写真・動画</a></li>
+        <li><a href="./#other">そのほかのツール</a></li>
+      </ul>
+    </nav>
+    <div class="sep"></div>
+    <ul class="nav">
+      <li><a class="page" href="changelog.html">更新履歴</a></li>
+      <li><a class="page" href="about.html" aria-current="page">このサイトについて</a></li>
+    </ul>
+    <p class="meta">作成者　技術 岡田<br><a href="about.html#license">MIT License</a><br>最終更新　<span class="updated"></span></p>
+  </aside>
+
+  <main>
+    <div class="top">
+      <h1>このサイトについて</h1>
+    </div>
+    <div class="doc">
+      <p>学校のChromebookで、インストールなしにブラウザだけで使える道具を集めたサイトです。PDFの編集や採点、授業で映す画面、写真の加工などができます。</p>
+      <p><strong>ファイルはインターネットに送られません。</strong>開いたPDFや写真の処理は、すべてこの端末のブラウザの中で行います。ファイルを受け取るサーバーはありません。一度開いたツールは、インターネットにつながっていなくても使えます。</p>
+
+      <h2>作成者</h2>
+      <dl class="facts">
+        <dt>作成者</dt><dd>技術 岡田</dd>
+        <dt>著作権</dt><dd>© 2026 技術 岡田</dd>
+        <dt>ライセンス</dt><dd>MITライセンス（作者名を残せば、配布・改変は自由です）</dd>
+        <dt>最終更新</dt><dd><span class="updated"></span>（<a href="changelog.html">更新履歴</a>）</dd>
+        <dt>ソースコード</dt><dd><a href="https://github.com/Okarin-netizen/IT-Tool-chromebook">GitHub</a>（正式な配布先はここだけです）</dd>
+      </dl>
+
+      <h2 id="license">ライセンス</h2>
+      <p>このサイトのプログラムは <strong>MITライセンス</strong> です。「© 2026 技術 岡田」の表示と下のライセンス文を残していただければ、ほかの学校や先生への配布、改変、改変したものの配布を自由に行えます。本ソフトウェアは無保証です。利用によって生じた損害について作者は責任を負いません。</p>
+      <pre class="license">MIT License
+
+Copyright (c) 2026 技術 岡田
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.</pre>
+
+      <h2>使っているライブラリ</h2>
+      <p>PDFの表示には pdf.js（Apache License 2.0）、PDFの作成には pdf-lib（MIT License）、文字の読み取りには Tesseract.js（Apache License 2.0）、日本語の文字には Noto Sans JP（SIL Open Font License）、顔の検出には MediaPipe（Apache License 2.0）などを、このサイトに同梱して使っています。それぞれのライセンスは各ライブラリのフォルダ（<a href="https://github.com/Okarin-netizen/IT-Tool-chromebook/tree/main/shared/vendor">shared/vendor</a>）にあります。</p>
+    </div>
+  </main>
+
+  <script type="module">
+    import { registerOffline } from "./shared/js/offline.js";
+    import { CHANGELOG, LAST_UPDATED, formatDate } from "./shared/js/changelog.js";
+    registerOffline(["./", "index.html", "changelog.html", "about.html"]);
+    document.querySelectorAll(".updated").forEach((el) => { el.textContent = formatDate(LAST_UPDATED); });
+
+  </script>
+</body>
+</html>

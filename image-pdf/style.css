@@ -1,11 +1,11 @@
 :root {
   --accent-dark: #9a3d20;
   --accent-soft: color-mix(in srgb, var(--accent) 14%, #fff);
-  --bg: #f1f3f6;
+  --bg: #f4f5f7;
   --bar: #ffffff;
-  --text: #1f2329;
-  --muted: #5f6672;
-  --line: #d6dae1;
+  --text: #1d2228;
+  --muted: #5f6670;
+  --line: #dcdfe4;
   --accent: #b84a28;
   --accent-hover: #9a3d20;
   --accent-text: #ffffff;

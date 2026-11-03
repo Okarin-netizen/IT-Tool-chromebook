@@ -5,328 +5,220 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Chromebook便利ツール</title>
   <meta name="description" content="Chromebookのブラウザだけで使える便利ツール集">
+  <meta name="author" content="技術 岡田">
   <link rel="icon" href="pdf-text/icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#f1f3f6">
-  <style>
-    :root {
-      --bg: #f1f3f6;
-      --bar: #ffffff;
-      --text: #1f2329;
-      --muted: #5f6672;
-      --line: #d6dae1;
-      --hover: #e3e7ed;
-      --field: #ffffff;
-      --accent: #3565c9;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #1f2329;
-        --bar: #2a2f37;
-        --text: #eef0f3;
-        --muted: #a4abb6;
-        --line: #3a3f48;
-        --hover: #323842;
-        --field: #2a2f37;
-        --accent: #8fb0f0;
-        color-scheme: dark;
-      }
-    }
-    * { box-sizing: border-box; }
-    [hidden] { display: none !important; }
-    body {
-      margin: 0;
-      font-family: system-ui, "Noto Sans JP", sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.5;
-    }
-    .appbar {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      background: var(--bar);
-      border-bottom: 1px solid var(--line);
-    }
-    .appbar-inner {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px 16px;
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 10px 16px;
-    }
-    h1 { margin: 0 auto 0 0; font-size: 18px; font-weight: 600; }
-    .search {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex: 0 1 280px;
-      min-width: 0;
-      height: 38px;
-      padding: 0 14px;
-      border: 1px solid var(--line);
-      border-radius: 19px;
-      background: var(--field);
-      color: var(--muted);
-    }
-    .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-    .search svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
-    .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; }
-    main { max-width: 960px; margin: 0 auto; padding: 20px 16px 48px; }
-    .note { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
-    h2 { margin: 20px 4px 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
-    .apps {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
-      gap: 4px;
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-    .app {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      height: 100%;
-      padding: 14px 6px 12px;
-      border-radius: 8px;
-      color: inherit;
-      text-decoration: none;
-      text-align: center;
-    }
-    .app:hover { background: var(--hover); }
-    .app:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-    .app img { width: 48px; height: 48px; }
-    .name { font-size: 13px; line-height: 1.35; }
-    .desc { display: none; }
-    /* While searching, show what each tool does. */
-    body.searching .apps { grid-template-columns: 1fr; }
-    body.searching .app { display: grid; grid-template-columns: 40px 1fr; grid-template-rows: auto auto; gap: 0 12px; align-items: center; padding: 8px 10px; text-align: left; }
-    body.searching .app img { width: 40px; height: 40px; grid-row: span 2; }
-    body.searching .name { font-size: 14px; font-weight: 600; }
-    body.searching .desc { display: block; font-size: 13px; color: var(--muted); }
-    .empty { margin: 24px 4px; color: var(--muted); }
-    /* Favorites (star on each tile) and recently used tools, above the groups. */
-    .apps li { position: relative; }
-    .star {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      display: grid;
-      place-items: center;
-      width: 30px;
-      height: 30px;
-      padding: 0;
-      border: 0;
-      border-radius: 50%;
-      background: none;
-      color: var(--muted);
-      cursor: pointer;
-      opacity: 0;
-    }
-    .star svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
-    .apps li:hover .star, .star:focus-visible, .star[aria-pressed="true"] { opacity: 1; }
-    @media (hover: none) { .star { opacity: .55; } }
-    .star:hover { background: var(--hover); color: var(--text); }
-    .star:focus-visible { outline: 2px solid var(--accent); }
-    .star[aria-pressed="true"] { color: #e0a100; }
-    .star[aria-pressed="true"] svg { fill: currentColor; }
-    body.searching .quick, body.searching .star { display: none; }
-    footer { margin-top: 40px; padding: 0 4px; color: var(--muted); font-size: 13px; }
-    footer a { color: var(--accent); }
-  </style>
+  <meta name="theme-color" content="#f4f5f7">
+  <link rel="stylesheet" href="shared/css/site.css">
 </head>
 <body>
-  <header class="appbar">
-    <div class="appbar-inner">
-      <h1>Chromebook便利ツール</h1>
-      <label class="search">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
-        <input id="q" type="search" placeholder="ツールをさがす" aria-label="ツールをさがす" autocomplete="off">
-      </label>
-    </div>
-  </header>
+  <aside class="side">
+    <a class="logo" href="./">Chromebook<br>便利ツール</a>
+    <label class="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+      <input id="q" type="search" placeholder="ツールをさがす" aria-label="ツールをさがす" autocomplete="off">
+    </label>
+    <nav aria-label="ツールのグループ">
+      <ul class="nav" id="views">
+        <li><a href="#" data-view="all" aria-current="page">すべて<small></small></a></li>
+        <li><a href="#fav" data-view="fav">お気に入り<small></small></a></li>
+        <li><a href="#pdf" data-view="pdf">PDF<small></small></a></li>
+        <li><a href="#class" data-view="class">授業で使う<small></small></a></li>
+        <li><a href="#photo" data-view="photo">写真・動画<small></small></a></li>
+        <li><a href="#other" data-view="other">そのほかのツール<small></small></a></li>
+      </ul>
+    </nav>
+    <div class="sep"></div>
+    <ul class="nav">
+      <li><a class="page" href="changelog.html">更新履歴</a></li>
+      <li><a class="page" href="about.html">このサイトについて</a></li>
+    </ul>
+    <p class="meta">作成者　技術 岡田<br><a href="about.html#license">MIT License</a><br>最終更新　<span class="updated"></span></p>
+  </aside>
 
   <main>
-    <p class="note">インストール不要、ブラウザだけで使えます。ファイルはこの端末の中だけで処理されます。</p>
+    <div class="top">
+      <h1 id="view-title">すべてのツール</h1>
+      <p>インストール不要、ブラウザだけで使えます。ファイルはこの端末の中だけで処理されます。</p>
+    </div>
+    <p class="news" id="news" hidden><b>更新</b><span id="news-text"></span><a href="changelog.html">更新履歴</a></p>
 
     <section id="quick-fav" class="quick" aria-labelledby="g-fav" hidden>
       <h2 id="g-fav">お気に入り</h2>
       <ul class="apps"></ul>
     </section>
+    <p id="fav-hint" class="hint" hidden>ツールの右上の☆を押すと、ここに入ります。</p>
     <section id="quick-recent" class="quick" aria-labelledby="g-recent" hidden>
       <h2 id="g-recent">最近使ったもの</h2>
       <ul class="apps"></ul>
     </section>
 
-    <!-- 新しいツールを追加するときは、フォルダを作って、合うグループの <ul> に <li> を1つ足してください（docs/開発の手引き.md） -->
-    <section aria-labelledby="g-pdf">
+    <!-- 新しいツールを追加するときは、フォルダを作って、合うグループの <ul> に <li> を1つ足してください。
+         <li data-added="追加した日"> にすると、30日のあいだ「新しい」の印が付きます（docs/開発の手引き.md） -->
+    <section class="group" id="pdf" aria-labelledby="g-pdf">
       <h2 id="g-pdf">PDF</h2>
       <ul class="apps">
         <li>
           <a class="app" href="pdf-text/" title="PDFに日本語の文字や写真を書き込んで、新しいPDFとして保存します。">
             <img src="pdf-text/icon.svg" alt="" width="48" height="48">
-            <span class="name">PDF文字入れ</span>
+            <span class="title"><span class="name">PDF文字入れ</span></span>
             <span class="desc">PDFに日本語の文字や写真を書き込んで、新しいPDFとして保存します。</span>
           </a>
         </li>
         <li>
           <a class="app" href="pdf-pages/" title="PDFを1つにまとめたり、必要なページだけ抜き出したり、向きを直したりします。">
             <img src="pdf-pages/icon.svg" alt="" width="48" height="48">
-            <span class="name">PDF結合・分割・回転</span>
+            <span class="title"><span class="name">PDF結合・分割・回転</span></span>
             <span class="desc">PDFを1つにまとめたり、必要なページだけ抜き出したり、向きを直したりします。</span>
           </a>
         </li>
         <li>
           <a class="app" href="image-pdf/" title="ノートやプリントの写真を並べ替えて、1つのPDFにまとめます。カメラでその場で撮ることもできます。">
             <img src="image-pdf/icon.svg" alt="" width="48" height="48">
-            <span class="name">画像→PDF</span>
+            <span class="title"><span class="name">画像→PDF</span></span>
             <span class="desc">ノートやプリントの写真を並べ替えて、1つのPDFにまとめます。カメラでその場で撮ることもできます。</span>
           </a>
         </li>
         <li>
           <a class="app" href="pdf-compress/" title="写真やスキャンの入ったPDFを軽くします。提出のサイズ制限に引っかかるときに。">
             <img src="pdf-compress/icon.svg" alt="" width="48" height="48">
-            <span class="name">PDF圧縮</span>
+            <span class="title"><span class="name">PDF圧縮</span></span>
             <span class="desc">写真やスキャンの入ったPDFを軽くします。提出のサイズ制限に引っかかるときに。</span>
           </a>
         </li>
         <li>
           <a class="app" href="pdf-image/" title="PDFのページをPNGやJPGの画像にして保存・コピーします。スライドやClassroomに貼りたいときに。">
             <img src="pdf-image/icon.svg" alt="" width="48" height="48">
-            <span class="name">PDF→画像</span>
+            <span class="title"><span class="name">PDF→画像</span></span>
             <span class="desc">PDFのページをPNGやJPGの画像にして保存・コピーします。スライドやClassroomに貼りたいときに。</span>
           </a>
         </li>
         <li>
           <a class="app" href="pdf-stamp/" title="PDFの全ページにページ番号や「下書き」「見本」などの透かしをまとめて入れます。">
             <img src="pdf-stamp/icon.svg" alt="" width="48" height="48">
-            <span class="name">ページ番号・透かし入れ</span>
+            <span class="title"><span class="name">ページ番号・透かし入れ</span></span>
             <span class="desc">PDFの全ページにページ番号や「下書き」「見本」などの透かしをまとめて入れます。</span>
           </a>
         </li>
-        <li>
+        <li data-added="2026-10-30">
           <a class="app" href="pdf-booklet/" title="PDFのページを、両面印刷して半分に折ると冊子になる順番に並べかえます。">
             <img src="pdf-booklet/icon.svg" alt="" width="48" height="48">
-            <span class="name">冊子印刷</span>
+            <span class="title"><span class="name">冊子印刷</span></span>
             <span class="desc">PDFのページを、両面印刷して半分に折ると冊子になる順番に並べかえます。</span>
           </a>
         </li>
         <li>
           <a class="app" href="pdf-extract/" title="PDFや写真の文字を取り出してコピーやテキスト保存ができます。スキャンしたPDFもOCRで読み取り、検索できるPDFにできます。">
             <img src="pdf-extract/icon.svg" alt="" width="48" height="48">
-            <span class="name">PDF文字取り出し</span>
+            <span class="title"><span class="name">PDF文字取り出し</span></span>
             <span class="desc">PDFの文字を取り出してコピーやテキスト保存ができます。スキャンしたPDFもOCRで読み取れます。</span>
           </a>
         </li>
         <li>
           <a class="app" href="pdf-sign/" title="プリントのPDFにペンで書き込んだり、ハンコや署名を押したりして保存します。">
             <img src="pdf-sign/icon.svg" alt="" width="48" height="48">
-            <span class="name">PDFに手書き・署名</span>
+            <span class="title"><span class="name">PDFに手書き・署名</span></span>
             <span class="desc">プリントのPDFにペンで書き込んだり、ハンコや署名を押したりして保存します。</span>
           </a>
         </li>
         <li>
           <a class="app" href="pdf-grade/" title="提出された何人分ものPDFをまとめて開いて採点し、1人ずつ別々のPDFにして返却用に保存します。">
             <img src="pdf-grade/icon.svg" alt="" width="48" height="48">
-            <span class="name">PDF一括採点</span>
+            <span class="title"><span class="name">PDF一括採点</span></span>
             <span class="desc">提出された何人分ものPDFをまとめて開いて採点し、1人ずつ別々のPDFにして返却用に保存します。</span>
           </a>
         </li>
       </ul>
     </section>
 
-    <section aria-labelledby="g-class">
+    <section class="group" id="class" aria-labelledby="g-class">
       <h2 id="g-class">授業で使う</h2>
       <ul class="apps">
         <li>
           <a class="app" href="class-picker/" title="名簿から発表する人をルーレットで選んだり、班をランダムに分けたり、席替えをしたりします。">
             <img src="class-picker/icon.svg" alt="" width="48" height="48">
-            <span class="name">名前ルーレット・班分け</span>
+            <span class="title"><span class="name">名前ルーレット・班分け</span></span>
             <span class="desc">名簿から発表する人をルーレットで選んだり、班をランダムに分けたり、席替えをしたりします。</span>
           </a>
         </li>
-        <li>
+        <li data-added="2026-10-31">
           <a class="app" href="class-screen/" title="声の大きさメーター・信号・サイコロ・得点板を、教室のスクリーンに大きく映せます。">
             <img src="class-screen/icon.svg" alt="" width="48" height="48">
-            <span class="name">授業の画面</span>
+            <span class="title"><span class="name">授業の画面</span></span>
             <span class="desc">声の大きさメーター・信号・サイコロ・得点板を、教室のスクリーンに大きく映せます。</span>
           </a>
         </li>
         <li>
           <a class="app" href="qr-maker/" title="URLや文字からQRコードの画像を作ります。Googleフォームやスライドを配るときに。">
             <img src="qr-maker/icon.svg" alt="" width="48" height="48">
-            <span class="name">QRコード作成</span>
+            <span class="title"><span class="name">QRコード作成</span></span>
             <span class="desc">URLや文字からQRコードの画像を作ります。Googleフォームやスライドを配るときに。</span>
           </a>
         </li>
         <li>
           <a class="app" href="typing/" title="日本語（ローマ字入力）と英語のタイピングを練習します。自分で決めたことばでも練習できます。">
             <img src="typing/icon.svg" alt="" width="48" height="48">
-            <span class="name">タイピング練習</span>
+            <span class="title"><span class="name">タイピング練習</span></span>
             <span class="desc">日本語（ローマ字入力）と英語のタイピングを練習します。自分で決めたことばでも練習できます。</span>
           </a>
         </li>
       </ul>
     </section>
 
-    <section aria-labelledby="g-photo">
+    <section class="group" id="photo" aria-labelledby="g-photo">
       <h2 id="g-photo">写真・動画</h2>
       <ul class="apps">
-        <li>
+        <li data-added="2026-11-03">
           <a class="app" href="kaotori/" title="集合写真から1人ずつ顔を切り抜いたり、証明写真の大きさに整えたり、顔や名札にモザイクを入れたりします。写っている人ごとに写真を分けることもできます。">
             <img src="kaotori/icon.svg" alt="" width="48" height="48">
-            <span class="name">かおトリ</span>
+            <span class="title"><span class="name">かおトリ</span></span>
             <span class="desc">集合写真から1人ずつ顔を切り抜いたり、証明写真を作ったり、顔や名札にモザイクを入れたりします。</span>
           </a>
         </li>
-        <li>
+        <li data-added="2026-11-03">
           <a class="app" href="kaokakushi/" title="動画に写った顔を自動で見つけて追いかけ、モザイク・ぼかし・目線を入れたMP4を作ります。行事の動画を共有するときに。">
             <img src="kaokakushi/icon.svg" alt="" width="48" height="48">
-            <span class="name">かおかくし</span>
+            <span class="title"><span class="name">かおかくし</span></span>
             <span class="desc">動画に写った顔を自動で見つけて、モザイク・ぼかし・目線を入れたMP4を作ります。</span>
           </a>
         </li>
       </ul>
     </section>
 
-    <section aria-labelledby="g-other">
+    <section class="group" id="other" aria-labelledby="g-other">
       <h2 id="g-other">そのほかのツール</h2>
       <ul class="apps">
         <li>
           <a class="app" href="calc/" title="三角関数・対数・累乗などの計算と、y = f(x) のグラフ描画ができます。">
             <img src="calc/icon.svg" alt="" width="48" height="48">
-            <span class="name">関数電卓・グラフ</span>
+            <span class="title"><span class="name">関数電卓・グラフ</span></span>
             <span class="desc">三角関数・対数・累乗などの計算と、y = f(x) のグラフ描画ができます。</span>
           </a>
         </li>
         <li>
           <a class="app" href="todo/" title="時間割と課題の締め切りをブラウザに保存して、やることを管理します。">
             <img src="todo/icon.svg" alt="" width="48" height="48">
-            <span class="name">時間割・課題チェックリスト</span>
+            <span class="title"><span class="name">時間割・課題チェックリスト</span></span>
             <span class="desc">時間割と課題の締め切りをブラウザに保存して、やることを管理します。</span>
           </a>
         </li>
         <li>
           <a class="app" href="timer/" title="勉強時間やテスト練習の時間を計れます。ポモドーロ・タイマー・ストップウォッチの3つのモード。">
             <img src="timer/icon.svg" alt="" width="48" height="48">
-            <span class="name">タイマー・ポモドーロ</span>
+            <span class="title"><span class="name">タイマー・ポモドーロ</span></span>
             <span class="desc">勉強時間やテスト練習の時間を計れます。ポモドーロ・タイマー・ストップウォッチの3つのモード。</span>
           </a>
         </li>
         <li>
           <a class="app" href="image-resize/" title="写真や画像のファイルサイズを小さくします。「200KB以下」のような指定や、まとめての変換もできます。">
             <img src="image-resize/icon.svg" alt="" width="48" height="48">
-            <span class="name">画像を小さく</span>
+            <span class="title"><span class="name">画像を小さく</span></span>
             <span class="desc">写真や画像のファイルサイズを小さくします。「200KB以下」のような指定や、まとめての変換もできます。</span>
           </a>
         </li>
         <li>
           <a class="app" href="image-annotate/" title="スクリーンショットや写真に矢印・文字・図形を書き込んで、PNG画像で保存します。">
             <img src="image-annotate/icon.svg" alt="" width="48" height="48">
-            <span class="name">画像に書き込み</span>
+            <span class="title"><span class="name">画像に書き込み</span></span>
             <span class="desc">スクリーンショットや写真に矢印・文字・図形を書き込んで、PNG画像で保存します。</span>
           </a>
         </li>
@@ -335,46 +227,105 @@
 
     <p id="empty" class="empty" hidden>「<span id="empty-q"></span>」に合うツールはありません。</p>
 
-    <footer>ソース: <a href="https://github.com/Okarin-netizen/IT-Tool-chromebook">GitHub</a></footer>
+    <section id="history" aria-labelledby="g-history">
+      <h2 id="g-history">更新履歴</h2>
+      <table class="log"><tbody id="log"></tbody></table>
+      <a class="more" href="changelog.html">すべての更新履歴</a>
+    </section>
   </main>
 
-  <script>
-    // Filters the launcher by tool name and description.
+  <script type="module">
+    import { RECENT_KEY, registerOffline } from "./shared/js/offline.js";
+    import { loadJson, saveJson } from "./shared/js/storage.js";
+    import { CHANGELOG, LAST_UPDATED, formatDate } from "./shared/js/changelog.js";
+
+    // Keeps the top page (and its tool icons) available without a network.
+    registerOffline(["./", "index.html", "changelog.html", "about.html", ...[...document.querySelectorAll(".apps img")].map((img) => img.getAttribute("src"))]);
+
+    const groups = [...document.querySelectorAll("section.group")];
+    const views = [...document.querySelectorAll("#views a")];
     const q = document.getElementById("q");
-    q.addEventListener("input", () => {
+
+    // ---------- update history ----------
+    document.querySelectorAll(".updated").forEach((el) => { el.textContent = formatDate(LAST_UPDATED); });
+    document.getElementById("news-text").textContent = `${formatDate(CHANGELOG[0].date)}　${CHANGELOG[0].items[0]}`;
+    document.getElementById("log").replaceChildren(...CHANGELOG.slice(0, 3).map((entry) => {
+      const tr = document.createElement("tr");
+      const th = document.createElement("th");
+      th.textContent = formatDate(entry.date);
+      const ul = document.createElement("ul");
+      ul.append(...entry.items.map((text) => Object.assign(document.createElement("li"), { textContent: text })));
+      const td = document.createElement("td");
+      td.append(ul);
+      tr.append(th, td);
+      return tr;
+    }));
+
+    // "新しい" on tools added in the last 30 days (<li data-added="2026-11-03">).
+    const NEW_DAYS = 30;
+    for (const li of document.querySelectorAll("li[data-added]")) {
+      if (Date.now() - new Date(li.dataset.added).getTime() < NEW_DAYS * 864e5) {
+        li.querySelector(".title").append(Object.assign(document.createElement("span"), { className: "new", textContent: "新しい" }));
+      }
+    }
+
+    // ---------- the menu on the left: すべて / お気に入り / one group ----------
+    function showView() {
+      const view = location.hash.slice(1) || "all";
+      const known = views.some((a) => a.dataset.view === view) ? view : "all";
+      for (const a of views) {
+        if (a.dataset.view === known) a.setAttribute("aria-current", "page");
+        else a.removeAttribute("aria-current");
+      }
+      document.getElementById("view-title").textContent =
+        known === "all" ? "すべてのツール" : views.find((a) => a.dataset.view === known).firstChild.textContent;
+      document.body.dataset.view = known;
+      for (const sec of groups) sec.hidden = !(known === "all" || known === sec.id);
+      document.getElementById("news").hidden = known !== "all";
+      document.getElementById("history").hidden = known !== "all";
+      renderQuick();
+    }
+    window.addEventListener("hashchange", () => {
+      if (q.value) { q.value = ""; search(); }
+      showView();
+      window.scrollTo(0, 0);
+    });
+
+    // ---------- search: by tool name and description, over every group ----------
+    function search() {
       const words = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-      document.body.classList.toggle("searching", words.length > 0);
+      const searching = words.length > 0;
+      document.body.classList.toggle("searching", searching);
+      if (!searching) { groups.forEach((sec) => sec.querySelectorAll("li").forEach((li) => { li.hidden = false; })); showView(); document.getElementById("empty").hidden = true; return; }
       let shown = 0;
-      document.querySelectorAll("section:not(.quick)").forEach((sec) => {
+      for (const sec of groups) {
         let inSection = 0;
         sec.querySelectorAll("li").forEach((li) => {
-          const text = li.textContent.toLowerCase();
-          const hit = words.every((w) => text.includes(w));
+          const hit = words.every((w) => li.textContent.toLowerCase().includes(w));
           li.hidden = !hit;
           if (hit) inSection++;
         });
         sec.hidden = inSection === 0;
         shown += inSection;
-      });
+      }
+      document.getElementById("view-title").textContent = "さがした結果";
+      document.getElementById("news").hidden = true;
+      document.getElementById("history").hidden = true;
+      document.getElementById("fav-hint").hidden = true;
       document.getElementById("empty-q").textContent = q.value.trim();
       document.getElementById("empty").hidden = shown > 0;
-    });
+    }
+    q.addEventListener("input", search);
     q.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") document.querySelector("section:not(.quick) li:not([hidden]) .app")?.click();
-      if (e.key === "Escape") { q.value = ""; q.dispatchEvent(new Event("input")); }
+      if (e.key === "Enter") document.querySelector("section.group li:not([hidden]) .app")?.click();
+      if (e.key === "Escape") { q.value = ""; search(); }
     });
-  </script>
-  <script type="module">
-    // Keeps the top page (and its tool icons) available without a network.
-    import { RECENT_KEY, registerOffline } from "./shared/js/offline.js";
-    import { loadJson, saveJson } from "./shared/js/storage.js";
-    registerOffline(["./", "index.html", ...[...document.querySelectorAll(".apps img")].map((img) => img.getAttribute("src"))]);
 
-    // Favorites (the star on each tile, like IT-Tools) and the tools used lately.
+    // ---------- favorites (the star on each card) and the tools used lately ----------
     const FAV_KEY = "portal-favorites-v1";
     const RECENT_SHOWN = 6;
     const tiles = new Map(); // "pdf-text" → its <li> in the groups
-    for (const li of document.querySelectorAll("section:not(.quick) .apps li")) {
+    for (const li of document.querySelectorAll("section.group .apps li")) {
       tiles.set(li.querySelector(".app").getAttribute("href").replace(/\/$/, ""), li);
     }
     const known = (list) => (Array.isArray(list) ? list.filter((t) => tiles.has(t)) : []);
@@ -398,7 +349,7 @@
       li.append(b);
     }
 
-    function fill(id, tools) {
+    function fill(id, tools, show) {
       const sec = document.getElementById(id);
       sec.querySelector("ul").replaceChildren(...tools.map((tool) => {
         const li = tiles.get(tool).cloneNode(true);
@@ -406,16 +357,24 @@
         addStar(li, tool, favorites().includes(tool));
         return li;
       }));
-      sec.hidden = !tools.length;
+      sec.hidden = !show || !tools.length;
     }
 
     function renderQuick() {
+      const view = document.body.dataset.view || "all";
       const favs = favorites();
       for (const [tool, li] of tiles) addStar(li, tool, favs.includes(tool));
-      fill("quick-fav", favs);
-      fill("quick-recent", known(loadJson(RECENT_KEY, [])).filter((t) => !favs.includes(t)).slice(0, RECENT_SHOWN));
+      fill("quick-fav", favs, view === "all" || view === "fav");
+      fill("quick-recent", known(loadJson(RECENT_KEY, [])).filter((t) => !favs.includes(t)).slice(0, RECENT_SHOWN), view === "all");
+      document.getElementById("fav-hint").hidden = !(view === "fav" && !favs.length);
+      // Counts next to each menu item.
+      for (const a of views) {
+        const v = a.dataset.view;
+        a.querySelector("small").textContent = v === "all" ? tiles.size : v === "fav" ? favs.length : document.getElementById(v).querySelectorAll("li").length;
+      }
     }
-    renderQuick();
+
+    showView();
     // Coming back with the browser's back button shows the page from memory: refresh the lists.
     window.addEventListener("pageshow", (e) => e.persisted && renderQuick());
   </script>
