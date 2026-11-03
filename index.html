@@ -26,6 +26,12 @@
         <li><a href="#photo" data-view="photo">写真・動画<small></small></a></li>
         <li><a href="#other" data-view="other">そのほかのツール<small></small></a></li>
       </ul>
+      <div class="sep"></div>
+      <p class="nav-label" id="who-label">使う人で見る</p>
+      <ul class="nav" aria-labelledby="who-label">
+        <li><a href="#teacher" data-view="teacher" data-title="先生用のツール">先生用<small></small></a></li>
+        <li><a href="#student" data-view="student" data-title="生徒用のツール">生徒用<small></small></a></li>
+      </ul>
     </nav>
     <div class="sep"></div>
     <ul class="nav">
@@ -40,6 +46,8 @@
       <h1 id="view-title">すべてのツール</h1>
       <p>インストール不要、ブラウザだけで使えます。ファイルはこの端末の中だけで処理されます。</p>
     </div>
+    <p class="who-note" id="who-note-teacher" hidden>採点・印刷の準備・授業で映す・行事の写真など、先生の仕事に使うツールです。「生徒用」を押すと、生徒が使うツールだけになります。</p>
+    <p class="who-note" id="who-note-student" hidden>生徒が使うツールです（先生も使えます）。生徒にこのページを教えるときは、このページのURLを配ってください。</p>
     <nav class="tasks" id="tasks" aria-label="よくあるやりたいこと">
       <span class="tasks-label">よくあるやりたいこと</span>
       <a href="pdf-sign/">ハンコ・署名を押す</a>
@@ -252,7 +260,10 @@
     registerOffline(["./", "index.html", "changelog.html", "about.html", ...[...document.querySelectorAll(".apps img")].map((img) => img.getAttribute("src"))]);
 
     const groups = [...document.querySelectorAll("section.group")];
-    const views = [...document.querySelectorAll("#views a")];
+    const views = [...document.querySelectorAll(".side a[data-view]")];
+    // 「使う人で見る」: 先生用 = tools tagged data-for="先生向け"; 生徒用 = every other tool.
+    const forTeacher = (li) => li.dataset.for === "先生向け";
+    const WHO = { teacher: forTeacher, student: (li) => !forTeacher(li) };
     const q = document.getElementById("q");
 
     // ---------- update history ----------
@@ -297,10 +308,18 @@
         if (a.dataset.view === known) a.setAttribute("aria-current", "page");
         else a.removeAttribute("aria-current");
       }
+      const link = views.find((a) => a.dataset.view === known);
       document.getElementById("view-title").textContent =
-        known === "all" ? "すべてのツール" : views.find((a) => a.dataset.view === known).firstChild.textContent;
+        known === "all" ? "すべてのツール" : link.dataset.title ?? link.firstChild.textContent;
       document.body.dataset.view = known;
-      for (const sec of groups) sec.hidden = !(known === "all" || known === sec.id);
+      const who = WHO[known];
+      for (const sec of groups) {
+        const items = [...sec.querySelectorAll("li")];
+        items.forEach((li) => { li.hidden = who ? !who(li) : false; });
+        sec.hidden = who ? items.every((li) => li.hidden) : !(known === "all" || known === sec.id);
+      }
+      document.getElementById("who-note-teacher").hidden = known !== "teacher";
+      document.getElementById("who-note-student").hidden = known !== "student";
       document.getElementById("news").hidden = known !== "all";
       document.getElementById("tasks").hidden = known !== "all";
       document.getElementById("history").hidden = known !== "all";
@@ -317,7 +336,7 @@
       const words = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
       const searching = words.length > 0;
       document.body.classList.toggle("searching", searching);
-      if (!searching) { groups.forEach((sec) => sec.querySelectorAll("li").forEach((li) => { li.hidden = false; })); showView(); document.getElementById("empty").hidden = true; return; }
+      if (!searching) { showView(); document.getElementById("empty").hidden = true; return; }
       let shown = 0;
       for (const sec of groups) {
         let inSection = 0;
@@ -335,6 +354,8 @@
       document.getElementById("news").hidden = true;
       document.getElementById("history").hidden = true;
       document.getElementById("fav-hint").hidden = true;
+      document.getElementById("who-note-teacher").hidden = true;
+      document.getElementById("who-note-student").hidden = true;
       document.getElementById("empty-q").textContent = q.value.trim();
       document.getElementById("empty").hidden = shown > 0;
     }
@@ -393,7 +414,7 @@
       // Counts next to each menu item.
       for (const a of views) {
         const v = a.dataset.view;
-        a.querySelector("small").textContent = v === "all" ? tiles.size : v === "fav" ? favs.length : document.getElementById(v).querySelectorAll("li").length;
+        a.querySelector("small").textContent = v === "all" ? tiles.size : v === "fav" ? favs.length : WHO[v] ? [...tiles.values()].filter(WHO[v]).length : document.getElementById(v).querySelectorAll("li").length;
       }
     }
 
