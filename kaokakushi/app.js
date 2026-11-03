@@ -53,12 +53,12 @@ async function initAI() {
     window.KAO_WASM_B64 = window.KAO_MODEL_DETECTOR = window.KAO_WASM_LOADER = null; // メモリ節約
     ai.ready = true;
     st.className = 'ai-status ready';
-    $('aiStatusText').textContent = 'AIの準備ができました';
+    $('aiStatusText').textContent = '顔を見つける準備ができました';
     updateButtons();
   } catch (e) {
     console.error(e);
     st.className = 'ai-status error';
-    $('aiStatusText').textContent = 'AIを読み込めませんでした（' + (e.message || e) + '）';
+    $('aiStatusText').textContent = '顔を見つける部品を読み込めませんでした（' + (e.message || e) + '）';
   }
 }
 
@@ -90,6 +90,8 @@ function download(blob, name) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  // 保存した場所を、閉じるまで残るお知らせで出す（ほかのツールと同じ）
+  import('../shared/js/saved.js').then((m) => m.showSavedNotice(name)).catch(() => {});
 }
 function sanitize(s) { return String(s).replace(/[\\/:*?"<>|\r\n\t]/g, '_').trim(); }
 
@@ -890,6 +892,13 @@ function loadSettings() {
 loadSettings();
 renderMaskList();
 updateButtons();
+// 「安心して使うために」は2回目からたたんでおく（11.6インチの画面でも手順がすぐ見えるように）
+(() => {
+  try {
+    if (localStorage.getItem('kaokakushi-safe-seen')) $('safeCard').open = false;
+    localStorage.setItem('kaokakushi-safe-seen', '1');
+  } catch { /* 覚えられない環境では毎回開いておく */ }
+})();
 setTimeout(initAI, 50);
 
 // テスト用フック

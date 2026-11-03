@@ -244,3 +244,9 @@ body { --accent-soft: color-mix(in srgb, var(--accent) 16%, var(--card)); }
 .phase { font-size: 16px; font-weight: 600; }
 .btn.big { min-height: 44px; border-radius: 10px; padding: 0 24px; }
 .settings, .laps { border-radius: 8px; }
+
+/* An 11.6-inch Chromebook leaves about 650px for the page: keep 「時間の設定」 on screen. */
+@media (max-height: 700px) {
+  .dial { width: min(80vw, 32vh, 420px); }
+  main > .hint { display: none; } /* the keyboard keys: also in each button's tooltip */
+}

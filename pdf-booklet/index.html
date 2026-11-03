@@ -68,6 +68,24 @@
             </select>
           </label>
           <p id="printer-help" class="help"></p>
+          <details class="duplex-guide">
+            <summary>「短辺とじ」「長辺とじ」とは？</summary>
+            <figure class="duplex-fig">
+              <svg viewBox="0 0 220 92" role="img" aria-label="横長の紙を、短辺とじは左右の短い辺を軸にめくり、長辺とじは上下の長い辺を軸にめくる">
+                <rect x="6" y="20" width="90" height="56" rx="3" class="paper"/>
+                <path d="M6 20v56" class="edge"/>
+                <path d="M100 48c12-18 12-18 4-30" class="arrow"/>
+                <text x="51" y="52" text-anchor="middle">短辺とじ</text>
+                <text x="51" y="90" text-anchor="middle" class="small">左右の短い辺でめくる</text>
+                <rect x="124" y="20" width="90" height="56" rx="3" class="paper"/>
+                <path d="M124 20h90" class="edge"/>
+                <path d="M196 16c-10-12-24-12-30 0" class="arrow"/>
+                <text x="169" y="52" text-anchor="middle">長辺とじ</text>
+                <text x="169" y="90" text-anchor="middle" class="small">上下の長い辺でめくる</text>
+              </svg>
+            </figure>
+            <p class="help">プリンターの印刷画面の「両面」の所に出てくる言葉です。分からないときは「短辺とじができる」のまま「1枚目だけ試し刷り」をして、裏の文字がさかさまなら「長辺とじだけ」に変えてください。</p>
+          </details>
           <label id="back-turn-row" class="check-row" hidden><input id="back-turn" type="checkbox"> 裏面を上下さかさまにする</label>
           <button id="test-btn" class="btn small" type="button" disabled title="1枚目の表と裏だけのPDFを開きます。紙の向きを確かめてから全部を刷れます">1枚目だけ試し刷り</button>
         </div>

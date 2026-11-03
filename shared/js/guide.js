@@ -1,6 +1,7 @@
 // Help for people who do not read instructions twice: the first screen (#welcome) gets a large
 // "pick a file" area, and the app bar gets a 「使い方」 button that shows the same instructions
-// again after a file is open (the welcome card is hidden from then on).
+// again after a file is open (the welcome card is hidden from then on). The open button is the
+// colored one only until a file is open.
 // Imported for its side effect by every tool that has a #welcome card and a #file-input.
 
 // What the file input takes, in words, from its accept list.
@@ -60,12 +61,23 @@ function addGuideButton(welcome) {
   title.after(button);
 }
 
+// Only one colored button at a time: 「開く」 before a file is open, 「保存」 after (the welcome card
+// is hidden once a file is open).
+function followWelcome(welcome, input) {
+  const openBtn = document.querySelector(`.toolbar label[for="${input.id}"]`);
+  if (!openBtn) return;
+  const sync = () => openBtn.classList.toggle("primary", !welcome.hidden);
+  new MutationObserver(sync).observe(welcome, { attributes: true, attributeFilter: ["hidden"] });
+  sync();
+}
+
 function setup() {
   const welcome = document.getElementById("welcome");
   const input = document.getElementById("file-input");
   if (!welcome || !input) return;
   addPickZone(welcome, input);
   addGuideButton(welcome);
+  followWelcome(welcome, input);
 }
 
 setup();

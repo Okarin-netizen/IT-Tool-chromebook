@@ -15,7 +15,7 @@ import { parseRange } from "../shared/js/range.js";
 import "../shared/js/guide.js";
 
 const FONT_FAMILY = "PdfStampJP";
-const PREVIEW_PX = 300; // preview page width, in CSS pixels
+const PREVIEW_PX = 440; // preview page width, in CSS pixels (big enough to read a page number)
 const ASCENT = 0.88; // Noto Sans JP ascender / font size, to keep top numbers inside the margin
 const MID = 0.36; // baseline-to-visual-middle of a line / font size, to center watermarks
 const SETTINGS_KEY = "pdf-stamp-settings";
@@ -180,6 +180,7 @@ function syncControls() {
     btn.setAttribute("aria-checked", on);
   }
   els.numOutsideHelp.hidden = !state.numPos.endsWith("-outside");
+  document.getElementById("pos-name").textContent = document.querySelector(`.pos[data-pos="${state.numPos}"]`).title.replace(/（.*$/, "");
   const s = readSettings();
   const badRange = s.num.on && parseRange(s.num.range, 1) === null;
   els.numRange.setAttribute("aria-invalid", badRange);
@@ -635,6 +636,19 @@ for (const [opts, toggle] of [[els.numOpts, els.numOn], [els.hfOpts, els.hfOn], 
 for (const btn of document.querySelectorAll(".pos")) {
   btn.addEventListener("click", () => {
     state.numPos = btn.dataset.pos;
+    update();
+  });
+}
+// 「ページ番号」「今日の日付」…: put {n}, {date} … where the cursor was in the last header or
+// footer field, so nobody has to type the braces.
+let lastHfField = els.hfBc;
+for (const input of document.querySelectorAll(".hf-grid input")) input.addEventListener("focus", () => (lastHfField = input));
+for (const chip of document.querySelectorAll(".insert-chip")) {
+  chip.addEventListener("click", () => {
+    const at = lastHfField.selectionStart ?? lastHfField.value.length;
+    const end = lastHfField.selectionEnd ?? at;
+    lastHfField.setRangeText(chip.dataset.insert, at, end, "end");
+    lastHfField.focus();
     update();
   });
 }

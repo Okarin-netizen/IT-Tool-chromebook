@@ -71,12 +71,12 @@ async function initAI() {
     window.KAO_WASM_B64 = window.KAO_MODEL_DETECTOR = window.KAO_MODEL_LANDMARKER = window.KAO_MODEL_DETECTOR_SHORT = window.KAO_MODEL_SEGMENTER = null;
     ai.ready = true;
     st.className = 'ai-status ready';
-    $('aiStatusText').textContent = 'AIの準備ができました';
+    $('aiStatusText').textContent = '顔を見つける準備ができました';
     if (pendingFiles.length) { const f = pendingFiles.splice(0); addFiles(f); }
   } catch (e) {
     console.error(e);
     st.className = 'ai-status error';
-    $('aiStatusText').textContent = 'AIを読み込めませんでした（' + (e.message || e) + '）';
+    $('aiStatusText').textContent = '顔を見つける部品を読み込めませんでした（' + (e.message || e) + '）';
   }
 }
 
@@ -248,7 +248,7 @@ const OK_EXT = /\.(jpe?g|png|bmp|webp|gif|tiff?|heic|heif|avif)$/i;
 async function addFiles(files) {
   files = [...files].filter((f) => f.type.startsWith('image/') || OK_EXT.test(f.name));
   if (!files.length) return;
-  if (!ai.ready) { pendingFiles.push(...files); showBusy('AIの準備ができしだい読み込みます…', 0); waitAIThenHide(); return; }
+  if (!ai.ready) { pendingFiles.push(...files); showBusy('準備ができしだい読み込みます…', 0); waitAIThenHide(); return; }
   cancelFlag = false;
   let doneCount = 0, faceCount = 0;
   for (let i = 0; i < files.length; i++) {
@@ -782,6 +782,8 @@ function download(blob, name) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+  // 保存した場所を、閉じるまで残るお知らせで出す（ほかのツールと同じ）
+  import('../shared/js/saved.js').then((m) => m.showSavedNotice(name)).catch(() => {});
 }
 function stamp() { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`; }
 
@@ -1142,6 +1144,13 @@ function loadSettings() {
 
 loadSettings();
 refreshAll();
+// 「安心して使うために」は2回目からたたんでおく（11.6インチの画面でも手順がすぐ見えるように）
+(() => {
+  try {
+    if (localStorage.getItem('kaotori-safe-seen')) $('safeCard').open = false;
+    localStorage.setItem('kaotori-safe-seen', '1');
+  } catch { /* 覚えられない環境では毎回開いておく */ }
+})();
 setTimeout(initAI, 50);
 
 // テスト用フック
