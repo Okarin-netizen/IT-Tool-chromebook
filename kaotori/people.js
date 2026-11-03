@@ -11,7 +11,6 @@ const rec = { ready: false, loading: null };
 let groups = [];          // [{id, name, auto, faces:[face]}]
 let refs = [];            // 見本写真 [{name, desc, thumb}]（メモリのみ）
 let nextGroupId = 1;
-let dragFace = null;
 
 /* ---------- 顔認識モデルの読み込み（必要になった時だけ） ---------- */
 function loadScript(src) {
@@ -250,12 +249,11 @@ function groupCard(g, i) {
   card.appendChild(head);
   const body = document.createElement('div'); body.className = 'pfaces';
   for (const f of g.faces) {
-    const t = document.createElement('div'); t.className = 'pface'; t.draggable = true;
+    const t = document.createElement('div'); t.className = 'pface';
     const photo = K.state.photos.find((p) => p.id === f.photoId);
-    t.title = `${photo?.name || ''}\nドラッグで別の人へ移動／ダブルクリックで写真を開く`;
+    t.title = `${photo?.name || ''}\nドラッグで別の人へ移動（指は長押ししてから）／ダブルクリックで写真を開く`;
     if (f.peopleThumb) { const c = K.makeCanvas(84, 84); c.getContext('2d').drawImage(f.peopleThumb, 0, 0); t.appendChild(c); }
-    t.addEventListener('dragstart', (e) => { dragFace = { f, from: g }; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'face'); t.classList.add('dragging'); });
-    t.addEventListener('dragend', () => { t.classList.remove('dragging'); dragFace = null; });
+    dragSource(t, f, g);
     t.addEventListener('dblclick', () => { const idx = K.state.photos.indexOf(photo); if (idx >= 0) { K.state.current = idx; K.showTab('photo'); K.refreshAll(); } });
     body.appendChild(t);
   }
@@ -263,21 +261,124 @@ function groupCard(g, i) {
   dropTarget(card, () => g);
   return card;
 }
-function dropTarget(el, getGroup) {
-  el.addEventListener('dragover', (e) => { if (dragFace) { e.preventDefault(); el.classList.add('over'); } });
-  el.addEventListener('dragleave', () => el.classList.remove('over'));
-  el.addEventListener('drop', (e) => {
-    e.preventDefault(); e.stopPropagation(); el.classList.remove('over');
-    if (!dragFace) return;
-    const { f, from } = dragFace; dragFace = null;
-    if (getGroup) {
-      const to = getGroup(); if (to === from) return;
-      from.faces = from.faces.filter((x) => x !== f); to.faces.push(f);
-    } else {
-      from.faces = from.faces.filter((x) => x !== f); f.include = false; K.refreshAll();
-    }
-    render();
+/* ---------- 顔を別の人へ動かす（マウス・ペン・指） ---------- */
+// Pointer events rather than HTML drag and drop, so a finger can move faces on a touch screen
+// too. A mouse or pen drag starts once the pointer moves a little; a finger holds still for a
+// moment first (a quick swipe still scrolls the list). Escape puts the face back.
+const LONG_PRESS_MS = 350; // touch: hold this long before a face starts to move
+const DRAG_SLOP = 8;       // px the pointer may wander before a press counts as a drag (or a scroll)
+const SCROLL_EDGE = 60;    // px from the top/bottom of the list where dragging scrolls it
+const SCROLL_STEP = 20;    // most px scrolled per frame
+const dropGroups = new WeakMap(); // drop area element → function giving its group (null: 使わない)
+let press = null; // { tile, face, from, pointerId, x, y, touch, timer } while a face is pressed
+let drag = null;  // { ghost, target, x, y, raf } once the press has become a drag
+
+function dropTarget(el, getGroup) { dropGroups.set(el, getGroup); }
+
+function dragSource(tile, face, from) {
+  tile.addEventListener('pointerdown', (e) => {
+    if (!e.isPrimary || e.button !== 0) return;
+    const touch = e.pointerType !== 'mouse';
+    press = { tile, face, from, pointerId: e.pointerId, x: e.clientX, y: e.clientY, touch, timer: 0 };
+    if (touch) press.timer = setTimeout(() => startDrag(press.x, press.y), LONG_PRESS_MS);
+    else e.preventDefault(); // no text selection while dragging with a mouse
   });
+  tile.addEventListener('contextmenu', (e) => { if (press?.touch || drag) e.preventDefault(); });
+}
+
+function endPress() {
+  if (press) clearTimeout(press.timer);
+  press = null;
+}
+
+window.addEventListener('pointermove', (e) => {
+  if (!press || e.pointerId !== press.pointerId) return;
+  if (!drag) {
+    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < DRAG_SLOP) return;
+    if (press.touch) { endPress(); return; } // moved before the long press: it is a scroll
+    startDrag(e.clientX, e.clientY);
+  }
+  moveDrag(e.clientX, e.clientY);
+});
+window.addEventListener('pointerup', (e) => {
+  if (!press || e.pointerId !== press.pointerId) return;
+  if (drag) finishDrag();
+  endPress();
+});
+window.addEventListener('pointercancel', (e) => {
+  if (!press || e.pointerId !== press.pointerId) return;
+  stopDrag(); endPress();
+});
+window.addEventListener('keydown', (e) => {
+  if (!drag || e.key !== 'Escape') return;
+  e.preventDefault(); stopDrag(); endPress();
+});
+// Keep the page from scrolling under a finger that is moving a face.
+document.addEventListener('touchmove', (e) => { if (drag) e.preventDefault(); }, { passive: false });
+
+function startDrag(x, y) {
+  clearTimeout(press.timer);
+  const ghost = document.createElement('div'); ghost.className = 'pface-ghost';
+  const src = press.tile.querySelector('canvas');
+  if (src) { const c = K.makeCanvas(src.width, src.height); c.getContext('2d').drawImage(src, 0, 0); ghost.appendChild(c); }
+  document.body.appendChild(ghost);
+  press.tile.classList.add('dragging');
+  drag = { ghost, target: null, x, y, raf: 0 };
+  if (press.touch) navigator.vibrate?.(15);
+  moveDrag(x, y);
+  drag.raf = requestAnimationFrame(autoScroll);
+}
+
+function moveDrag(x, y) {
+  drag.x = x; drag.y = y;
+  drag.ghost.style.transform = `translate(${x}px, ${y}px)`;
+  let el = document.elementFromPoint(x, y);
+  while (el && !dropGroups.has(el)) el = el.parentElement;
+  if (drag.target !== el) {
+    drag.target?.classList.remove('over');
+    el?.classList.add('over');
+    drag.target = el;
+  }
+}
+
+// Near the top or bottom of the list, scroll it so far-away people can be reached. Not while
+// over the drop areas fixed at the bottom (新しい人・使わない).
+function autoScroll() {
+  if (!drag) return;
+  const pane = $('pane-people');
+  const r = pane.getBoundingClientRect();
+  const overDock = drag.target?.closest('.pdock');
+  let dy = 0;
+  if (drag.y < r.top + SCROLL_EDGE) dy = -(r.top + SCROLL_EDGE - drag.y);
+  else if (drag.y > r.bottom - SCROLL_EDGE && !overDock) dy = drag.y - (r.bottom - SCROLL_EDGE);
+  if (dy) { pane.scrollTop += Math.max(-SCROLL_STEP, Math.min(SCROLL_STEP, dy / 3)); moveDrag(drag.x, drag.y); }
+  drag.raf = requestAnimationFrame(autoScroll);
+}
+
+function stopDrag() {
+  if (!drag) return;
+  cancelAnimationFrame(drag.raf);
+  drag.ghost.remove();
+  drag.target?.classList.remove('over');
+  press?.tile.classList.remove('dragging');
+  drag = null;
+}
+
+function finishDrag() {
+  const { target } = drag;
+  const { face, from } = press;
+  stopDrag();
+  if (target) moveFace(face, from, dropGroups.get(target));
+}
+
+function moveFace(f, from, getGroup) {
+  if (getGroup) {
+    const to = getGroup(); if (to === from) return;
+    from.faces = from.faces.filter((x) => x !== f); to.faces.push(f);
+  } else {
+    from.faces = from.faces.filter((x) => x !== f); f.include = false; K.refreshAll();
+  }
+  render();
 }
 
 /* ---------- 保存 ---------- */

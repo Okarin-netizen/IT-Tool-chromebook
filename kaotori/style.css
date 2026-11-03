@@ -155,7 +155,7 @@ dialog::backdrop{background:rgba(20,24,32,.55)}
 .phead select{padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:12.5px}
 .pcount{font-size:12.5px;color:var(--muted)}
 .pfaces{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.pface{width:64px;height:64px;border-radius:6px;overflow:hidden;cursor:grab;border:2px solid transparent}
+.pface{width:64px;height:64px;border-radius:6px;overflow:hidden;cursor:grab;border:2px solid transparent;user-select:none;-webkit-touch-callout:none}
 .pface canvas{width:100%;height:100%;display:block}
 .pface.dragging{opacity:.4}
 .pface:hover{border-color:var(--accent)}
@@ -190,3 +190,6 @@ dialog{background:var(--surface);color:var(--text)}
 }
 /* Pointer events, so a finger or pen can add faces and move the crop on a touch screen. */
 #photoCanvas,#adjCanvas{touch-action:none}
+/* The face that follows the pointer while it is moved to another person (people.js). */
+.pface-ghost{position:fixed;left:0;top:0;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:6px;overflow:hidden;pointer-events:none;z-index:60;box-shadow:0 6px 18px rgba(0,0,0,.3);opacity:.9}
+.pface-ghost canvas{width:100%;height:100%;display:block}
