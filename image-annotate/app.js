@@ -38,6 +38,8 @@ const els = {
   cropApply: $("crop-apply"),
   cropCancel: $("crop-cancel"),
   rotateLeft: $("rotate-left"),
+  moreBtn: $("more-btn"),
+  moreMenu: $("more-menu"),
   rotateRight: $("rotate-right"),
 };
 const ctx = els.canvas.getContext("2d");
@@ -837,6 +839,7 @@ function setTool(tool) {
     b.classList.toggle("selected", b.dataset.tool === tool);
     b.setAttribute("aria-checked", b.dataset.tool === tool);
   }
+  els.moreBtn.classList.toggle("selected", els.moreMenu.querySelector(`[data-tool="${tool}"]`) !== null);
   if (tool !== "select" && state.selected) {
     state.selected = null;
     render();
@@ -845,6 +848,15 @@ function setTool(tool) {
 }
 
 for (const b of els.tools) b.addEventListener("click", () => setTool(b.dataset.tool));
+
+// 「その他」: the tools used less often. A pick closes it, so it does not cover the picture.
+els.moreBtn.addEventListener("click", () => (els.moreMenu.hidden = !els.moreMenu.hidden));
+els.moreMenu.addEventListener("click", (e) => {
+  if (e.target.closest("button")) els.moreMenu.hidden = true;
+});
+document.addEventListener("pointerdown", (e) => {
+  if (!e.target.closest(".menu-wrap")) els.moreMenu.hidden = true;
+});
 
 // Changing color, width or fill also restyles whatever is selected.
 function restyleSelected(apply) {

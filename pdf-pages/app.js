@@ -784,6 +784,10 @@ for (const [btn, fn] of menuActions) {
     if (!state.busy) fn();
   });
 }
+// The other items in the menu (選択を解除, 最初から) close it too.
+els.moreMenu.addEventListener("click", (e) => {
+  if (e.target.closest(".menu-item")) closeMenu();
+});
 els.rangeForm.addEventListener("submit", (e) => {
   e.preventDefault();
   selectByRange();

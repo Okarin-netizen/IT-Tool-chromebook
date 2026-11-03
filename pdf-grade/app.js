@@ -17,6 +17,8 @@ import { pixelRatio } from "../shared/js/canvas.js";
 import { dateText } from "../shared/js/dates.js";
 import "../shared/js/guide.js";
 
+// Tools kept in the 「その他」 menu, so the toolbar fits in two rows on an 11.6-inch screen.
+const MORE_TOOLS = ["marker", "text"];
 const SCORE_H = 34; // height of a new score, in page points
 const QSCORE_H = 22; // … and of a question's score
 const OUT_SUFFIX = "_採点済";
@@ -34,6 +36,8 @@ const els = {
   tools: document.querySelectorAll(".btn.tool"),
   stampBtn: $("stamp-btn"),
   stampMenu: $("stamp-menu"),
+  moreBtn: $("more-btn"),
+  moreMenu: $("more-menu"),
   sealList: $("seal-list"),
   markList: $("mark-list"),
   scoreBtn: $("score-btn"),
@@ -998,6 +1002,8 @@ function updateUi() {
   const open = state.files.length > 0;
   syncToolbar(els, state, history, open);
   els.scoreBtn.classList.toggle("selected", state.tool === "score" || state.tool === "qscore");
+  // The marker and the text tool live in 「その他」: show which one is on there.
+  els.moreBtn.classList.toggle("selected", MORE_TOOLS.includes(state.tool));
   const focusing = !!state.focus || state.tool === "area";
   els.focusBtn.classList.toggle("selected", focusing);
   els.focusBtn.setAttribute("aria-pressed", String(focusing));
@@ -1010,7 +1016,7 @@ function updateUi() {
 
 /* ---------- menus ---------- */
 
-const { close: closeMenus, toggle: toggleMenu } = createMenus(els.stampMenu, els.scoreMenu, els.commentMenu);
+const { close: closeMenus, toggle: toggleMenu } = createMenus(els.stampMenu, els.scoreMenu, els.commentMenu, els.moreMenu);
 
 function renderStampChoices() {
   renderChoices([[els.markList, false], [els.sealList, true]], {
@@ -1188,6 +1194,11 @@ for (const btn of els.tools) {
   });
 }
 els.stampBtn.addEventListener("click", () => toggleMenu(els.stampMenu));
+els.moreBtn.addEventListener("click", () => toggleMenu(els.moreMenu));
+// A pick in 「その他」 closes it, so it does not cover the page being marked.
+els.moreMenu.addEventListener("click", (e) => {
+  if (e.target.closest("button, label.btn")) closeMenus();
+});
 els.scoreBtn.addEventListener("click", () => toggleMenu(els.scoreMenu));
 els.scoreUse.addEventListener("click", () => {
   closeMenus();
