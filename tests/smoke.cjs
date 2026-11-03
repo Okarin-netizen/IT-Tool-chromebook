@@ -1171,6 +1171,21 @@ const TOOLS = {
       await t.page.click(".tab[data-tab='people']");
       await t.page.click("#peopleRun");
       await t.until(() => window.KAO_PEOPLE._groups().length === 1, 60000);
+      // Faces move to another person with a mouse, and with a finger after a long press.
+      // (A person left with no faces is dropped from the list.)
+      const people = () => t.page.evaluate(() => KAO_PEOPLE._groups().map((g) => `${g.id}:${g.faces.length}`).join(","));
+      const before = await people();
+      const from = await t.page.locator(".pface").boundingBox();
+      const to = await t.page.locator(".pdock .newzone:not(.exclude)").boundingBox();
+      await t.page.mouse.move(from.x + 30, from.y + 30);
+      await t.page.mouse.down();
+      await t.page.mouse.move(to.x + 40, to.y + 20, { steps: 8 });
+      await t.page.mouse.up();
+      const moved = await people();
+      t.expect(/^\d+:1$/.test(moved) && moved !== before, `マウスで顔を新しい人へ動かせない: ${before} → ${moved}`);
+      await t.touchDrag(t.page.locator(".pface"), t.page.locator(".pdock .exclude"));
+      t.expect(!(await people()).includes(":1"), `指で顔を「使わない」へ動かせない: ${await people()}`);
+      t.expect(await t.page.evaluate(() => !__kaotori.state.photos[0].faces[0].include), "「使わない」にした顔が使われたまま");
     },
     async offline(t) {
       await t.until(() => __kaotori.ai.ready, 60000);
