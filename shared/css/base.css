@@ -126,6 +126,65 @@
 }
 .next-item:hover, .next-item:focus-visible { background: color-mix(in srgb, var(--accent) 12%, transparent); outline: none; }
 
+/* ---------- help: big pick area, 「使い方」 button and dialog (shared/js/guide.js) ---------- */
+
+.pick-zone {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  min-height: 112px; margin: 16px 0; padding: 16px;
+  border: 2px dashed var(--accent); border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  color: var(--accent-dark); text-align: center; cursor: pointer;
+}
+.pick-zone strong { font-size: 20px; }
+.pick-zone span { font-size: 14px; color: var(--muted); }
+.pick-zone:hover { background: color-mix(in srgb, var(--accent) 13%, transparent); }
+.guide-btn { white-space: nowrap; }
+.guide-dialog { width: 640px; max-height: calc(100vh - 32px); }
+.guide-body { max-height: calc(100vh - 160px); overflow: auto; }
+.guide-body h1 { margin: 0 0 8px; font-size: 22px; }
+.guide-body li { margin: 4px 0; }
+.guide-body .note { color: var(--muted); font-size: 14px; }
+
+/* ---------- "saved to Downloads" notice (shared/js/files.js download()) ---------- */
+
+.saved-notice {
+  position: fixed; right: 16px; bottom: 16px; z-index: 25;
+  display: flex; align-items: center; gap: 12px;
+  width: 440px; max-width: calc(100% - 32px); padding: 12px 14px;
+  background: var(--bar); color: var(--text);
+  border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.18);
+}
+.saved-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.saved-text strong { font-size: 14px; overflow-wrap: anywhere; }
+.saved-text span { font-size: 13px; color: var(--muted); }
+.saved-close { flex: none; }
+
+/* 「その他 ▾」: tools used less often, so the toolbar fits in two rows on an 11.6-inch screen */
+.btn.more.selected { background: var(--accent-soft); border-color: transparent; color: var(--accent-dark); }
+.menu-wrap { position: relative; }
+.more-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 15;
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  width: 260px; padding: 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.18);
+}
+.more-menu .btn { justify-content: flex-start; }
+.more-menu .field { justify-content: space-between; }
+
+/* Small icon buttons on page and photo cards get a word under the icon. */
+.mini-text { display: block; font-size: 10px; line-height: 1; white-space: nowrap; }
+button:has(> .mini-text) { flex-direction: column; gap: 2px; width: auto !important; min-width: 34px; height: 40px !important; padding: 0 4px !important; }
+
+/* Fingers need bigger targets than a mouse (tablet mode). */
+@media (pointer: coarse) {
+  html .btn { min-height: 44px; }
+  html .btn.icon { width: 44px; }
+  html .swatch { width: 38px; height: 38px; }
+  html .mini { min-width: 40px; height: 40px; }
+}
+
 /* ---------- dark mode ---------- */
 
 /* Dark mode follows the Chromebook's setting (like the top page). html:root wins over the tools'

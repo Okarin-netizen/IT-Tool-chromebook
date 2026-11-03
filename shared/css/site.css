@@ -117,19 +117,29 @@ main { padding: 26px 32px 48px; min-width: 0; }
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 12px;
-  margin: 14px 0 4px;
-  padding: 10px 14px;
+  margin: 10px 0 0;
+  padding: 6px 12px;
   border: 1px solid var(--line);
   border-left: 4px solid var(--accent);
   border-radius: 4px;
   font-size: 13.5px;
 }
 .news a { margin-left: auto; white-space: nowrap; }
+/* よくあるやりたいこと: one row of shortcuts, for people who think in tasks, not tool names */
+.tasks { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 12px 0 0; }
+.tasks-label { color: var(--muted); font-size: 13px; font-weight: 700; margin-right: 2px; }
+.tasks a {
+  display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: 16px;
+  color: var(--text); font-size: 13px; text-decoration: none;
+}
+.tasks a:hover { background: var(--hover); border-color: var(--accent); }
+.tasks a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 h2 {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 26px 0 10px;
+  margin: 20px 0 10px;
   color: var(--muted);
   font-size: 14px;
   font-weight: 700;
@@ -175,6 +185,7 @@ h2::after { content: ""; flex: 1; height: 1px; background: var(--line-soft); }
 body.searching .desc { -webkit-line-clamp: unset; }
 .new { margin-left: 6px; padding: 0 5px; border-radius: 3px; background: var(--new); color: #fff; font-size: 11px; font-weight: 400; vertical-align: 1px; }
 @media (prefers-color-scheme: dark) { .new { color: #1d2127; } }
+.for { margin-left: 6px; padding: 0 5px; border: 1px solid var(--line); border-radius: 3px; color: var(--muted); font-size: 11px; font-weight: 400; vertical-align: 1px; }
 .empty { margin: 24px 4px; color: var(--muted); }
 .hint { margin: 0; color: var(--muted); font-size: 13px; }
 

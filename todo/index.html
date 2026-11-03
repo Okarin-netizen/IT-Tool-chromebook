@@ -25,8 +25,8 @@
       <span class="app-title">時間割・課題</span>
     </div>
     <div class="group end">
-      <button id="export-btn" class="btn" title="データをファイルに保存（バックアップ）"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>バックアップ</button>
-      <label class="btn" for="import-input" title="バックアップしたファイルから読み込む"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg>読み込み</label>
+      <button id="export-btn" class="btn" title="時間割と課題をファイルに保存します。別のChromebookに移すときや、念のために使います"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>別の端末に移す用に保存</button>
+      <label class="btn" for="import-input" title="「別の端末に移す用に保存」で作ったファイルから、時間割と課題を戻します"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg>保存したファイルから戻す</label>
       <input id="import-input" type="file" accept="application/json,.json" hidden>
     </div>
   </header>
@@ -77,7 +77,7 @@
     </section>
   </main>
 
-  <p class="note">データはこのブラウザの中だけに保存され、どこにも送信されません。別の端末で使うときや、念のための保存には「バックアップ」を使ってください。</p>
+  <p class="note">データはこのブラウザの中だけに保存され、どこにも送信されません。ふだんは何もしなくても残ります。別の端末で使うときだけ、右上の「別の端末に移す用に保存」を使ってください。</p>
 
   <div id="status" class="status" role="status" aria-live="polite" hidden></div>
 

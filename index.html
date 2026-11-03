@@ -40,6 +40,15 @@
       <h1 id="view-title">すべてのツール</h1>
       <p>インストール不要、ブラウザだけで使えます。ファイルはこの端末の中だけで処理されます。</p>
     </div>
+    <nav class="tasks" id="tasks" aria-label="よくあるやりたいこと">
+      <span class="tasks-label">よくあるやりたいこと</span>
+      <a href="pdf-sign/">ハンコ・署名を押す</a>
+      <a href="pdf-pages/">PDFを1つにまとめる</a>
+      <a href="image-pdf/">写真をPDFにして提出</a>
+      <a href="pdf-compress/">PDFを軽くする</a>
+      <a href="pdf-grade/">提出物を採点する</a>
+      <a href="timer/">タイマーを映す</a>
+    </nav>
     <p class="news" id="news" hidden><b>更新</b><span id="news-text"></span><a href="changelog.html">更新履歴</a></p>
 
     <section id="quick-fav" class="quick" aria-labelledby="g-fav" hidden>
@@ -57,70 +66,70 @@
     <section class="group" id="pdf" aria-labelledby="g-pdf">
       <h2 id="g-pdf">PDF</h2>
       <ul class="apps">
-        <li>
+        <li data-keywords="文字を書く 記入 書き込み 日本語 写真を貼る 白で消す">
           <a class="app" href="pdf-text/" title="PDFに日本語の文字や写真を書き込んで、新しいPDFとして保存します。">
             <img src="pdf-text/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">PDF文字入れ</span></span>
             <span class="desc">PDFに日本語の文字や写真を書き込んで、新しいPDFとして保存します。</span>
           </a>
         </li>
-        <li>
+        <li data-keywords="まとめる くっつける 合体 結合 分ける 抜き出す 並べかえ 並べ替え 削除 向き 横向き">
           <a class="app" href="pdf-pages/" title="PDFを1つにまとめたり、必要なページだけ抜き出したり、向きを直したりします。">
             <img src="pdf-pages/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">PDF結合・分割・回転</span></span>
             <span class="desc">PDFを1つにまとめたり、必要なページだけ抜き出したり、向きを直したりします。</span>
           </a>
         </li>
-        <li>
+        <li data-keywords="提出 課題 宿題 写真 スキャン カメラ ノート まとめる">
           <a class="app" href="image-pdf/" title="ノートやプリントの写真を並べ替えて、1つのPDFにまとめます。カメラでその場で撮ることもできます。">
             <img src="image-pdf/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">画像→PDF</span></span>
             <span class="desc">ノートやプリントの写真を並べ替えて、1つのPDFにまとめます。カメラでその場で撮ることもできます。</span>
           </a>
         </li>
-        <li>
+        <li data-keywords="容量 重い 軽く 小さく サイズ 提出 送れない アップロード MB">
           <a class="app" href="pdf-compress/" title="写真やスキャンの入ったPDFを軽くします。提出のサイズ制限に引っかかるときに。">
             <img src="pdf-compress/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">PDF圧縮</span></span>
             <span class="desc">写真やスキャンの入ったPDFを軽くします。提出のサイズ制限に引っかかるときに。</span>
           </a>
         </li>
-        <li>
+        <li data-keywords="写真にする 画像にする スライド 貼る JPG PNG">
           <a class="app" href="pdf-image/" title="PDFのページをPNGやJPGの画像にして保存・コピーします。スライドやClassroomに貼りたいときに。">
             <img src="pdf-image/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">PDF→画像</span></span>
             <span class="desc">PDFのページをPNGやJPGの画像にして保存・コピーします。スライドやClassroomに貼りたいときに。</span>
           </a>
         </li>
-        <li>
+        <li data-keywords="番号 ページ数 ノンブル 下書き 見本 マル秘 社外秘 ヘッダー フッター" data-for="先生向け">
           <a class="app" href="pdf-stamp/" title="PDFの全ページにページ番号や「下書き」「見本」などの透かしをまとめて入れます。">
             <img src="pdf-stamp/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">ページ番号・透かし入れ</span></span>
             <span class="desc">PDFの全ページにページ番号や「下書き」「見本」などの透かしをまとめて入れます。</span>
           </a>
         </li>
-        <li data-added="2026-10-30">
+        <li data-added="2026-10-30" data-keywords="冊子 製本 中とじ 両面 印刷 しおり パンフレット 問題冊子" data-for="先生向け">
           <a class="app" href="pdf-booklet/" title="PDFのページを、両面印刷して半分に折ると冊子になる順番に並べかえます。">
             <img src="pdf-booklet/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">冊子印刷</span></span>
             <span class="desc">PDFのページを、両面印刷して半分に折ると冊子になる順番に並べかえます。</span>
           </a>
         </li>
-        <li>
+        <li data-keywords="文字起こし 読み取り テキスト コピー OCR スキャン 検索">
           <a class="app" href="pdf-extract/" title="PDFや写真の文字を取り出してコピーやテキスト保存ができます。スキャンしたPDFもOCRで読み取り、検索できるPDFにできます。">
             <img src="pdf-extract/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">PDF文字取り出し</span></span>
             <span class="desc">PDFの文字を取り出してコピーやテキスト保存ができます。スキャンしたPDFもOCRで読み取れます。</span>
           </a>
         </li>
-        <li>
+        <li data-keywords="ハンコ 印鑑 押印 判子 署名 サイン 手書き ペン 済 黒塗り 墨消し">
           <a class="app" href="pdf-sign/" title="プリントのPDFにペンで書き込んだり、ハンコや署名を押したりして保存します。">
             <img src="pdf-sign/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">PDFに手書き・署名</span></span>
             <span class="desc">プリントのPDFにペンで書き込んだり、ハンコや署名を押したりして保存します。</span>
           </a>
         </li>
-        <li>
+        <li data-keywords="採点 丸つけ まるつけ 添削 点数 返却 提出物 テスト 小テスト" data-for="先生向け">
           <a class="app" href="pdf-grade/" title="提出された何人分ものPDFをまとめて開いて採点し、1人ずつ別々のPDFにして返却用に保存します。">
             <img src="pdf-grade/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">PDF一括採点</span></span>
@@ -133,28 +142,28 @@
     <section class="group" id="class" aria-labelledby="g-class">
       <h2 id="g-class">授業で使う</h2>
       <ul class="apps">
-        <li>
+        <li data-keywords="くじ 抽選 指名 当てる ランダム 名簿 班 グループ 席替え" data-for="先生向け">
           <a class="app" href="class-picker/" title="名簿から発表する人をルーレットで選んだり、班をランダムに分けたり、席替えをしたりします。">
             <img src="class-picker/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">名前ルーレット・班分け</span></span>
             <span class="desc">名簿から発表する人をルーレットで選んだり、班をランダムに分けたり、席替えをしたりします。</span>
           </a>
         </li>
-        <li data-added="2026-10-31">
+        <li data-added="2026-10-31" data-keywords="声 うるさい 静かに 信号 サイコロ 得点 点数 スクリーン 大画面" data-for="先生向け">
           <a class="app" href="class-screen/" title="声の大きさメーター・信号・サイコロ・得点板を、教室のスクリーンに大きく映せます。">
             <img src="class-screen/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">授業の画面</span></span>
             <span class="desc">声の大きさメーター・信号・サイコロ・得点板を、教室のスクリーンに大きく映せます。</span>
           </a>
         </li>
-        <li>
+        <li data-keywords="QR バーコード リンク URL フォーム 読み取る">
           <a class="app" href="qr-maker/" title="URLや文字からQRコードの画像を作ります。Googleフォームやスライドを配るときに。">
             <img src="qr-maker/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">QRコード作成</span></span>
             <span class="desc">URLや文字からQRコードの画像を作ります。Googleフォームやスライドを配るときに。</span>
           </a>
         </li>
-        <li>
+        <li data-keywords="キーボード ローマ字 打つ 練習 英語" data-for="生徒向け">
           <a class="app" href="typing/" title="日本語（ローマ字入力）と英語のタイピングを練習します。自分で決めたことばでも練習できます。">
             <img src="typing/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">タイピング練習</span></span>
@@ -167,14 +176,14 @@
     <section class="group" id="photo" aria-labelledby="g-photo">
       <h2 id="g-photo">写真・動画</h2>
       <ul class="apps">
-        <li data-added="2026-11-03">
+        <li data-added="2026-11-03" data-keywords="顔 切り抜き 証明写真 モザイク 集合写真 名札 個人情報" data-for="先生向け">
           <a class="app" href="kaotori/" title="集合写真から1人ずつ顔を切り抜いたり、証明写真の大きさに整えたり、顔や名札にモザイクを入れたりします。写っている人ごとに写真を分けることもできます。">
             <img src="kaotori/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">かおトリ</span></span>
             <span class="desc">集合写真から1人ずつ顔を切り抜いたり、証明写真を作ったり、顔や名札にモザイクを入れたりします。</span>
           </a>
         </li>
-        <li data-added="2026-11-03">
+        <li data-added="2026-11-03" data-keywords="顔 動画 ビデオ モザイク ぼかし 隠す 個人情報" data-for="先生向け">
           <a class="app" href="kaokakushi/" title="動画に写った顔を自動で見つけて追いかけ、モザイク・ぼかし・目線を入れたMP4を作ります。行事の動画を共有するときに。">
             <img src="kaokakushi/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">かおかくし</span></span>
@@ -187,35 +196,35 @@
     <section class="group" id="other" aria-labelledby="g-other">
       <h2 id="g-other">そのほかのツール</h2>
       <ul class="apps">
-        <li>
+        <li data-keywords="計算 電卓 グラフ 関数 sin 分数 統計">
           <a class="app" href="calc/" title="三角関数・対数・累乗などの計算と、y = f(x) のグラフ描画ができます。">
             <img src="calc/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">関数電卓・グラフ</span></span>
             <span class="desc">三角関数・対数・累乗などの計算と、y = f(x) のグラフ描画ができます。</span>
           </a>
         </li>
-        <li>
+        <li data-keywords="時間割 課題 宿題 提出 締め切り チェック やること" data-for="生徒向け">
           <a class="app" href="todo/" title="時間割と課題の締め切りをブラウザに保存して、やることを管理します。">
             <img src="todo/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">時間割・課題チェックリスト</span></span>
             <span class="desc">時間割と課題の締め切りをブラウザに保存して、やることを管理します。</span>
           </a>
         </li>
-        <li>
+        <li data-keywords="時計 時間 タイマー ストップウォッチ カウントダウン 何分 集中">
           <a class="app" href="timer/" title="勉強時間やテスト練習の時間を計れます。ポモドーロ・タイマー・ストップウォッチの3つのモード。">
             <img src="timer/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">タイマー・ポモドーロ</span></span>
             <span class="desc">勉強時間やテスト練習の時間を計れます。ポモドーロ・タイマー・ストップウォッチの3つのモード。</span>
           </a>
         </li>
-        <li>
+        <li data-keywords="容量 重い 軽く 小さく サイズ 縮小 リサイズ 写真">
           <a class="app" href="image-resize/" title="写真や画像のファイルサイズを小さくします。「200KB以下」のような指定や、まとめての変換もできます。">
             <img src="image-resize/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">画像を小さく</span></span>
             <span class="desc">写真や画像のファイルサイズを小さくします。「200KB以下」のような指定や、まとめての変換もできます。</span>
           </a>
         </li>
-        <li>
+        <li data-keywords="矢印 書き込み スクリーンショット スクショ モザイク 番号 切り抜き 説明">
           <a class="app" href="image-annotate/" title="スクリーンショットや写真に矢印・文字・図形を書き込んで、PNG画像で保存します。">
             <img src="image-annotate/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">画像に書き込み</span></span>
@@ -225,7 +234,7 @@
       </ul>
     </section>
 
-    <p id="empty" class="empty" hidden>「<span id="empty-q"></span>」に合うツールはありません。</p>
+    <p id="empty" class="empty" hidden>「<span id="empty-q"></span>」に合うツールはありません。ことばを短くするか、<a href="#" id="show-all">すべてのツールを見る</a>から探してください。</p>
 
     <section id="history" aria-labelledby="g-history">
       <h2 id="g-history">更新履歴</h2>
@@ -269,6 +278,17 @@
       }
     }
 
+    // "先生向け" / "生徒向け" next to the name (<li data-for="先生向け">); untagged tools are for both.
+    for (const li of document.querySelectorAll("li[data-for]")) {
+      li.querySelector(".title").append(Object.assign(document.createElement("span"), { className: "for", textContent: li.dataset.for }));
+    }
+    document.getElementById("show-all").addEventListener("click", (e) => {
+      e.preventDefault();
+      q.value = "";
+      search();
+      location.hash = "";
+    });
+
     // ---------- the menu on the left: すべて / お気に入り / one group ----------
     function showView() {
       const view = location.hash.slice(1) || "all";
@@ -282,6 +302,7 @@
       document.body.dataset.view = known;
       for (const sec of groups) sec.hidden = !(known === "all" || known === sec.id);
       document.getElementById("news").hidden = known !== "all";
+      document.getElementById("tasks").hidden = known !== "all";
       document.getElementById("history").hidden = known !== "all";
       renderQuick();
     }
@@ -301,7 +322,8 @@
       for (const sec of groups) {
         let inSection = 0;
         sec.querySelectorAll("li").forEach((li) => {
-          const hit = words.every((w) => li.textContent.toLowerCase().includes(w));
+          const text = `${li.textContent} ${li.dataset.keywords ?? ""} ${li.dataset.for ?? ""}`.toLowerCase();
+          const hit = words.every((w) => text.includes(w));
           li.hidden = !hit;
           if (hit) inSection++;
         });
@@ -309,6 +331,7 @@
         shown += inSection;
       }
       document.getElementById("view-title").textContent = "さがした結果";
+      document.getElementById("tasks").hidden = true;
       document.getElementById("news").hidden = true;
       document.getElementById("history").hidden = true;
       document.getElementById("fav-hint").hidden = true;

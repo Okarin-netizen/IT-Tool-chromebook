@@ -2,7 +2,7 @@
 let timer = 0;
 
 // Hides itself after `ms`; `sticky` keeps it until the next message (for work in progress).
-export function showStatus(text, { error = false, sticky = false, ms = error ? 6000 : 2500 } = {}) {
+export function showStatus(text, { error = false, sticky = false, ms = error ? 8000 : 4000 } = {}) {
   const el = document.getElementById("status");
   clearTimeout(timer);
   el.textContent = text;

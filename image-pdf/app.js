@@ -3,10 +3,12 @@ import { download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { isImage, isHeic, readableImage } from "../shared/js/heic.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { loadText, saveText } from "../shared/js/storage.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
 import { createSortable } from "../shared/js/sortable.js";
 import { detectCorners, scanLook, warp } from "./straighten.js";
+import "../shared/js/guide.js";
 
 const MAX_IMAGE_PX = 2400; // longest side kept per photo; enough to read handwriting, keeps PDFs small
 const JPEG_QUALITY = 0.88;
@@ -191,21 +193,23 @@ function card(img, index, opts) {
   const bar = document.createElement("div");
   bar.className = "card-bar";
   bar.append(
-    iconButton("i-left", "前へ移動", () => move(img.id, -1), index === 0),
-    iconButton("i-right", "後ろへ移動", () => move(img.id, 1), index === state.images.length - 1),
-    iconButton("i-rotate", "右に90°回転", () => rotate(img.id)),
-    iconButton("i-straighten", "まっすぐにする（ななめに撮ったプリントを長方形に直す）", () => openStraighten(img.id), false, img.corners ? "on" : ""),
-    iconButton("i-close", "このページを消す", () => remove(img.id), false, "del"),
+    iconButton("i-left", "前へ移動", () => move(img.id, -1), index === 0, "", "前へ"),
+    iconButton("i-right", "後ろへ移動", () => move(img.id, 1), index === state.images.length - 1, "", "後ろへ"),
+    iconButton("i-rotate", "右に90°回転", () => rotate(img.id), false, "", "回転"),
+    iconButton("i-straighten", "まっすぐにする（ななめに撮ったプリントを長方形に直す）", () => openStraighten(img.id), false, img.corners ? "on" : "", "まっすぐ"),
+    iconButton("i-close", "このページを消す", () => remove(img.id), false, "del", "消す"),
   );
 
   li.append(num, sheet, bar);
   return li;
 }
 
-function iconButton(icon, title, onClick, disabled = false, extra = "") {
+// `text` is a short word under the icon, so the buttons can be told apart without hovering.
+function iconButton(icon, title, onClick, disabled = false, extra = "", text = "") {
   const b = document.createElement("button");
   b.className = `btn ${extra}`.trim();
   b.innerHTML = `<svg class="i" aria-hidden="true"><use href="#${icon}"/></svg>`;
+  if (text) b.insertAdjacentHTML("beforeend", `<span class="mini-text">${text}</span>`);
   b.title = title;
   b.setAttribute("aria-label", title);
   b.disabled = disabled;
@@ -495,8 +499,13 @@ async function pageJpeg(img, gray, scan) {
   return new Uint8Array(await (await canvasToJpeg(canvas)).arrayBuffer());
 }
 
+// The name typed last time (a student's number and name), so it is there for the next homework.
+const NAME_KEY = "image-pdf-name-v1";
+const DEFAULT_NAME = "まとめ";
+let askedForName = false;
+
 function outputName() {
-  const base = els.fileName.value.trim().replace(/\.pdf$/i, "").replace(/[\\/:*?"<>|]/g, "_") || "まとめ";
+  const base = els.fileName.value.trim().replace(/\.pdf$/i, "").replace(/[\\/:*?"<>|]/g, "_") || DEFAULT_NAME;
   return `${base}.pdf`;
 }
 
@@ -521,7 +530,7 @@ async function save() {
     const out = await doc.save();
     download(new Blob([out], { type: "application/pdf" }), outputName());
     state.dirty = false;
-    showStatus(`${state.images.length}ページのPDFを保存しました（ダウンロードフォルダを確認してください）`);
+    showStatus(`${state.images.length}ページのPDFを保存しました`);
   } catch (err) {
     console.error(err);
     showStatus("PDFを作れませんでした。画像の枚数を減らして試してください", { error: true });
@@ -555,7 +564,21 @@ els.clearBtn.addEventListener("click", () => {
   render();
 });
 
-els.saveBtn.addEventListener("click", save);
+// Every student saving "まとめ.pdf" leaves the teacher with a pile of files of the same name, so
+// an empty name is asked for once before saving.
+function saveFromButton() {
+  if (!els.fileName.value.trim() && !askedForName) {
+    askedForName = true;
+    els.fileName.focus();
+    showStatus("ファイル名に出席番号と名前を入れてください（このままもう一度押すと「まとめ.pdf」で保存します）", { ms: 8000 });
+    return;
+  }
+  save();
+}
+
+els.fileName.value = loadText(NAME_KEY) ?? "";
+els.fileName.addEventListener("change", () => saveText(NAME_KEY, els.fileName.value.trim()));
+els.saveBtn.addEventListener("click", saveFromButton);
 addNextTool({ saveBtn: els.saveBtn, save: save, kind: "pdf" });
 
 document.addEventListener("keydown", (e) => {

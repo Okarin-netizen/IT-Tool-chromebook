@@ -50,7 +50,7 @@ function load() {
 }
 
 function save() {
-  if (!saveJson(STORAGE_KEY, state)) showStatus("保存できませんでした。「バックアップ」でファイルに保存してください。", { error: true, ms: 5000 });
+  if (!saveJson(STORAGE_KEY, state)) showStatus("保存できませんでした。「別の端末に移す用に保存」でファイルに保存してください。", { error: true, ms: 5000 });
 }
 
 function newId() {
@@ -417,7 +417,7 @@ for (const chip of document.querySelectorAll(".chip")) {
 
 $("export-btn").addEventListener("click", () => {
   download(new Blob([JSON.stringify(state, null, 2)], { type: "application/json" }), `時間割と課題_${dateText()}.json`);
-  showStatus("バックアップを保存しました");
+  showStatus("時間割と課題をファイルに保存しました");
 });
 
 $("import-input").addEventListener("change", async (e) => {

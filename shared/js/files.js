@@ -1,5 +1,6 @@
 // Saving files and taking files dropped on the page.
 import { kvDelete, kvGet } from "./kv.js";
+import { showSavedNotice } from "./saved.js";
 
 export const isPdf = (file) => file.type === "application/pdf" || /\.pdf$/i.test(file.name);
 
@@ -24,6 +25,7 @@ export function download(blob, name) {
     capture.push(new File([blob], name, { type: blob.type }));
     return;
   }
+  showSavedNotice(name);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

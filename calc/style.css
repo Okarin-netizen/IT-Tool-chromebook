@@ -287,3 +287,12 @@ h2 { margin: 0; font-size: 16px; }
 @media (prefers-color-scheme: dark) {
   .func.error { background: color-mix(in srgb, var(--error) 18%, var(--surface)); }
 }
+
+/* 2進・16進・素因数分解 show only while 「統計・組み合わせ・進数」 is open (or one of them is in use),
+   so a first look at the calculator is not crowded with things most students never need. */
+body:not(:has(#more-keys[open])) .view:is([data-view="bin"], [data-view="hex"], [data-view="factor"]):not([aria-checked="true"]) { display: none; }
+
+/* An 11.6-inch Chromebook leaves about 650px for the page: keep all the keys on screen. */
+@media (max-height: 700px) {
+  .key { min-height: 42px; }
+}

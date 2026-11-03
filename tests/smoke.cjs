@@ -140,6 +140,7 @@ const TOOLS = {
       });
       const order = await t.page.evaluate(() => __pdfPages.state.pages.map((p) => (p.file.blank ? "白" : p.index + 1)).join(","));
       t.expect(order === "3,白,2,2", `白紙・複製・逆順のあとの並びが違う: ${order}`);
+      if (await t.page.isHidden("#more-menu")) await t.page.click("#more-btn"); // 1枚に is in 「ページの操作」
       await t.page.selectOption("#nup", "2");
       await t.page.click("#save-btn");
       const [sheets] = await t.downloads(1);
@@ -147,6 +148,7 @@ const TOOLS = {
       const sheetDoc = await t.expectPdfPages(sheets, 2);
       const { width, height } = sheetDoc.getPage(0).getSize();
       t.expect(width > height, "2in1の紙が横向きになっていない");
+      if (await t.page.isHidden("#more-menu")) await t.page.click("#more-btn"); // 1枚に is in 「ページの操作」
       await t.page.selectOption("#nup", "1");
 
       // A long press with a finger picks a page up; dropping it in front of the first page moves it there.
@@ -265,6 +267,7 @@ const TOOLS = {
       const names = fixtures.zipNames(file.bytes);
       t.expect(names.includes("生徒A_採点済.pdf") && names.includes("生徒B_採点済.pdf"), `ZIPの中身が違う: ${names.join(", ")}`);
       t.expect(names.some((n) => n.endsWith(".csv")), `ZIPに点数一覧がない: ${names.join(", ")}`);
+      await t.page.click("#more-btn"); // 名前を隠す is in the 「その他」 menu
       await t.page.click("#anon-btn");
       t.expect(await t.page.textContent(".doc-title") === "生徒A.pdf", "名前を隠すのをやめても名前に戻らない");
 
@@ -762,6 +765,7 @@ const TOOLS = {
       await t.page.keyboard.press("Control+y");
       t.expect(await items() === moved, "やり直しで矢印が戻らない");
       // Number stamps count up with each click.
+      await t.page.click("#more-btn"); // in the 「その他」 menu
       await t.page.click("[data-tool='number']");
       for (const [x, y] of [[60, 60], [120, 60], [180, 60]]) await t.page.mouse.click(...(await t.page.locator("#canvas").boundingBox().then((b) => [b.x + x, b.y + y])));
       const numbers = await t.page.evaluate(() => __imageAnnotate.state.items.filter((i) => i.type === "number").map((i) => i.n).join());
@@ -773,6 +777,7 @@ const TOOLS = {
         return `${Math.round(n.x)},${Math.round(n.y)}`;
       });
       const before = await first();
+      await t.page.click("#more-btn"); // in the 「その他」 menu
       await t.page.click("#rotate-right");
       t.expect(await size() === "500x800", `右に回しても縦横が入れかわらない: ${await size()}`);
       const [bx, by] = before.split(",").map(Number);
@@ -1317,6 +1322,7 @@ async function questionScores(t, ink) {
 // Hiding names shows numbers instead; boxing a question on one page then shows only that box
 // of that page for everyone, where marking still works, until 全体に戻す.
 async function gradeByQuestion(t, ink) {
+  await t.page.click("#more-btn"); // 名前を隠す is in the 「その他」 menu
   await t.page.click("#anon-btn");
   const shown = await t.page.evaluate(() => ({
     titles: [...document.querySelectorAll(".doc-title")].map((e) => e.textContent).join(","),

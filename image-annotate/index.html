@@ -45,17 +45,22 @@
       <button class="btn tool" data-tool="text" title="文字 (T)"><svg class="i" aria-hidden="true"><use href="#i-text"/></svg>文字</button>
       <button class="btn tool" data-tool="rect" title="四角 (R)">▭ 四角</button>
       <button class="btn tool" data-tool="ellipse" title="丸 (O)">◯ 丸</button>
-      <button class="btn tool" data-tool="line" title="直線 (L)">／ 直線</button>
       <button class="btn tool" data-tool="pen" title="ペン (P)"><svg class="i" aria-hidden="true"><use href="#i-pen"/></svg>ペン</button>
-      <button class="btn tool" data-tool="marker" title="蛍光ペン (M)"><svg class="i" aria-hidden="true"><use href="#i-marker"/></svg>蛍光ペン</button>
       <button class="btn tool" data-tool="mosaic" title="見せたくない所をぼかす (B)">▦ モザイク</button>
-      <button class="btn tool" data-tool="number" title="押すたびに 1, 2, 3 … と進む番号 (N)"><svg class="i" aria-hidden="true"><use href="#i-number"/></svg>番号</button>
       <button class="btn tool" data-tool="crop" title="切り抜き (C)"><svg class="i" aria-hidden="true"><use href="#i-crop"/></svg>切り抜き</button>
-    </div>
-
-    <div class="group" role="group" aria-label="回転">
-      <button id="rotate-left" class="btn icon" disabled title="左に90°回す" aria-label="左に90°回す"><svg class="i" aria-hidden="true"><use href="#i-rotate-left"/></svg></button>
-      <button id="rotate-right" class="btn icon" disabled title="右に90°回す" aria-label="右に90°回す"><svg class="i" aria-hidden="true"><use href="#i-rotate-right"/></svg></button>
+      <div class="menu-wrap">
+        <button id="more-btn" class="btn more" aria-haspopup="true" title="あまり使わない道具（直線・蛍光ペン・番号・回転など）">その他 ▾</button>
+        <div id="more-menu" class="more-menu" hidden>
+          <button class="btn tool" data-tool="line" title="直線 (L)">／ 直線</button>
+          <button class="btn tool" data-tool="marker" title="蛍光ペン (M)"><svg class="i" aria-hidden="true"><use href="#i-marker"/></svg>蛍光ペン</button>
+          <button class="btn tool" data-tool="number" title="押すたびに 1, 2, 3 … と進む番号 (N)"><svg class="i" aria-hidden="true"><use href="#i-number"/></svg>番号</button>
+          <button id="rotate-left" class="btn" disabled title="左に90°回す"><svg class="i" aria-hidden="true"><use href="#i-rotate-left"/></svg>左に回す</button>
+          <button id="rotate-right" class="btn" disabled title="右に90°回す"><svg class="i" aria-hidden="true"><use href="#i-rotate-right"/></svg>右に回す</button>
+          <label class="field" title="塗りつぶし（四角・丸）">
+            <input id="fill" type="checkbox"> 四角・丸を塗りつぶす
+          </label>
+        </div>
+      </div>
     </div>
 
     <div class="group" role="group" aria-label="色と太さ">
@@ -74,9 +79,6 @@
           <option value="2">太い</option>
           <option value="3.5">極太</option>
         </select>
-      </label>
-      <label class="field" title="塗りつぶし（四角・丸）">
-        <input id="fill" type="checkbox"> 塗り
       </label>
     </div>
 

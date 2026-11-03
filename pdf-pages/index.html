@@ -38,51 +38,52 @@
 
     <div class="group" role="group" aria-label="選択">
       <button id="select-all" class="btn" disabled>すべて選択</button>
-      <button id="select-none" class="btn" disabled>選択を解除</button>
       <span id="count" class="count"></span>
     </div>
 
     <div class="group" role="group" aria-label="元に戻す">
       <button id="undo-btn" class="btn" disabled title="元に戻す（Ctrl+Z）"><svg class="i" aria-hidden="true"><use href="#i-undo"/></svg>元に戻す</button>
       <button id="redo-btn" class="btn" disabled title="やり直す（Ctrl+Y）"><svg class="i" aria-hidden="true"><use href="#i-redo"/></svg>やり直す</button>
-      <label class="field" title="サムネイルの大きさ">大きさ
-        <select id="thumb-size">
-          <option value="small">小</option>
-          <option value="medium" selected>中</option>
-          <option value="large">大</option>
-        </select>
-      </label>
     </div>
 
     <div class="group" role="group" aria-label="選んだページの操作">
       <button id="rotate-left" class="btn" disabled title="選んだページを左に90°回転（選んでいなければ全ページ）"><svg class="i" aria-hidden="true"><use href="#i-rotate-left"/></svg>左に回転</button>
       <button id="rotate-right" class="btn" disabled title="選んだページを右に90°回転（選んでいなければ全ページ）"><svg class="i" aria-hidden="true"><use href="#i-rotate"/></svg>右に回転</button>
       <div class="menu-wrap">
-        <button id="more-btn" class="btn" disabled aria-haspopup="true" aria-expanded="false" title="白紙ページ・複製・逆順・表裏合わせ・番号で選ぶ">ページの操作 ▾</button>
+        <button id="more-btn" class="btn" disabled aria-haspopup="true" aria-expanded="false" title="白紙ページ・複製・逆順・表裏合わせ・番号で選ぶ・1枚に何ページ・最初から">ページの操作 ▾</button>
         <div id="more-menu" class="menu" hidden>
           <button id="blank-btn" class="menu-item" title="選んだページの後ろ（選んでいなければ最後）に白紙を1ページ入れる">白紙ページを入れる</button>
           <button id="duplicate-btn" class="menu-item" title="選んだページのすぐ後ろに同じページを入れる">選んだページを複製</button>
           <button id="reverse-btn" class="menu-item" title="選んだページ（選んでいなければ全ページ）の順番を逆にする">順番を逆にする</button>
           <button id="interleave-btn" class="menu-item" title="表面のPDFと裏面のPDFのページを交互に並べる">表と裏を交互に並べる…</button>
+          <button id="select-none" class="menu-item" disabled>選択を解除</button>
           <div class="menu-title">番号で選ぶ</div>
           <form id="range-form" class="range-form">
             <input id="range-input" type="text" inputmode="numeric" placeholder="例: 1-3, 5" autocomplete="off" aria-label="選ぶページの番号">
             <button class="btn">選ぶ</button>
           </form>
+          <div class="menu-title">保存と表示</div>
+          <label class="menu-field" title="1枚の紙に何ページ分を並べて保存するか（印刷の紙の節約）">1枚の紙に
+            <select id="nup">
+              <option value="1" selected>1ページ</option>
+              <option value="2">2ページ</option>
+              <option value="4">4ページ</option>
+            </select>
+          </label>
+          <label class="menu-field" title="ページの絵の大きさ">ページの絵の大きさ
+            <select id="thumb-size">
+              <option value="small">小</option>
+              <option value="medium" selected>中</option>
+              <option value="large">大</option>
+            </select>
+          </label>
+          <button id="clear-btn" class="menu-item" disabled title="すべてのページを一覧から外す">全部外して最初から</button>
         </div>
       </div>
       <button id="delete-btn" class="btn" disabled title="選んだページを一覧から外す"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>削除</button>
-      <button id="clear-btn" class="btn" disabled title="すべてのページを一覧から外す">最初から</button>
     </div>
 
     <div class="group end" role="group" aria-label="保存">
-      <label class="field" title="1枚の紙に何ページ分を並べて保存するか（印刷の紙の節約）">1枚に
-        <select id="nup">
-          <option value="1" selected>1ページ</option>
-          <option value="2">2ページ</option>
-          <option value="4">4ページ</option>
-        </select>
-      </label>
       <button id="split-btn" class="btn" disabled title="1ページずつ別々のPDFとして保存"><svg class="i" aria-hidden="true"><use href="#i-cut"/></svg>1ページずつ保存</button>
       <button id="extract-btn" class="btn" disabled title="選んだページだけを1つのPDFとして保存"><svg class="i" aria-hidden="true"><use href="#i-page"/></svg>選んだページを保存</button>
       <button id="save-btn" class="btn primary" disabled title="並んでいる全ページを1つのPDFとして保存"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>1つのPDFに保存</button>

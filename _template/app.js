@@ -4,6 +4,7 @@ import { showStatus } from "../shared/js/status.js";
 import { download, onFileDrop } from "../shared/js/files.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
+import "../shared/js/guide.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use: users would lose
 // their settings. Add a new key instead.

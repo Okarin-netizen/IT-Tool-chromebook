@@ -41,7 +41,7 @@
 
     <div class="group" role="group" aria-label="OCR（画像から文字を読み取る）">
       <label class="field" title="OCRで読み取る文字の種類">
-        OCR:
+        写真の文字を読む（OCR）:
         <select id="ocr-lang">
           <option value="jpn">日本語（横書き）</option>
           <option value="jpn_vert">日本語（縦書き）</option>
@@ -70,6 +70,7 @@
         <li>スキャンしたPDFや写真のPDFは文字が入っていないので、「画像から読み取る（OCR）」で読み取ります。縦書きのときは OCR を「日本語（縦書き）」にしてください。</li>
         <li>「検索できるPDFを保存」で、文字のないページに読み取った文字を見えないように重ねたPDFを保存します。見た目は元のままで、Chrome などで検索やコピーができます。</li>
       </ol>
+      <p>上の「改行をつなげる」などの設定は、ふつうはそのままで大丈夫です。</p>
       <p class="note">PDFや写真はこのパソコンの中だけで処理され、どこにも送信されません。OCRは初めて使うときに約11MBのデータを読み込みます（2回目からはオフラインでも使えます）。</p>
     </section>
     <ol id="pages" class="pages" aria-label="ページごとの文字"></ol>

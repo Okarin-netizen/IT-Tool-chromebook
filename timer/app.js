@@ -11,7 +11,7 @@ const RING_LEN = 2 * Math.PI * 90;
 const PHASE_LABEL = { work: "集中", short: "休憩", long: "長い休憩" };
 
 const defaults = {
-  mode: "pomodoro",
+  mode: "timer", // class use comes first; a saved choice still wins
   sound: true,
   settings: { work: 25, short: 5, long: 15, rounds: 4, auto: true },
   pomodoro: { phase: "work", done: 0, remaining: null, endAt: null },

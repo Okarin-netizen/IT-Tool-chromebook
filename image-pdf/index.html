@@ -61,7 +61,7 @@
         <select id="color-mode">
           <option value="color" selected>カラー</option>
           <option value="gray">白黒（書類向け）</option>
-          <option value="scan">スキャン風（影を消して白黒くっきり）</option>
+          <option value="scan" title="影を消して白黒くっきり">スキャン風（くっきり）</option>
         </select>
       </label>
     </div>
@@ -73,7 +73,7 @@
 
     <div class="group end">
       <label class="field">ファイル名
-        <input id="file-name" type="text" value="まとめ" size="12" autocomplete="off">
+        <input id="file-name" type="text" value="" size="16" placeholder="出席番号と名前" title="提出するときは、出席番号と名前を入れると先生が見分けやすくなります（例: 12 山田花子）" autocomplete="off">
       </label>
       <button id="save-btn" class="btn primary" disabled><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>PDFを保存</button>
     </div>
@@ -87,7 +87,7 @@
         <li>「画像を追加」を押すか、画像をここにドラッグします（何枚でもOK）。</li>
         <li>「カメラで撮る」で、その場で撮影して追加することもできます。</li>
         <li>画像をドラッグするか左右の矢印のボタンで順番を入れ替えます。回転のボタンで90°回転します。</li>
-        <li>ななめに撮ったプリントは、カードの <svg class="i inline" aria-hidden="true"><use href="#i-straighten"/></svg> で長方形にまっすぐ直せます。色を「スキャン風」にすると、影が消えて白黒くっきりになります。</li>
+        <li>ななめに撮ったプリントは、カードの「まっすぐ」のボタンで長方形に直せます。色を「スキャン風」にすると、影が消えて白黒くっきりになります。</li>
         <li>用紙・向き・余白を選んで「PDFを保存」を押すと、1枚1ページのPDFができます。</li>
       </ol>
       <p class="note">画像はこのパソコンの中だけで処理され、どこにも送信されません。</p>

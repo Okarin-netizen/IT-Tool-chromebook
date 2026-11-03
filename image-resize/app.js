@@ -6,6 +6,7 @@ import { loadJson, saveJson } from "../shared/js/storage.js";
 import { makeZip } from "../shared/js/zip.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { canvasToBlob } from "../shared/js/canvas.js";
+import "../shared/js/guide.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use.
 const SETTINGS_KEY = "image-resize-settings-v1";

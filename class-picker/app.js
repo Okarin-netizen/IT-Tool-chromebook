@@ -144,7 +144,7 @@ els.listSelect.addEventListener("change", () => {
   save();
   renderLists();
   clearGroups();
-  showDisplay("名簿を入れて「回す」");
+  showDisplay("左の欄に名前を入れて「回す」");
 });
 
 els.listAdd.addEventListener("click", () => {
@@ -268,7 +268,7 @@ els.pickReset.addEventListener("click", () => {
   list().picked = [];
   save();
   renderPicked();
-  showDisplay("名簿を入れて「回す」");
+  showDisplay("左の欄に名前を入れて「回す」");
 });
 
 /* ---------- groups ---------- */

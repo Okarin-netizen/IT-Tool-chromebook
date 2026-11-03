@@ -203,3 +203,12 @@ body {
 .image-name { margin-left: 8px; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .page .file { font-weight: 600; }
 .opts .opts { margin-top: 0; }
+
+.pos-name b { color: var(--text); }
+.insert-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.insert-chip {
+  min-height: 30px; padding: 0 10px;
+  border: 1px solid var(--line); border-radius: 15px;
+  background: var(--surface); color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.insert-chip:hover { border-color: var(--accent); }

@@ -32,16 +32,16 @@
   </div>
   <div class="group end">
     <button class="offline" id="offlineBadge" title="このアプリはインターネットと通信しません">
-      <svg class="i" aria-hidden="true"><use href="#i-lock"/></svg><span><strong>オフラインで動作中</strong><small id="offlineSub">外部への通信はブロックされています</small></span>
+      <svg class="i" aria-hidden="true"><use href="#i-lock"/></svg><span><strong>オフラインで動作中</strong><small id="offlineSub">写真や動画をインターネットに送りません</small></span>
     </button>
-    <div class="ai-status" id="aiStatus"><span class="dot"></span><span id="aiStatusText">AIを準備しています…</span></div>
+    <div class="ai-status" id="aiStatus"><span class="dot"></span><span id="aiStatusText">顔を見つける準備をしています…</span></div>
   </div>
 </header>
 
 <div class="layout">
   <aside class="side">
-    <section class="card safe" aria-label="安心して使うために">
-      <h2><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg>安心して使うために</h2>
+    <details class="card safe" id="safeCard" open>
+      <summary><h2><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg>安心して使うために</h2></summary>
       <ul>
         <li>動画は<strong>このパソコンの中だけ</strong>で処理します。インターネットには送りません。</li>
         <li>見つけた顔の位置などのデータは保存しません。アプリを閉じると消えます。</li>
@@ -49,7 +49,7 @@
         <li>名札や顔を隠すなど、<strong>子どもを守るため</strong>の道具です。</li>
       </ul>
       <a href="#" id="safeLink">くわしい説明を読む</a>
-    </section>
+    </details>
     <section class="card">
       <h2><span class="num">1</span>動画を選ぶ</h2>
       <label class="drop" id="drop">

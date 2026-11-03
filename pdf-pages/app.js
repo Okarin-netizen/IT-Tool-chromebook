@@ -11,6 +11,7 @@ import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { pixelRatio } from "../shared/js/canvas.js";
 import { parseRange } from "../shared/js/range.js";
+import "../shared/js/guide.js";
 
 const THUMB_SIZES = { small: 110, medium: 150, large: 220 }; // longest side of a thumbnail, in CSS pixels
 const HISTORY_LIMIT = 50;
@@ -156,10 +157,10 @@ function createCard(view) {
     <div class="thumb"><div class="placeholder"></div></div>
     <div class="label"></div>
     <div class="card-actions">
-      <button class="mini" data-act="left" title="前へ移動" aria-label="前へ移動"><svg class="i" aria-hidden="true"><use href="#i-left"/></svg></button>
-      <button class="mini" data-act="rotate" title="右に90°回転" aria-label="右に90°回転"><svg class="i" aria-hidden="true"><use href="#i-rotate"/></svg></button>
-      <button class="mini" data-act="right" title="後ろへ移動" aria-label="後ろへ移動"><svg class="i" aria-hidden="true"><use href="#i-right"/></svg></button>
-      <button class="mini danger" data-act="delete" title="このページを外す" aria-label="このページを外す"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg></button>
+      <button class="mini" data-act="left" title="前へ移動" aria-label="前へ移動"><svg class="i" aria-hidden="true"><use href="#i-left"/></svg><span class="mini-text">前へ</span></button>
+      <button class="mini" data-act="rotate" title="右に90°回転" aria-label="右に90°回転"><svg class="i" aria-hidden="true"><use href="#i-rotate"/></svg><span class="mini-text">回転</span></button>
+      <button class="mini" data-act="right" title="後ろへ移動" aria-label="後ろへ移動"><svg class="i" aria-hidden="true"><use href="#i-right"/></svg><span class="mini-text">後ろへ</span></button>
+      <button class="mini danger" data-act="delete" title="このページを外す" aria-label="このページを外す"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg><span class="mini-text">外す</span></button>
     </div>`;
   view.el = li;
 
@@ -783,6 +784,10 @@ for (const [btn, fn] of menuActions) {
     if (!state.busy) fn();
   });
 }
+// The other items in the menu (選択を解除, 最初から) close it too.
+els.moreMenu.addEventListener("click", (e) => {
+  if (e.target.closest(".menu-item")) closeMenu();
+});
 els.rangeForm.addEventListener("submit", (e) => {
   e.preventDefault();
   selectByRange();

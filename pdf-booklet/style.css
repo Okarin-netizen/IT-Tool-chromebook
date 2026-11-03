@@ -232,3 +232,13 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   .sheets { grid-template-columns: minmax(0, 1fr); }
   .side canvas { height: auto !important; }
 }
+
+/* 「短辺とじ」「長辺とじ」とは？ */
+.duplex-guide summary { cursor: pointer; font-size: 13px; color: var(--accent-dark); }
+.duplex-fig { margin: 8px 0 4px; }
+.duplex-fig svg { width: 100%; height: auto; }
+.duplex-fig .paper { fill: var(--surface); stroke: var(--muted); stroke-width: 1.2; }
+.duplex-fig .edge { stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
+.duplex-fig .arrow { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 3 2; }
+.duplex-fig text { font-size: 11px; fill: var(--text); }
+.duplex-fig text.small { font-size: 9px; fill: var(--muted); }

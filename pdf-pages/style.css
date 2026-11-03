@@ -325,3 +325,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 @media (prefers-color-scheme: dark) {
   .card.selected { background: color-mix(in srgb, var(--select) 22%, var(--surface)); }
 }
+
+/* Settings inside 「ページの操作」 */
+.menu-field { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; padding: 0 10px; font-size: 14px; }
+.menu-field select { min-height: 34px; font: inherit; padding: 0 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--text); }

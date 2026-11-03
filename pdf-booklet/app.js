@@ -10,6 +10,7 @@ import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { hexToRgb } from "../shared/js/color.js";
 import { pixelRatio } from "../shared/js/canvas.js";
+import "../shared/js/guide.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use: users would lose
 // their settings. Add a new key instead.
