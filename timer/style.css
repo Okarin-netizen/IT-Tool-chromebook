@@ -1,11 +1,11 @@
 :root {
   --accent-soft: color-mix(in srgb, var(--accent) 14%, #fff);
-  --bg: #f1f3f6;
+  --bg: #f4f5f7;
   --bar: #ffffff;
   --card: #ffffff;
-  --text: #1f2329;
-  --muted: #5f6672;
-  --line: #d6dae1;
+  --text: #1d2228;
+  --muted: #5f6670;
+  --line: #dcdfe4;
   --accent: #c03a2a;
   --accent-dark: #a03022;
   --accent-text: #ffffff;
@@ -235,12 +235,12 @@ body.fullscreen.exam .dial { width: min(60vw, 50vh); }
 body { --accent-soft: color-mix(in srgb, var(--accent) 16%, var(--card)); }
 
 /* Mode switch as a segmented control, like the system apps. */
-.tabs { gap: 0; padding: 0; background: transparent; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+.tabs { gap: 0; padding: 0; background: transparent; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .tab { min-height: 34px; padding: 0 16px; border-radius: 0; font-weight: 500; }
 .tab + .tab { border-left: 1px solid var(--line); }
 .tab[aria-selected="true"] { background: var(--accent-soft); color: var(--accent-dark); font-weight: 600; box-shadow: none; }
 .track, .ring { stroke-width: 8; }
 .display { font-weight: 500; }
 .phase { font-size: 16px; font-weight: 600; }
-.btn.big { min-height: 44px; border-radius: 22px; padding: 0 24px; }
+.btn.big { min-height: 44px; border-radius: 10px; padding: 0 24px; }
 .settings, .laps { border-radius: 8px; }
