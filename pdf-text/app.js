@@ -9,6 +9,7 @@ import { loadPdfLib, loadFontkit } from "../shared/js/pdf-lib.js";
 import { hexToRgb } from "../shared/js/color.js";
 import { canvasToBlob } from "../shared/js/canvas.js";
 import { History } from "../shared/js/history.js";
+import "../shared/js/guide.js";
 
 const FONT_FAMILY = "PdfTextJP";
 const LINE_HEIGHT = 1.25; // must match .tbox line-height in style.css

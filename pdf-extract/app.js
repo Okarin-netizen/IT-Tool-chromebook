@@ -8,6 +8,7 @@ import { pixelRatio, canvasToBlob } from "../shared/js/canvas.js";
 import { copyText } from "../shared/js/clipboard.js";
 import { isImage, readableImage } from "../shared/js/heic.js";
 import { addNextTool } from "../shared/js/handoff.js";
+import "../shared/js/guide.js";
 
 const asset = (path) => new URL(path, location.href).href;
 

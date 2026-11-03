@@ -12,6 +12,7 @@ import { hexToRgb } from "../shared/js/color.js";
 import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
 import { dateText } from "../shared/js/dates.js";
 import { parseRange } from "../shared/js/range.js";
+import "../shared/js/guide.js";
 
 const FONT_FAMILY = "PdfStampJP";
 const PREVIEW_PX = 300; // preview page width, in CSS pixels

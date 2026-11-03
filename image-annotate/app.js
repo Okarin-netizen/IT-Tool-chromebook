@@ -6,6 +6,7 @@ import { registerOffline } from "../shared/js/offline.js";
 import { canvasToBlob } from "../shared/js/canvas.js";
 import { copyImage } from "../shared/js/clipboard.js";
 import { History } from "../shared/js/history.js";
+import "../shared/js/guide.js";
 
 const MAX_IMAGE_PX = 4000; // longest side; larger photos are shrunk so the canvas stays responsive
 const BLANK_SIZE = [1600, 1000];

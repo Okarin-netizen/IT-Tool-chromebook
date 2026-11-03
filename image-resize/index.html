@@ -29,23 +29,23 @@
     </div>
 
     <div class="group" role="group" aria-label="小さくする設定">
-      <label class="field" title="画像の長いほうの辺を、この長さ（ピクセル）までにする">長い辺
+      <label class="field" title="画像の長いほうの辺を、この長さ（ピクセル）までにする">大きさ
         <select id="max-side">
           <option value="0">元のまま</option>
-          <option value="3000">3000</option>
+          <option value="3000">3000（とても大きい）</option>
           <option value="2000">2000</option>
-          <option value="1600" selected>1600</option>
+          <option value="1600" selected>1600（おすすめ）</option>
           <option value="1280">1280</option>
           <option value="1024">1024</option>
           <option value="800">800</option>
-          <option value="640">640</option>
+          <option value="640">640（とても小さい）</option>
         </select>
       </label>
       <label class="field">形式
         <select id="format">
-          <option value="image/jpeg" selected>JPG</option>
-          <option value="image/png">PNG</option>
-          <option value="image/webp">WebP</option>
+          <option value="image/jpeg" selected>JPG（写真向け・おすすめ）</option>
+          <option value="image/png">PNG（図や文字向け）</option>
+          <option value="image/webp">WebP（いちばん軽い）</option>
         </select>
       </label>
       <label class="field" title="画質を選ぶか、ファイルの大きさの上限（KB）を決める">仕上がり
@@ -75,7 +75,7 @@
       <p>写真やスクリーンショットの大きさ（ピクセル）とファイルの大きさを小さくします。提出フォームの「〇KBまで」「〇MBまで」に引っかかるときに。</p>
       <ol>
         <li>「画像を追加」を押すか、画像をここにドラッグします。何枚でもまとめてできます。</li>
-        <li>「長い辺」「形式」「仕上がり」を選びます。「サイズ指定」にすると、「200 KB以下」のように上限を決められます。</li>
+        <li>「大きさ」「形式」「仕上がり」を選びます（分からなければそのままで大丈夫です）。「サイズ指定」にすると、「200 KB以下」のように上限を決められます。</li>
         <li>仕上がりの大きさを確かめて「保存」。2枚以上はZIPにまとめて保存します。</li>
       </ol>
       <p class="note">撮った場所などの情報（Exif）は取り除かれます。画像はこのパソコンの中だけで処理され、どこにも送信されません。</p>

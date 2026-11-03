@@ -5,6 +5,7 @@ import { addNextTool } from "../shared/js/handoff.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { pixelRatio } from "../shared/js/canvas.js";
+import "../shared/js/guide.js";
 
 // "画像だけ軽くする": embedded images are shrunk to maxPx on their longest side and re-saved as JPEG.
 const IMAGE_LEVELS = [

@@ -15,6 +15,7 @@ import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { pixelRatio } from "../shared/js/canvas.js";
 import { dateText } from "../shared/js/dates.js";
+import "../shared/js/guide.js";
 
 const SCORE_H = 34; // height of a new score, in page points
 const QSCORE_H = 22; // … and of a question's score

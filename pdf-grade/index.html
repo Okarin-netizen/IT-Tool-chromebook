@@ -131,8 +131,8 @@
     </div>
 
     <div class="group end">
-      <button id="folder-save-btn" class="btn" disabled hidden title="1人ずつのPDFを、選んだフォルダに直接保存"><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg>フォルダに保存</button>
-      <button id="save-btn" class="btn primary" disabled title="1人ずつのPDFをZIPにまとめて保存 (Ctrl+S)"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>まとめて保存</button>
+      <button id="folder-save-btn" class="btn" disabled hidden title="1人ずつのPDFを、選んだフォルダに直接保存"><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg>1人ずつフォルダに保存</button>
+      <button id="save-btn" class="btn primary" disabled title="1人ずつのPDFをZIPにまとめて保存 (Ctrl+S)"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>返却用にまとめて保存</button>
     </div>
   </header>
 
@@ -163,9 +163,9 @@
           <li>1問ずつ全員を採点したいときは「設問ごと」を押して問題の部分を囲むと、全員の同じ場所だけが続けて出ます。「名前を隠す」で名前を番号にできます（保存するファイル名はそのままです）。</li>
           <li>「ペン」で書き込み、「記号」で ○ × ✓ 花丸 や「済」「よくできました」などを押します。</li>
           <li>「点数」で点数の場所をクリックして数字を入力します（1人に1つ）。設問ごとの点も置けて、合計は自動で出ます。「コメント」でよく使う言葉を選んで置けます。「文字」で自由に書くこともできます。</li>
-          <li>「まとめて保存」で、1人ずつのPDF（<code>元の名前_採点済.pdf</code>）と点数一覧（CSV）を1つのZIPにして保存します。</li>
+          <li>「返却用にまとめて保存」で、1人ずつのPDF（<code>元の名前_採点済.pdf</code>）と点数一覧（CSV、表計算ソフトで開ける表）を1つのZIP（いくつものファイルを1つにまとめたもの）にして保存します。</li>
         </ol>
-        <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。書き込みはこのブラウザにも自動で残るので、ページを閉じてしまっても次に開いたときに続きから始められます。返却用のPDFは「まとめて保存」で保存してください。</p>
+        <p class="note">PDFはこのパソコンの中だけで処理され、どこにも送信されません。書き込みはこのブラウザにも自動で残るので、ページを閉じてしまっても次に開いたときに続きから始められます。返却用のPDFは「返却用にまとめて保存」で保存してください。</p>
       </section>
       <div id="docs" class="docs"></div>
     </main>

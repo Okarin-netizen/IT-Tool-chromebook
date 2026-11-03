@@ -13,6 +13,7 @@ import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
 import { dateText } from "../shared/js/dates.js";
+import "../shared/js/guide.js";
 
 const SIGN_PT = 0.4; // signature pad units → PDF points when first placed
 const MAX_SIGNS = 5;
@@ -481,7 +482,7 @@ async function buildPdf() {
     const boxes = all.filter((i) => i.type === "redact");
     const flat = boxes.length > 0;
     if (flat) {
-      showStatus(`墨消ししたページを画像にしています…（${view.num}ページ目）`, { sticky: true });
+      showStatus(`黒塗りしたページを画像にしています…（${view.num}ページ目）`, { sticky: true });
       await flattenPage(doc, view, boxes);
       redacted++;
     }
@@ -514,7 +515,7 @@ async function drawInk(doc, view, items, upright) {
 
 function savedMessage(rebuilt, redacted) {
   if (rebuilt) return "保存しました（保護されたPDFのため、元のページは画像として保存しています）";
-  if (redacted) return `保存しました（墨消しした${redacted}ページは、下の文字が残らないように画像にしています）`;
+  if (redacted) return `保存しました（黒塗りした${redacted}ページは、下の文字が残らないように画像にしています）`;
   return "保存しました（ダウンロードフォルダを確認してください）";
 }
 
