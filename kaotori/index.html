@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 外部への通信をブラウザの仕組みで禁止する（画像やデータが外に出ないことを保証） -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file: blob: 'unsafe-eval' 'wasm-unsafe-eval'; worker-src 'self' blob:; manifest-src 'self'; connect-src data: blob:; img-src 'self' file: data: blob:; style-src 'self' file: 'unsafe-inline'; font-src 'self' file: data:; form-action 'none'; base-uri 'none'">
+<title>かおトリ</title>
+<meta name="description" content="集合写真から1人ずつ顔を切り抜いたり、証明写真を作ったり、顔や名札にモザイクを入れたりします。">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#1f7a5a">
+<link rel="stylesheet" href="../shared/css/base.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<svg class="sprite" aria-hidden="true">
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></symbol>
+  <symbol id="i-face" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 0 0 7 0"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-rot-left" viewBox="0 0 24 24"><path d="M4 4v5h5"/><path d="M4.5 9A8 8 0 1 1 6 17"/></symbol>
+  <symbol id="i-rot-right" viewBox="0 0 24 24"><path d="M20 4v5h-5"/><path d="M19.5 9A8 8 0 1 0 18 17"/></symbol>
+</svg>
+<header class="toolbar">
+  <div class="group">
+    <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+    <span class="app-title">かおトリ</span>
+    <span class="sub">集合写真の顔切り抜き・証明写真・モザイク加工・人ごとの仕分け</span>
+  </div>
+  <div class="group end">
+    <button class="offline" id="offlineBadge" title="このアプリはインターネットと通信しません">
+      <svg class="i" aria-hidden="true"><use href="#i-lock"/></svg><span><strong>オフラインで動作中</strong><small id="offlineSub">外部への通信はブロックされています</small></span>
+    </button>
+    <div class="ai-status" id="aiStatus"><span class="dot"></span><span id="aiStatusText">AIを準備しています…</span></div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="side">
+    <section class="card safe" aria-label="安心して使うために">
+      <h2><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg>安心して使うために</h2>
+      <ul>
+        <li>写真は<strong>このパソコンの中だけ</strong>で処理します。インターネットには送りません。</li>
+        <li>顔の特徴などのデータは保存しません。アプリを閉じると消えます。</li>
+        <li>Wi-Fiを切ったりLANケーブルを抜いたりしても、そのまま使えます。</li>
+        <li>名札や顔を隠すなど、<strong>子どもを守るため</strong>の道具です。</li>
+      </ul>
+      <a href="#" id="safeLink">くわしい説明を読む</a>
+    </section>
+    <section class="card">
+      <h2><span class="num">1</span>写真を選ぶ</h2>
+      <label class="drop" id="drop">
+        <input type="file" id="fileInput" accept="image/*,.heic,.heif" multiple hidden>
+        <strong>ここをクリック</strong>またはドラッグ＆ドロップ<br><small>JPG / PNG / HEIC（iPhone）/ BMP / WebP（複数可）</small>
+      </label>
+      <ul class="photolist" id="photoList"></ul>
+      <div class="row gap">
+        <button class="btn small" id="folderBtn"><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg>フォルダを選ぶ</button>
+        <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
+        <span class="spacer"></span>
+        <button class="btn small ghost" id="clearBtn" disabled>すべて取り消す</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">2</span>切り抜き方</h2>
+      <div class="seg" role="tablist">
+        <button class="seg-btn active" data-mode="crop">顔の切り抜き</button>
+        <button class="seg-btn" data-mode="id">証明写真</button>
+        <button class="seg-btn" data-mode="privacy">モザイク・目線</button>
+      </div>
+
+      <div id="cropSettings">
+        <div class="field two">
+          <label>横の広さ（顔の何倍）<input type="number" id="cropX" step="0.1" min="1" max="6" value="2.0"></label>
+          <label>縦の広さ（顔の何倍）<input type="number" id="cropY" step="0.1" min="1" max="6" value="1.9"></label>
+        </div>
+        <div class="field">
+          <label>上下の位置 <output id="cropShiftOut">0</output>
+            <input type="range" id="cropShift" min="-40" max="40" value="5"></label>
+          <small class="hint">右に動かすと肩が多く入り、左だと頭上が広くなります</small>
+        </div>
+        <div class="field">
+          <label>出力サイズ
+            <select id="resizeMode">
+              <option value="none">元の解像度のまま</option>
+              <option value="long">長い辺をそろえる</option>
+              <option value="fixed" selected>幅×高さを指定</option>
+            </select></label>
+        </div>
+        <div class="field two" id="resizeLongBox" hidden>
+          <label>長い辺 (px)<input type="number" id="resizeLong" value="800" min="50"></label>
+        </div>
+        <div class="field two" id="resizeFixedBox">
+          <label>幅 (px)<input type="number" id="resizeW" value="600" min="50"></label>
+          <label>高さ (px)<input type="number" id="resizeH" value="800" min="50"></label>
+        </div>
+      </div>
+
+      <div id="idSettings" hidden>
+        <div class="field">
+          <label>サイズのプリセット
+            <select id="idPreset"></select></label>
+          <div class="row gap">
+            <button class="btn small ghost" id="presetSave">今の設定を登録</button>
+            <button class="btn small ghost" id="presetDel">選んだ登録を削除</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="lbl">単位</span>
+          <div class="seg mini">
+            <button class="seg-btn active" data-unit="mm">mm</button>
+            <button class="seg-btn" data-unit="px">px</button>
+          </div>
+        </div>
+        <div class="field two">
+          <label>写真の幅 <em class="u">mm</em><input type="number" id="idW" step="0.5" value="30"></label>
+          <label>写真の高さ <em class="u">mm</em><input type="number" id="idH" step="0.5" value="40"></label>
+          <label>顔の高さ（頭頂〜あご）<em class="u">mm</em><input type="number" id="idFace" step="0.5" value="26"></label>
+          <label>頭の上の余白 <em class="u">mm</em><input type="number" id="idTop" step="0.5" value="4"></label>
+        </div>
+        <div class="field two" id="dpiBox">
+          <label>解像度 (dpi)<input type="number" id="dpi" value="350" min="72" max="1200"></label>
+        </div>
+      </div>
+
+      <div id="privSettings" hidden>
+        <p class="hint">写真そのものに加工をして保存します。緑の枠の顔が加工され、赤い点線の顔はそのまま残ります（枠のクリックで切り替え）。</p>
+        <div class="field">
+          <label>顔の加工
+            <select id="privFace">
+              <option value="mosaic">モザイク</option>
+              <option value="blur">ぼかし</option>
+              <option value="eyebar">目線（黒い帯）</option>
+              <option value="fill">塗りつぶし</option>
+              <option value="none">顔は加工しない</option>
+            </select></label>
+        </div>
+        <div class="field">
+          <label>名札など「隠す範囲」の加工
+            <select id="privMask">
+              <option value="mosaic">モザイク</option>
+              <option value="blur">ぼかし</option>
+              <option value="fill" selected>塗りつぶし</option>
+            </select></label>
+          <small class="hint">「写真と検出結果」で「隠す範囲」を選んでドラッグすると、名札・ゼッケン・名前の入った持ち物などを隠せます</small>
+        </div>
+        <div class="field">
+          <label>加工の強さ <output id="privStrengthOut">3</output>
+            <input type="range" id="privStrength" min="1" max="5" value="3"></label>
+        </div>
+        <div class="field two">
+          <label>塗りつぶし・目線の色<input type="color" id="privColor" value="#000000"></label>
+          <label>形<select id="privShape"><option value="rect">四角</option><option value="ellipse" selected>だ円</option></select></label>
+          <label>加工する広さ<select id="privArea"><option value="1">顔だけ</option><option value="1.35" selected>頭まで</option><option value="1.7">広め</option></select></label>
+        </div>
+      </div>
+
+      <details class="more" id="moreSettings">
+        <summary>くわしい設定</summary>
+        <label class="check"><input type="checkbox" id="straighten" checked> 顔の傾きを自動でまっすぐにする</label>
+        <div class="field">
+          <label>頭頂の推定（髪の量） <output id="hairOut">1.10</output>
+            <input type="range" id="hair" min="0.80" max="1.40" step="0.01" value="1.10"></label>
+          <small class="hint">髪にボリュームがある場合は右へ。1人ずつの調整もできます</small>
+        </div>
+        <div class="field">
+          <label>検出の感度
+            <select id="sensitivity">
+              <option value="0.6">ふつう</option>
+              <option value="0.45" selected>高め（小さい顔も探す）</option>
+              <option value="0.35">最大（誤検出が増えます）</option>
+            </select></label>
+        </div>
+        <div class="field">
+          <label>背景を置き換える（AIで人物を切り抜き）
+            <select id="bgReplace">
+              <option value="none">置き換えない</option>
+              <option value="#ffffff">白</option>
+              <option value="#dfeaf6">薄い青</option>
+              <option value="#e9e9e9">薄いグレー</option>
+              <option value="custom">下の色にする</option>
+            </select></label>
+          <small class="hint">証明写真で背景を無地にしたいときに使います。髪の毛の境目は少しぼやけることがあります</small>
+        </div>
+        <label class="field">背景色（画像の外側・置き換えの色）<input type="color" id="bgColor" value="#ffffff"></label>
+      </details>
+    </section>
+
+    <section class="card" id="cropOnly">
+      <h2><span class="num">3</span>ファイル名</h2>
+      <div class="field">
+        <select id="nameMode">
+          <option value="orig">元のファイル名_01.jpg</option>
+          <option value="custom">好きな文字＋01.jpg</option>
+          <option value="num">01.jpg（番号だけ）</option>
+          <option value="roster">名簿の名前.jpg</option>
+        </select>
+      </div>
+      <div class="field" id="customBox" hidden>
+        <label>先頭の文字<input type="text" id="customText" value="3年1組_"></label>
+      </div>
+      <div class="field two">
+        <label>開始番号<input type="number" id="startNo" value="1" min="0"></label>
+        <label>桁数<input type="number" id="digits" value="2" min="1" max="5"></label>
+      </div>
+      <div class="field" id="rosterBox" hidden>
+        <label>名簿（1行に1人、顔の番号順）
+          <textarea id="roster" rows="6" placeholder="青木 さくら&#10;石川 たろう&#10;…"></textarea></label>
+        <small class="hint">Excelの名前の列をそのまま貼り付けられます。顔の番号は左上から右下の順です</small>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">4</span>保存・印刷</h2>
+      <div class="field two">
+        <label>形式
+          <select id="format"><option value="jpg">JPG</option><option value="png">PNG</option></select></label>
+        <label>JPG画質<input type="number" id="quality" min="50" max="100" value="95"></label>
+        <label>1枚の上限 (KB)<input type="number" id="maxKB" min="5" placeholder="なし"></label>
+      </div>
+      <small class="hint">出願・申請サイトなどで「○KB以下」と決まっているときに入れると、画質を自動で調整して収めます（JPGのみ）</small>
+      <button class="btn primary block" id="saveZipBtn" disabled>個別の画像をZIPで保存</button>
+
+      <details class="more" id="layoutDetails">
+        <summary>台紙にならべる（印刷用）</summary>
+        <div class="field">
+          <label>台紙サイズ
+            <select id="paper">
+              <option value="89x127">L判 (89×127mm)</option>
+              <option value="127x178">2L判 (127×178mm)</option>
+              <option value="100x148">はがき (100×148mm)</option>
+              <option value="102x152">KG (102×152mm)</option>
+              <option value="210x297">A4 (210×297mm)</option>
+              <option value="custom">自由に指定</option>
+            </select></label>
+        </div>
+        <div class="field two" id="paperCustom" hidden>
+          <label>幅 (mm)<input type="number" id="paperW" value="89"></label>
+          <label>高さ (mm)<input type="number" id="paperH" value="127"></label>
+        </div>
+        <div class="field">
+          <span class="lbl">向き</span>
+          <div class="seg mini">
+            <button class="seg-btn active" data-orient="portrait">縦</button>
+            <button class="seg-btn" data-orient="landscape">横</button>
+          </div>
+        </div>
+        <div class="field two">
+          <label>外側の余白 (mm)<input type="number" id="pMargin" value="4" step="0.5"></label>
+          <label>写真の間隔 (mm)<input type="number" id="pGap" value="2" step="0.5"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="cutline" checked> カットラインを表示</label>
+        <label class="check"><input type="checkbox" id="showName"> 名前（ファイル名）を写真の下に入れる</label>
+        <div class="field two">
+          <label>文字の大きさ (pt)<input type="number" id="nameSize" value="7" min="4" max="30"></label>
+        </div>
+        <p class="hint" id="layoutInfo"></p>
+        <div class="row gap">
+          <button class="btn block" id="layoutZipBtn" disabled>台紙をZIPで保存</button>
+          <button class="btn block" id="printBtn" disabled>台紙を印刷</button>
+        </div>
+      </details>
+    </section>
+    <p class="foot">写真はこのパソコンの中だけで処理され、インターネットには送信されません。<br><a href="#" id="aboutLink">このアプリについて・変更履歴</a><br>かおトリ v1.6.2　© 2026 技術 岡田（MITライセンス）</p>
+  </aside>
+
+  <main class="main">
+    <div class="tabs">
+      <button class="tab active" data-tab="photo">写真と検出結果</button>
+      <button class="tab" data-tab="faces"><span id="facesTabLabel">切り抜き一覧</span> <span class="badge" id="faceCount">0</span></button>
+      <button class="tab" data-tab="people">人ごとに分ける <span class="badge" id="peopleCount">-</span></button>
+    </div>
+
+    <section class="pane" id="pane-photo">
+      <div class="empty" id="emptyPhoto">
+        <div class="empty-icon"><svg class="i" aria-hidden="true"><use href="#i-image"/></svg></div>
+        <p>左の「写真を選ぶ」から集合写真や個人写真を追加してください。<br>顔は自動で見つけて番号をつけます。</p>
+      </div>
+      <div id="photoView" hidden>
+        <div class="viewbar">
+          <button class="btn small" id="prevPhoto" aria-label="前の写真"><svg class="i" aria-hidden="true"><use href="#i-prev"/></svg></button>
+          <span id="photoTitle" class="ptitle"></span>
+          <button class="btn small" id="nextPhoto" aria-label="次の写真"><svg class="i" aria-hidden="true"><use href="#i-next"/></svg></button>
+          <span class="spacer"></span>
+          <button class="btn small ghost" id="zoomOut">－</button>
+          <button class="btn small ghost" id="zoomFit">全体</button>
+          <button class="btn small ghost" id="zoomIn">＋</button>
+          <button class="btn small ghost" id="redetect">再検出</button>
+        </div>
+        <div class="viewbar sub" id="privBar" hidden>
+          <span>ドラッグで追加：</span>
+          <div class="seg mini">
+            <button class="seg-btn active" data-drag="face">顔</button>
+            <button class="seg-btn" data-drag="mask">隠す範囲（名札など）</button>
+          </div>
+          <span class="spacer"></span>
+          <label class="check"><input type="checkbox" id="showOriginal"> 加工前を表示</label>
+          <label class="check"><input type="checkbox" id="showBoxes" checked> 枠を表示</label>
+        </div>
+        <p class="hint inline" id="photoHint">枠をクリック：使う／使わないの切り替え　・　何もない所をドラッグ：見落とした顔を追加　・　右クリック：手で追加した枠を削除</p>
+        <div class="stage" id="stage"><canvas id="photoCanvas"></canvas></div>
+      </div>
+    </section>
+
+    <section class="pane" id="pane-faces" hidden>
+      <div class="empty" id="emptyFaces">
+        <div class="empty-icon"><svg class="i" aria-hidden="true"><use href="#i-face"/></svg></div>
+        <p>顔が見つかると、ここに切り抜き結果が並びます。<br>画像をクリックすると位置・大きさ・傾きを1人ずつ調整できます。</p>
+      </div>
+      <div class="grid" id="faceGrid"></div>
+    </section>
+
+    <section class="pane" id="pane-people" hidden>
+      <div class="people-bar">
+        <div class="people-note">
+          <strong><svg class="i" aria-hidden="true"><use href="#i-lock"/></svg>顔で人ごとに分ける</strong>
+          <span>顔の特徴を数値にして、同じ人と思われる顔をまとめます。特徴データはこのパソコンのメモリの中だけで使い、ファイルにもインターネットにも保存しません（アプリを閉じると消えます）。子どもの写真で使うときは、学校の方針に沿ってご利用ください。</span>
+        </div>
+        <div class="people-ctrl">
+          <button class="btn primary" id="peopleRun">顔を比べてグループ分け</button>
+          <label class="inline-field">まとめ方
+            <select id="peopleThr">
+              <option value="0.40">きびしめ（別人を混ぜにくい）</option>
+              <option value="0.45" selected>ふつう</option>
+              <option value="0.52">ゆるめ（同じ人をまとめやすい）</option>
+            </select></label>
+          <label class="inline-field">クラスの人数<input type="number" id="peopleTarget" min="0" max="500" placeholder="わかれば" style="width:84px"></label>
+          <button class="btn" id="refBtn" title="ファイル名を名前にした写真（例：青木さくら.jpg）を選ぶと、似ている人に名前を自動で付けます"><svg class="i" aria-hidden="true"><use href="#i-user"/></svg>見本写真で名前を付ける</button>
+          <input type="file" id="refInput" accept="image/*,.heic,.heif" multiple hidden>
+        </div>
+        <div class="people-ctrl">
+          <label class="inline-field">写っている写真が<input type="number" id="peopleMin" min="1" max="20" value="2" style="width:56px">枚未満の人は「その他」にまとめる</label>
+          <span class="spacer"></span>
+          <label class="check"><input type="checkbox" id="peopleOthers"> 「その他」も保存</label>
+          <label class="check"><input type="checkbox" id="peopleNamedOnly"> 名前を付けた人だけ保存</label>
+          <label class="check"><input type="checkbox" id="peopleStrip" checked> 撮影場所などの情報を消して保存</label>
+          <button class="btn" id="peopleZip" disabled>人ごとのフォルダでZIP保存</button>
+        </div>
+        <p class="hint" id="refInfo" hidden></p>
+        <p class="hint" id="peopleInfo">写真を読み込んでから「顔を比べてグループ分け」を押してください。顔をドラッグして別の人へ移したり、グループの名前を付けたりできます。</p>
+      </div>
+      <div class="people" id="peopleList"></div>
+    </section>
+  </main>
+</div>
+
+<div class="busy" id="busy" hidden>
+  <div class="busy-box"><div class="spinner"></div><p id="busyText">処理中…</p><div class="bar"><span id="busyBar"></span></div><button class="btn small ghost" id="busyCancel" style="margin-top:12px">中止</button></div>
+</div>
+
+<dialog id="adjDialog">
+  <form method="dialog" class="adj">
+    <div class="adj-head">
+      <strong id="adjTitle">調整</strong>
+      <span class="spacer"></span>
+      <button class="btn small ghost" value="close" aria-label="閉じる"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg>閉じる</button>
+    </div>
+    <div class="adj-body">
+      <div class="adj-canvas-wrap"><canvas id="adjCanvas"></canvas></div>
+      <div class="adj-ctrl">
+        <label>名前（ファイル名）<input type="text" id="adjName"></label>
+        <div class="ctrl-grid">
+          <span></span><button type="button" class="btn" data-act="up" aria-label="上へ"><svg class="i" aria-hidden="true"><use href="#i-up"/></svg></button><span></span>
+          <button type="button" class="btn" data-act="left" aria-label="左へ"><svg class="i" aria-hidden="true"><use href="#i-prev"/></svg></button><button type="button" class="btn ghost" data-act="reset">元に戻す</button><button type="button" class="btn" data-act="right" aria-label="右へ"><svg class="i" aria-hidden="true"><use href="#i-next"/></svg></button>
+          <span></span><button type="button" class="btn" data-act="down" aria-label="下へ"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg></button><span></span>
+        </div>
+        <div class="row gap">
+          <button type="button" class="btn" data-act="zoomout">縮小</button>
+          <button type="button" class="btn" data-act="zoomin">拡大</button>
+        </div>
+        <div class="row gap">
+          <button type="button" class="btn" data-act="rotl"><svg class="i" aria-hidden="true"><use href="#i-rot-left"/></svg>左に回す</button>
+          <button type="button" class="btn" data-act="rotr">右に回す<svg class="i" aria-hidden="true"><use href="#i-rot-right"/></svg></button>
+        </div>
+        <label class="check"><input type="checkbox" id="adjGuide" checked> ガイド線を表示</label>
+        <label class="check"><input type="checkbox" id="adjInclude"> この顔を使う</label>
+        <p class="hint">ドラッグ：移動　ホイール：拡大縮小　Shift＋ドラッグ：回転<br>キー：矢印で移動、＋－で拡大縮小、[ ]で回転、Enterで次へ</p>
+        <div class="row gap">
+          <button type="button" class="btn" data-act="prev"><svg class="i" aria-hidden="true"><use href="#i-prev"/></svg>前の人</button>
+          <button type="button" class="btn primary" data-act="next">次の人<svg class="i" aria-hidden="true"><use href="#i-next"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="aboutDialog">
+  <form method="dialog" class="about">
+    <h3>かおトリ <small class="ver">v1.6.2</small></h3>
+    <p>集合写真から1人ずつ顔を切り抜いたり、証明写真のサイズに整えて台紙に並べたりするアプリです。インストールは不要で、Chromebook便利ツールの1つとして、ブラウザ（Chrome / Edge）で開くだけで動きます。一度開けば、インターネットにつながっていなくても使えます。</p>
+    <table class="info">
+      <tr><th>作者</th><td>技術 岡田</td></tr>
+      <tr><th>著作権</th><td>© 2026 技術 岡田</td></tr>
+      <tr><th>ライセンス</th><td>MITライセンス（作者名を残せば、配布・改変は自由です）</td></tr>
+      <tr><th>バージョン</th><td>1.6.1（2026年11月3日）</td></tr>
+    </table>
+
+    <h4>安心して使っていただくために</h4>
+    <p><strong>写真や名簿はインターネットに送られません。</strong>読み込み・顔の検出・加工・保存は、すべてこのパソコンのブラウザの中で行います。写真や動画を受け取るサーバーはありません。インターネット上のページ（GitHub Pages）から開いた場合も同じで、届くのはアプリのプログラムだけです。</p>
+    <p><strong>顔のデータは残りません。</strong>「人ごとに分ける」で計算する顔の特徴は、メモリの中だけで使います。ファイルにもインターネットにも保存しないので、アプリを閉じるか「すべて取り消す」を押すと消えます。保存した写真からは、撮影場所（GPS）などの隠れた情報を消せます。</p>
+    <p><strong>自分で確かめられます。</strong>アプリを開いたあとでWi-Fiを切るか、LANケーブルを抜いてください。そのまま最後まで使えれば、通信していない証拠です。ブラウザの設定（コンテンツ セキュリティ ポリシー）で外部への通信も禁止しており、右上の「オフラインで動作中」がその状態を表しています。</p>
+    <p><strong>何のための道具か。</strong>学校の写真を、子どもの顔や名札を隠して安全に使ったり、証明写真や名簿用の写真を先生の手間をかけずに作ったりするためのものです。だれかを見つけたり、見張ったりするための道具ではありません。</p>
+    <p><strong>正式な配布先。</strong>正式な配布先は作者のGitHub（github.com/Okarin-netizen）だけです。ほかの場所で配られているものは、改変されている可能性があります。プログラムはすべて公開しているので、だれでも中身を確認できます。</p>
+
+    <h4>ライセンス（配布・改変について）</h4>
+    <p>このアプリは <strong>MITライセンス</strong> です。「© 2026 技術 岡田」の表示とライセンス文（<a href="ライセンス.txt" target="_blank">ライセンス.txt</a>）を残していただければ、ほかの学校や先生への配布、改変、改変したものの配布を自由に行えます。</p>
+    <p class="hint">本ソフトウェアは無保証です。利用によって生じた損害について作者は責任を負いません。</p>
+
+    <h4>オフライン動作について</h4>
+    <p>写真の読み込み・顔の検出・切り抜き・保存は、すべてこのパソコンの中だけで行います。AIの部品もこのサイトに同梱していて、一度開くとブラウザに保存されるため、インターネットに接続していなくても使えます。</p>
+    <p>さらに、ブラウザのセキュリティ設定（コンテンツ セキュリティ ポリシー）で外部への通信そのものを禁止しているため、写真や名簿がインターネットに送られることはありません。</p>
+    <p class="hint" id="netState"></p>
+    <p>「人ごとに分ける」で計算する顔の特徴データは、メモリの中だけで使い、ファイルにもインターネットにも保存しません。アプリを閉じるか「すべて取り消す」を押すと消えます。名前付けに使う見本写真も同じく、メモリの中だけで使います。</p>
+    <p>「作業ログを保存」で保存されるのは、作業した日時と枚数・人数だけです。写真・名前・顔のデータは含みません。動作の確認は <a href="tests/自己診断.html" target="_blank">自己診断のページ</a> でできます。</p>
+
+    <h4>変更履歴</h4>
+    <dl class="history">
+      <dt>v1.6.2　2026-11-03</dt>
+      <dd>Chromebook便利ツールに追加（ツール一覧から開ける、一度開けばオフラインでも使える、ほかのツールと同じ見た目）</dd>
+      <dt>v1.6.1　2026-11-03</dt>
+      <dd>「安心して使うために」の説明を追加（写真を外に送らないこと、顔のデータを残さないこと、自分で確かめる方法）<br>ライセンス.txt に LGPL-3.0 と GPL-3.0 の全文を追加</dd>
+      <dt>v1.6.0　2026-11-03</dt>
+      <dd>フォルダごと読み込めるようにした（ボタン・ドラッグ＆ドロップ）<br>「1枚の上限（KB）」を追加：画質を自動で調整して指定サイズ以内で保存<br>人ごとの保存で、撮影場所（GPS）などの隠れた情報を消すようにした<br>クラスの人数の指定と、写っている写真が少ない人を「その他」にまとめる機能を追加<br>見本写真（名前.jpg）から、似ている人のグループに名前を自動で付ける機能を追加<br>証明写真の背景を単色に置きかえる機能を追加<br>モザイクをだ円にできるようにし、「加工前を表示」で見比べられるようにした<br>処理の「中止」ボタン、作業ログ、自己診断ページ（tests/自己診断.html）を追加</dd>
+      <dt>v1.5.0　2026-11-03</dt>
+      <dd>「人ごとに分ける」を追加：顔の似ている度合いで写真を人ごとにまとめ、名前を付けてフォルダ分けしてZIP保存<br>AI部品（MediaPipe）が持っていた利用状況の送信機能を無効化</dd>
+      <dt>v1.4.0　2026-11-03</dt>
+      <dd>「モザイク・目線」モードを追加：顔にモザイク・ぼかし・目線・塗りつぶしを入れた写真を保存<br>名札・ゼッケンなどを範囲指定して隠す機能を追加</dd>
+      <dt>v1.3.0　2026-11-03</dt>
+      <dd>ライセンスをMITライセンスに変更（作者名を残せば配布・改変は自由）</dd>
+      <dt>v1.2.0　2026-11-03</dt>
+      <dd>オフライン動作の表示と、外部通信のブロックを追加<br>作者情報・変更履歴を追加<br>看板のイラストなどを顔と間違えにくくした<br>子どもの写真で頭のてっぺんが切れにくくなるよう調整</dd>
+      <dt>v1.1.0　2026-11-03</dt>
+      <dd>iPhoneの写真（HEIC）を自動でJPGに変換して読み込めるようにした</dd>
+      <dt>v1.0.0　2026-11-03</dt>
+      <dd>最初の版：集合写真からの顔の自動検出と切り抜き、証明写真サイズへのトリミング、1人ずつの手動調整、名簿からのファイル名、ZIP保存、台紙レイアウトと印刷</dd>
+    </dl>
+
+    <h4>使用しているソフトウェア</h4>
+    <p class="hint">顔の検出には Google MediaPipe（Apache License 2.0）、人ごとの分類には face-api.js（MIT License）、背景の置きかえには MediaPipe の人物切り抜きモデル（Apache License 2.0）と TensorFlow.js（Apache License 2.0）、HEICの変換には heic-to と libheif（LGPL 3.0）、ZIP作成には JSZip（MIT License）を使っています。詳しくは「<a href="ライセンス.txt" target="_blank">ライセンス.txt</a>」をご覧ください。</p>
+    <div class="row gap"><button type="button" class="btn" id="logBtn">作業ログを保存</button><span class="spacer"></span><button class="btn primary">閉じる</button></div>
+  </form>
+</dialog>
+
+<div id="printArea"></div>
+
+<script src="../shared/vendor/jszip-3.10.2/jszip.min.js"></script>
+<script src="../shared/vendor/mediapipe-tasks-vision-1.2.0/vision.js"></script>
+<script src="../shared/vendor/mediapipe-tasks-vision-1.2.0/wasm.js"></script>
+<script src="../shared/vendor/mediapipe-face-models/face-detector.js"></script>
+<script src="../shared/vendor/mediapipe-face-models/face-landmarker.js"></script>
+<script src="../shared/vendor/mediapipe-face-models/selfie-segmenter.js"></script>
+<script src="core.js"></script>
+<script src="app.js"></script>
+<script src="people.js"></script>
+</body>
+</html>

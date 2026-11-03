@@ -1147,6 +1147,59 @@ const TOOLS = {
   },
 
   // The starting point for new tools (not on the top page). Checked so it keeps working
+  // かおトリ: the face models need a real photo to find a face, so the test draws a face box by
+  // hand (as a user does for a missed face), saves it, and groups it with the face-recognition model.
+  kaotori: {
+    async run(t) {
+      await t.until(() => __kaotori.ai.ready, 60000);
+      await t.setFiles("#fileInput", [t.png("集合写真.png", 640, 480)]);
+      await t.until(() => __kaotori.state.photos.length === 1 && document.getElementById("busy").hidden, 60000);
+      await t.page.locator("#photoView").waitFor();
+      await t.shot("open");
+      await t.drag(t.page.locator("#photoCanvas"), [[150, 100], [200, 150], [260, 210]]);
+      await t.until(() => __kaotori.state.photos[0].faces.length === 1);
+      await t.page.click("#saveZipBtn");
+      const [zip] = await t.downloads(1, 60000);
+      t.expect(/^かおトリ_\d{8}_\d{4}\.zip$/.test(zip.name), `ZIPの名前が違う: ${zip.name}`);
+      const names = fixtures.zipNames(zip.bytes);
+      t.expect(names.length === 1 && /\.jpg$/.test(names[0]), `ZIPの中身が違う: ${names.join(", ")}`);
+      // iPhone photos go through the site's shared HEIC converter.
+      await t.setFiles("#fileInput", [t.heic("iPhone.heic")]);
+      await t.until(() => __kaotori.state.photos.length === 2 && document.getElementById("busy").hidden, 60000);
+      t.expect(await t.page.evaluate(() => __kaotori.state.photos[1].converted && !__kaotori.state.photos[1].error), "HEICを読み込めない");
+      // 人ごとに分ける loads face-api.js and its model only when it is used.
+      await t.page.click(".tab[data-tab='people']");
+      await t.page.click("#peopleRun");
+      await t.until(() => window.KAO_PEOPLE._groups().length === 1, 60000);
+    },
+    async offline(t) {
+      await t.until(() => __kaotori.ai.ready, 60000);
+      await t.setFiles("#fileInput", [t.png("写真.png", 320, 240)]);
+      await t.until(() => __kaotori.state.photos.length === 1 && document.getElementById("busy").hidden, 60000);
+    },
+  },
+
+  // かおかくし: finds faces in a short clip (there are none in it) and writes the video again.
+  kaokakushi: {
+    async run(t) {
+      await t.until(() => __kaokakushi.ai.ready, 60000);
+      await t.setFiles("#fileInput", [t.video("運動会.webm")]);
+      await t.until(() => __kaokakushi.state.info && !document.getElementById("scanBtn").disabled, 30000);
+      await t.shot("open");
+      await t.page.click("#scanBtn");
+      await t.until(() => __kaokakushi.state.analyzed, 60000);
+      await t.page.click("#exportBtn");
+      const [file] = await t.downloads(1, 120000);
+      t.expect(/^運動会_かおかくし_\d{8}_\d{4}\.(mp4|webm)$/.test(file.name), `動画の名前が違う: ${file.name}`);
+      t.expect(file.bytes.length > 1000, "書き出した動画が空");
+    },
+    async offline(t) {
+      await t.until(() => __kaokakushi.ai.ready, 60000);
+      await t.setFiles("#fileInput", [t.video("運動会.webm")]);
+      await t.until(() => __kaokakushi.state.info && !document.getElementById("scanBtn").disabled, 30000);
+    },
+  },
+
   // as the shared files change.
   _template: {
     portal: false,
@@ -1348,7 +1401,9 @@ async function searchablePdf(t) {
 
 // Tesseract prints its own notes through console.error while OCR runs; they are not problems.
 // Tesseract's notes, and a password the test chose not to give (the tools log every failed open).
-const HARMLESS_CONSOLE = [/^Warning: Parameter not found/, /^Estimating resolution as/, /^PasswordException: password not given/];
+const HARMLESS_CONSOLE = [/^Warning: Parameter not found/, /^Estimating resolution as/, /^PasswordException: password not given/,
+  // MediaPipe (かおトリ・かおかくし) writes its start-up notes to stderr, which shows as console.error.
+  /^INFO: Created TensorFlow Lite XNNPACK delegate/];
 
 class ToolTest {
   constructor(name, page, server) {
@@ -1394,6 +1449,11 @@ class ToolTest {
   // A 400x300 iPhone-style photo (HEIC).
   heic(name) {
     return { name, mimeType: "image/heic", buffer: fs.readFileSync(path.join(__dirname, "fixtures", "photo.heic")) };
+  }
+
+  // A 1-second 160x120 VP9 video with sound (no faces in it).
+  video(name) {
+    return { name, mimeType: "video/webm", buffer: fs.readFileSync(path.join(__dirname, "fixtures", "clip.webm")) };
   }
 
   async enterPassword(password) {
