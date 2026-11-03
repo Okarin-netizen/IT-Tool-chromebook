@@ -103,6 +103,9 @@ a { color: var(--accent); }
 .nav a[aria-current] { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
 .nav small { color: var(--muted); font-size: 12px; font-weight: 400; }
 .sep { height: 1px; margin: 10px 4px; background: var(--line); }
+.nav-label { margin: 0 8px 4px; color: var(--muted); font-size: 12px; font-weight: 700; }
+/* 11.6-inch Chromebook (about 650px tall inside the browser): keep the whole menu on screen */
+@media (max-height: 720px) { .nav a { min-height: 34px; } }
 .meta { margin: auto 0 0; padding: 16px 8px 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
 .meta a { color: inherit; }
 
@@ -188,6 +191,9 @@ body.searching .desc { -webkit-line-clamp: unset; }
 .for { margin-left: 6px; padding: 0 5px; border: 1px solid var(--line); border-radius: 3px; color: var(--muted); font-size: 11px; font-weight: 400; vertical-align: 1px; }
 .empty { margin: 24px 4px; color: var(--muted); }
 .hint { margin: 0; color: var(--muted); font-size: 13px; }
+/* 先生用 / 生徒用 (使う人で見る): one line on what the list is */
+.who-note { margin: 12px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--side); color: var(--muted); font-size: 13px; }
+body[data-view="teacher"] .for, body[data-view="student"] .for { display: none; }
 
 /* Favorites: the star on each card */
 .star {
@@ -252,7 +258,7 @@ body.searching .quick { display: none; }
   .nav { flex-direction: row; overflow-x: auto; }
   .nav li { flex: none; }
   .nav a { min-height: 34px; white-space: nowrap; }
-  .nav small, .sep { display: none; }
+  .nav small, .sep, .nav-label { display: none; }
   .meta { margin-top: 6px; padding-top: 0; }
   main { padding: 18px 16px 40px; }
   .apps { grid-template-columns: 1fr; }
