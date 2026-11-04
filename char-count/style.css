@@ -1,0 +1,232 @@
+/* The shared look is in ../shared/css/base.css. This file sets the tool's colors and layout. */
+:root {
+  --bg: #f4f5f7;
+  --bar: #ffffff;
+  --text: #1d2228;
+  --muted: #5f6670;
+  --line: #dcdfe4;
+  --accent: #4a6fa5; /* the tool's color: also in icon.svg, manifest.webmanifest and theme-color */
+  --accent-dark: #3a5886;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, #fff);
+  --accent-text: #ffffff;
+  --ok: #2b8463;
+  --warn: #b45309;
+  --danger: #c0392b;
+  --paper-line: #7d9cc8; /* the cells of 原稿用紙 */
+  --cell: 24px;
+  --line-gap: 3px;
+  --middle-gap: 14px;
+}
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: system-ui, "Noto Sans JP", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* Two-way switches as a segmented control, like the timer. */
+.tabs { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.tab {
+  min-height: 34px;
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.tab + .tab { border-left: 1px solid var(--line); }
+.tab[aria-selected="true"], .tab[aria-checked="true"] { background: var(--accent-soft); color: var(--accent-dark); font-weight: 600; }
+
+.pane[hidden] { display: none; }
+
+/* ---------- 数える ---------- */
+
+.layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 16px;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.editor { display: flex; min-height: 0; }
+#text {
+  flex: 1;
+  width: 100%;
+  min-height: 240px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.8;
+  resize: none;
+}
+#text:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  overflow: auto;
+}
+
+.big { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
+.big-label { width: 100%; font-size: 14px; font-weight: 600; }
+.big-number { font-size: 48px; font-weight: 700; line-height: 1.1; color: var(--accent-dark); font-variant-numeric: tabular-nums; }
+.big-unit { font-size: 18px; font-weight: 600; }
+.big-note { width: 100%; font-size: 12px; color: var(--muted); }
+
+.label { font-size: 14px; font-weight: 600; }
+.target { display: flex; flex-direction: column; gap: 6px; }
+.target-inputs { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.target-inputs input {
+  width: 76px;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.bar { height: 8px; border-radius: 4px; background: var(--soft); overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--warn); }
+.bar[data-kind="ok"] span { background: var(--ok); }
+.bar[data-kind="over"] span { background: var(--danger); }
+.target-text { margin: 0; font-size: 14px; font-weight: 600; color: var(--warn); }
+.target-text[data-kind="ok"] { color: var(--ok); }
+.target-text[data-kind="over"] { color: var(--danger); }
+
+.stats { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; font-size: 14px; }
+.stats dt { color: var(--muted); }
+.stats dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.note { margin: 0; color: var(--muted); font-size: 12px; }
+
+/* ---------- 原稿用紙 ---------- */
+
+.paper-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.paper-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bar);
+}
+.field { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.field.check { cursor: pointer; }
+.paper-info { margin-left: auto; font-size: 14px; font-weight: 600; }
+
+.sheets {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 16px 40px;
+}
+
+/* The paper stays white in dark mode. */
+.sheet {
+  display: flex;
+  gap: var(--line-gap);
+  padding: 14px;
+  background: #fff;
+  color: #1d2228;
+  box-shadow: 0 1px 4px rgba(0,0,0,.18);
+}
+.sheet.vertical { flex-direction: row-reverse; }
+.sheet.horizontal { flex-direction: column; }
+.line { display: flex; border: 1px solid var(--paper-line); }
+.vertical .line { flex-direction: column; }
+.vertical .line.middle { margin-left: var(--middle-gap); }
+.horizontal .line.middle { margin-bottom: var(--middle-gap); }
+
+.cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--cell);
+  height: var(--cell);
+  font-size: calc(var(--cell) * .72);
+  line-height: 1;
+  white-space: nowrap;
+}
+.cell { position: relative; }
+.vertical .cell { border-bottom: 1px solid var(--paper-line); }
+.ch { display: block; }
+.ch.turn { transform: rotate(90deg); }
+/* In vertical writing 、。 and small kana sit in the upper right of the cell (in horizontal writing the font already puts them right). */
+.vertical .ch.comma { transform: translate(30%, -30%); }
+.vertical .ch.small { transform: translate(12%, -10%) scale(.85); }
+/* A 、 or 。 hung on the last cell of a line, just outside it. */
+.ch.hang { position: absolute; }
+.vertical .ch.hang { left: 50%; bottom: -55%; transform: translate(-20%, 0); }
+.horizontal .ch.hang { right: -45%; bottom: -10%; transform: none; }
+.horizontal .cell { border-right: 1px solid var(--paper-line); }
+.vertical .cell:last-child, .horizontal .cell:last-child { border: 0; }
+
+@media (max-width: 760px) {
+  .layout { grid-template-columns: 1fr; }
+  #text { min-height: 40vh; }
+  :root { --cell: 15px; --middle-gap: 8px; }
+}
+
+@media print {
+  :root { --cell: 9mm; --line-gap: 1mm; --middle-gap: 6mm; }
+  html, body { height: auto; background: #fff; }
+  .toolbar, .paper-options, #count-pane, .status { display: none !important; }
+  .paper-view, .sheets { display: block; overflow: visible; padding: 0; }
+  .sheet { box-shadow: none; padding: 0; margin: 0 auto; width: max-content; break-after: page; }
+  .sheet:last-child { break-after: auto; }
+}
+
+@media (prefers-color-scheme: dark) {
+  .tab[aria-selected="true"], .tab[aria-checked="true"], .big-number { color: var(--text); }
+}

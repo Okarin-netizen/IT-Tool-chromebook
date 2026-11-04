@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>日付の計算</title>
+  <meta name="description" content="何日後の日付・2つの日付のあいだの日数・行事までのカウントダウンが分かるブラウザだけで動くツール">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#d9480f">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  </svg>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">日付の計算</span>
+    </div>
+    <div class="group tabs" role="tablist" aria-label="すること">
+      <button class="tab" role="tab" data-pane="after" aria-selected="true">何日後・何日前</button>
+      <button class="tab" role="tab" data-pane="between" aria-selected="false">2つの日付のあいだ</button>
+      <button class="tab" role="tab" data-pane="countdown" aria-selected="false">あと何日</button>
+      <button class="tab" role="tab" data-pane="calendar" aria-selected="false">カレンダー</button>
+    </div>
+  </header>
+
+  <main id="after-pane" class="pane card">
+    <div class="form-row">
+      <label class="field">はじめの日<input id="after-start" type="date"></label>
+      <span>から</span>
+      <input id="after-amount" class="amount" type="number" min="0" max="9999" value="30" inputmode="numeric" aria-label="数">
+      <select id="after-unit" aria-label="単位">
+        <option value="day">日</option>
+        <option value="school">日（平日だけ）</option>
+        <option value="week">週間</option>
+        <option value="month">か月</option>
+        <option value="year">年</option>
+      </select>
+      <div class="tabs small" role="radiogroup" aria-label="後か前か">
+        <button class="tab" role="radio" data-direction="1" aria-checked="true">後</button>
+        <button class="tab" role="radio" data-direction="-1" aria-checked="false">前</button>
+      </div>
+    </div>
+    <div class="quick" aria-label="よく使う数">
+      <button class="btn small" data-quick="7 day">1週間</button>
+      <button class="btn small" data-quick="14 day">2週間</button>
+      <button class="btn small" data-quick="30 day">30日</button>
+      <button class="btn small" data-quick="100 day">100日</button>
+      <button class="btn small" data-quick="5 school">5日（平日だけ）</button>
+      <button class="btn small" data-quick="1 month">1か月</button>
+    </div>
+    <div class="result">
+      <output id="after-result" class="result-date"></output>
+      <p id="after-wareki" class="result-sub"></p>
+      <p id="after-note" class="result-sub"></p>
+    </div>
+  </main>
+
+  <main id="between-pane" class="pane card" hidden>
+    <div class="form-row">
+      <label class="field">はじめの日<input id="between-start" type="date"></label>
+      <span>から</span>
+      <label class="field">おわりの日<input id="between-end" type="date"></label>
+      <span>まで</span>
+    </div>
+    <div class="result">
+      <output id="between-result" class="result-date"></output>
+      <p id="between-sub" class="result-sub"></p>
+    </div>
+    <dl id="between-stats" class="stats"></dl>
+  </main>
+
+  <main id="countdown-pane" class="pane card" hidden>
+    <form id="event-form" class="form-row">
+      <label class="field">行事やテスト<input id="event-name" type="text" maxlength="40" placeholder="例: 期末テスト" autocomplete="off" required></label>
+      <label class="field">日にち<input id="event-date" type="date" required></label>
+      <button class="btn primary" type="submit"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>追加</button>
+    </form>
+    <p id="event-empty" class="empty">テストや行事を追加すると、あと何日かがここに出ます。追加したものはこのパソコンのブラウザに残ります。</p>
+    <ul id="event-list" class="events"></ul>
+  </main>
+
+  <main id="calendar-pane" class="pane card wide" hidden>
+    <div class="calendar-head">
+      <button id="month-prev" class="btn icon" title="前の月" aria-label="前の月"><svg class="i" aria-hidden="true"><use href="#i-left"/></svg></button>
+      <h2 id="month-title" class="month-title"></h2>
+      <button id="month-next" class="btn icon" title="次の月" aria-label="次の月"><svg class="i" aria-hidden="true"><use href="#i-right"/></svg></button>
+      <button id="month-today" class="btn small">今月</button>
+    </div>
+    <table class="calendar" aria-labelledby="month-title">
+      <thead><tr><th class="sun">日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th class="sat">土</th></tr></thead>
+      <tbody id="calendar-body"></tbody>
+    </table>
+    <p class="note">祝日は法律の決まりから計算しています（2022年以降）。学校の行事や休みは入っていません。</p>
+  </main>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

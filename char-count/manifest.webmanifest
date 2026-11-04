@@ -1,0 +1,15 @@
+{
+  "name": "文字数カウンター",
+  "short_name": "文字数",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f1f3f6",
+  "theme_color": "#4a6fa5",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

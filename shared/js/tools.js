@@ -24,4 +24,7 @@ export const TOOLS = [
   { id: "calc", name: "関数電卓・グラフ" },
   { id: "todo", name: "時間割・課題チェックリスト" },
   { id: "timer", name: "タイマー・ポモドーロ" },
+  { id: "char-count", name: "文字数カウンター" },
+  { id: "date-calc", name: "日付の計算" },
+  { id: "paper-maker", name: "方眼紙・罫線プリント" },
 ];

@@ -1151,6 +1151,86 @@ const TOOLS = {
     },
   },
 
+  "char-count": {
+    async run(t) {
+      await t.page.fill("#text", "　ぼくは、きのう本を読んだ。\nHello world!\n");
+      await t.until(() => document.querySelector("#count-main").textContent === "24");
+      t.expect(await t.page.textContent("#count-spaces") === "26字", `空白をふくめた字数が違う: ${await t.page.textContent("#count-spaces")}`);
+      t.expect(await t.page.textContent("#count-words") === "2語", "英単語の数が違う");
+      await t.page.fill("#target-min", "400");
+      t.expect(await t.page.textContent("#target-text") === "あと376字で400字です", `目標までの字数が違う: ${await t.page.textContent("#target-text")}`);
+      await t.shot("count");
+      // 原稿用紙: a "。" that would start a line goes into the last cell of the line before.
+      const lines = await t.page.evaluate(() => __charCount.layoutPaper("あ".repeat(20) + "。い", { indent: false }));
+      t.expect(lines.length === 2 && lines[0][19] === "あ。" && lines[1][0] === "い", `行の頭の「。」がぶら下がらない: ${JSON.stringify(lines)}`);
+      await t.page.fill("#text", "あ".repeat(450));
+      await t.page.click(".tab[data-pane='paper']");
+      await t.until(() => document.querySelectorAll(".sheet").length === 2);
+      t.expect(await t.page.textContent("#paper-info") === "2枚目の3行目まで", `原稿用紙の枚数が違う: ${await t.page.textContent("#paper-info")}`);
+      await t.shot("paper");
+      await t.page.reload();
+      t.expect((await t.page.inputValue("#text")).length === 450, "書いた文章がブラウザに残らない");
+    },
+  },
+
+  "date-calc": {
+    async run(t) {
+      await t.page.fill("#after-start", "2026-11-04");
+      await t.page.fill("#after-amount", "30");
+      await t.until(() => document.querySelector("#after-result").textContent === "2026年12月4日（金）");
+      // 5 school days after Friday 2026-11-20 skip the weekend and 勤労感謝の日 (Mon 11-23).
+      await t.page.fill("#after-start", "2026-11-20");
+      await t.page.fill("#after-amount", "5");
+      await t.page.selectOption("#after-unit", "school");
+      await t.until(() => document.querySelector("#after-result").textContent === "2026年11月30日（月）");
+      t.expect((await t.page.textContent("#after-wareki")).startsWith("令和8年"), "和暦が出ない");
+      const holidays = await t.page.evaluate(() => ["2026-09-22", "2025-11-24", "2026-03-20"].map((d) => __dateCalc.holidayName(__dateCalc.parseDate(d))));
+      t.expect(holidays.join() === "国民の休日,振替休日,春分の日", `祝日が違う: ${holidays}`);
+      await t.page.click(".tab[data-pane='between']");
+      await t.page.fill("#between-start", "2026-04-01");
+      await t.page.fill("#between-end", "2026-07-20");
+      await t.until(() => document.querySelector("#between-result").textContent === "110日");
+      await t.shot("between");
+      await t.page.click(".tab[data-pane='countdown']");
+      await t.page.fill("#event-name", "期末テスト");
+      await t.page.fill("#event-date", "2099-07-01");
+      await t.page.click("#event-form button[type='submit']");
+      await t.page.reload();
+      await t.page.click(".tab[data-pane='countdown']");
+      await t.until(() => document.querySelector("#event-list").textContent.includes("期末テスト"));
+      await t.shot("countdown");
+      await t.page.click(".tab[data-pane='calendar']");
+      await t.until(() => document.querySelectorAll("#calendar-body td").length >= 28);
+      await t.shot("calendar");
+    },
+  },
+
+  "paper-maker": {
+    async run(t) {
+      await t.page.click(".kind[data-kind='coord']");
+      await t.page.check("#name-line");
+      await t.page.fill("#title", "一次関数のグラフ");
+      await t.shot("coord");
+      await t.page.click("#save-btn");
+      const [file] = await t.downloads(1);
+      t.expectName(file, "一次関数のグラフ_A4.pdf");
+      await t.expectPdfPages(file, 1);
+      await t.page.fill("#title", "");
+      for (const kind of ["grid", "dots", "lines", "english", "kanji", "music"]) {
+        await t.page.click(`.kind[data-kind='${kind}']`);
+        const count = await t.page.evaluate(() => __paperMaker.buildSheet(__paperMaker.settings).shapes.length);
+        t.expect(count > 20, `${kind} の線が少ない: ${count}`);
+      }
+      await t.page.click(".kind[data-kind='grid']");
+      await t.page.selectOption("#size", "1");
+      await t.page.uncheck("#name-line");
+      await t.page.click("#save-btn");
+      const [grid] = await t.downloads(1);
+      t.expectName(grid, "方眼_1mm_A4.pdf");
+      await t.shot("grid");
+    },
+  },
+
   // The starting point for new tools (not on the top page). Checked so it keeps working
   // かおトリ: the face models need a real photo to find a face, so the test draws a face box by
   // hand (as a user does for a missed face), saves it, and groups it with the face-recognition model.

@@ -1,0 +1,15 @@
+{
+  "name": "方眼紙・罫線プリント",
+  "short_name": "方眼紙",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f1f3f6",
+  "theme_color": "#6b7d2a",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
