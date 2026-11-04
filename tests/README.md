@@ -58,5 +58,6 @@ node tests/compare-styles.cjs /tmp/before /tmp/after # 違いがあれば一覧�
 - `compare-styles.cjs`: `--styles` で書き出したスタイルの比較
 - `migration.cjs`: 古い版から新しい版への移行の確認
 - `lib/server.cjs`: テスト用のサーバー。本番と同じ `/IT-Tool-chromebook/` の下にリポジトリを配ります
-- `lib/fixtures.cjs`: テスト用のPDF・PNGの作成と、ZIPの中身の読み取り
+- `lib/fixtures.cjs`: テスト用のPDF・PNG・スマホの情報（Exif）入りJPEGの作成と、ZIPの中身の読み取り
+- `fixtures/`: テスト用のファイル（パスワード付きPDF、iPhoneの写真、動画、プリントの写真 `print.jpg`、人の写真 `person.jpg`（NASA の公開写真））
 - `output/`: 実行したときの画面のスクリーンショット（Git には入れません）

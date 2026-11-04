@@ -57,15 +57,15 @@
           <button class="tab" role="radio" data-mode="board" aria-checked="false">板書・プリント</button>
         </div>
 
-        <div id="photo-panel" class="panel">
+        <div id="photo-panel" class="mode-panel">
           <button id="auto-btn" class="btn" aria-pressed="false" title="暗さや色のかたよりを自動で直す"><svg class="i" aria-hidden="true"><use href="#i-magic"/></svg>自動で整える</button>
           <label class="slider">明るさ<input id="brightness" type="range" min="-100" max="100" value="0"><output></output></label>
           <label class="slider">コントラスト<input id="contrast" type="range" min="-100" max="100" value="0"><output></output></label>
           <label class="slider">あざやかさ<input id="saturation" type="range" min="-100" max="100" value="0"><output></output></label>
-          <label class="slider" title="左で青っぽく、右で赤っぽく">色み（青↔赤）<input id="warmth" type="range" min="-100" max="100" value="0"><output></output></label>
+          <label class="slider" title="左にすると青っぽく、右にすると赤っぽくなる">色み<input id="warmth" type="range" min="-100" max="100" value="0"><output></output></label>
         </div>
 
-        <div id="board-panel" class="panel" hidden>
+        <div id="board-panel" class="mode-panel" hidden>
           <div class="tabs" role="radiogroup" aria-label="板書・プリントの種類">
             <button class="tab" role="radio" data-kind="paper" aria-checked="true">白い紙・ホワイトボード</button>
             <button class="tab" role="radio" data-kind="blackboard" aria-checked="false">黒板</button>

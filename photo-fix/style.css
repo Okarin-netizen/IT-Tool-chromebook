@@ -12,8 +12,8 @@
   --accent-text: #ffffff;
 }
 
-.panel { display: flex; flex-direction: column; gap: 10px; }
-.panel .tabs .tab { padding: 0 8px; }
+.mode-panel { display: flex; flex-direction: column; gap: 10px; }
+.mode-panel .tabs .tab { padding: 0 8px; }
 .btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-dark); }
 
 /* The picture, with the four corner handles over it while straightening. */
