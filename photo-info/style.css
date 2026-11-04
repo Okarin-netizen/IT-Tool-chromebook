@@ -1,0 +1,50 @@
+/* The shared look is in ../shared/css/base.css and ../shared/css/photo-tool.css (the layout the
+   photo tools share). This file sets the tool's colors and anything only it has. */
+:root {
+  --bg: #f4f5f7;
+  --bar: #ffffff;
+  --text: #1d2228;
+  --muted: #5f6670;
+  --line: #dcdfe4;
+  --accent: #56677a; /* the tool's color: also in icon.svg, manifest.webmanifest and theme-color */
+  --accent-dark: #45535f;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, #fff);
+  --accent-text: #ffffff;
+}
+
+.summary { font-size: 14px; color: var(--muted); }
+.viewer { padding: 16px 16px 64px; }
+
+.list { max-width: 880px; margin: 0 auto; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.item {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  gap: 16px;
+  align-items: start;
+  padding: 12px 14px;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+.thumb { width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; }
+.thumb canvas { max-width: 120px; max-height: 120px; border-radius: 4px; box-shadow: 0 0 0 1px var(--line); }
+.name { font-weight: 600; overflow-wrap: anywhere; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+.badge { padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--soft); color: var(--muted); }
+.badge.danger { background: #fde8e6; color: #b42318; }
+.badge.ok { background: #e3f4ea; color: #1e7a45; }
+.facts { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; font-size: 14px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.facts .danger { color: #b42318; font-weight: 600; }
+
+@media (prefers-color-scheme: dark) {
+  .badge.danger { background: #5a2420; color: #ffd2cc; }
+  .badge.ok { background: #1f4130; color: #c8f0d6; }
+  .facts .danger { color: #ff9d92; }
+}
+
+@media (max-width: 640px) {
+  .item { grid-template-columns: 72px 1fr auto; gap: 10px; }
+  .thumb, .thumb canvas { width: 72px; height: 72px; max-width: 72px; max-height: 72px; }
+}

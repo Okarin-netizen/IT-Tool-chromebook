@@ -1,0 +1,145 @@
+/* The layout the photo tools share (写真の情報・写真を直す・並べて1枚に・大きく分けて印刷・
+   人の背景を消す・GIF): the settings on the left, the picture on the right. Loaded after base.css
+   and before the tool's style.css, which sets the tool's colors. */
+
+html, body { min-height: 100%; margin: 0; }
+
+body {
+  font-family: system-ui, "Noto Sans JP", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn.small { min-height: 30px; padding: 0 10px; font-size: 13px; }
+
+.welcome {
+  max-width: 600px;
+  margin: 40px auto;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 24px 28px;
+  line-height: 1.7;
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
+
+/* ---------- settings on the left, picture on the right ---------- */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) 1fr;
+  gap: 20px;
+  padding: 16px;
+  align-items: start;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
+.form h2 { margin: 6px 0 0; font-size: 14px; color: var(--muted); font-weight: 600; }
+.form h2:first-child { margin-top: 0; }
+.label, .field-label { font-size: 14px; font-weight: 600; }
+
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.field { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+.field.check { font-weight: 400; cursor: pointer; }
+.form select, .form input[type="text"], .form input[type="number"] {
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+}
+.form input[type="text"] { width: 100%; }
+.form input[type="number"] { width: 5.5em; }
+.form input[type="color"] { width: 44px; height: 32px; padding: 0 2px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.form select:focus-visible, .form input:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+/* A slider with its name on the left and its value on the right. */
+.slider { display: grid; grid-template-columns: 6.5em 1fr 3.2em; align-items: center; gap: 8px; font-size: 14px; }
+.slider input { width: 100%; accent-color: var(--accent); }
+.slider output { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Switches as a segmented control. */
+.tabs { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.tab {
+  flex: 1;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab + .tab { border-left: 1px solid var(--line); }
+.tab[aria-checked="true"] { background: var(--accent-soft); color: var(--accent-dark); font-weight: 600; }
+
+.note { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+
+.preview-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
+/* Checkerboard behind the picture, so see-through parts show as see-through. */
+.preview {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 130px);
+  width: auto;
+  height: auto;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+}
+.preview.checker {
+  background-color: #fff;
+  background-image: linear-gradient(45deg, #d9dce1 25%, transparent 25%, transparent 75%, #d9dce1 75%),
+    linear-gradient(45deg, #d9dce1 25%, transparent 25%, transparent 75%, #d9dce1 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+}
+.info { margin: 0; color: var(--muted); font-size: 14px; text-align: center; }
+
+@media (prefers-color-scheme: dark) {
+  .tab[aria-checked="true"] { color: var(--text); }
+}
+
+@media (max-width: 760px) {
+  .layout { grid-template-columns: 1fr; }
+  .welcome { margin: 16px; padding: 20px; }
+  .preview { max-height: none; }
+}
