@@ -59,19 +59,19 @@ function today() {
 
 // ---------- time helpers ----------
 
+const pad2 = (n) => String(n).padStart(2, "0");
+
 function fmt(ms, { tenths = false, ceil = true } = {}) {
   ms = Math.max(0, ms);
   const totalSec = ceil ? Math.ceil(ms / 1000) : Math.floor(ms / 1000);
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  const pad = (n) => String(n).padStart(2, "0");
-  let out = h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+  let out = h ? `${h}:${pad2(m)}:${pad2(s)}` : `${pad2(m)}:${pad2(s)}`;
   if (tenths) out += `.${Math.floor((ms % 1000) / 100)}`;
   return out;
 }
 
-const pad2 = (n) => String(n).padStart(2, "0");
 const clock = (t) => {
   const d = new Date(t);
   return `${d.getHours()}:${pad2(d.getMinutes())}`;

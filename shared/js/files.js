@@ -7,6 +7,9 @@ export const isPdf = (file) => file.type === "application/pdf" || /\.pdf$/i.test
 // "report.pdf" → "report" (".pdf" alone → "document")
 export const baseName = (name) => name.replace(/\.pdf$/i, "") || "document";
 
+// Replaces the characters a file name cannot have ("3年/1組" → "3年_1組").
+export const safeFileName = (name) => name.replace(/[\\/:*?"<>|]/g, "_");
+
 // 1234567 → "1.23 MB". Counted in 1000s, as upload forms count, so a file shown as
 // "500 KB" is never over a 500 KB limit.
 export function formatSize(bytes) {

@@ -5,16 +5,16 @@
 'use strict';
 
 const VERSION = '1.0.1';
-const $ = (id) => document.getElementById(id);
+const {
+  $, makeCanvas, overlap, base64ToBytes, mediaPipeFileset, safeFileName, fileTimeStamp,
+  download, createStore, readControls, writeControls, busy, bindAbout,
+} = window.KaoCommon;
 const PI = Math.PI;
 const MB = window.Mediabunny;
 const yieldUI = () => new Promise((r) => setTimeout(r, 0));
 
 /* ---------- 保存（ブラウザ内の設定のみ） ---------- */
-const store = {
-  get(k, d) { try { const v = localStorage.getItem('kaokakushi.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem('kaokakushi.' + k, JSON.stringify(v)); } catch { /* 保存できない環境でも動作は続ける */ } },
-};
+const store = createStore('kaokakushi.');
 
 /* ---------- 状態 ---------- */
 const state = {
@@ -34,20 +34,14 @@ const state = {
 
 /* ---------- AI（MediaPipe 顔検出） ---------- */
 const ai = { detector: null, ready: false };
-async function b64ToBytes(b64) {
-  const res = await fetch('data:application/octet-stream;base64,' + b64);
-  return new Uint8Array(await res.arrayBuffer());
-}
 async function initAI() {
   const st = $('aiStatus');
   try {
     if (!MB) throw new Error('lib/mediabunny.min.js が見つかりません');
     if (!window.MPVision || !window.KAO_WASM_B64 || !window.KAO_MODEL_DETECTOR) throw new Error('lib フォルダのファイルが見つかりません');
     if (typeof VideoEncoder === 'undefined' || typeof VideoDecoder === 'undefined') throw new Error('このブラウザは動画処理（WebCodecs）に対応していません。新しい Edge か Chrome で開いてください');
-    const loader = URL.createObjectURL(new Blob([window.KAO_WASM_LOADER], { type: 'text/javascript' }));
-    const wasm = URL.createObjectURL(new Blob([await b64ToBytes(window.KAO_WASM_B64)], { type: 'application/wasm' }));
-    ai.detector = await MPVision.FaceDetector.createFromOptions({ wasmLoaderPath: loader, wasmBinaryPath: wasm }, {
-      baseOptions: { modelAssetBuffer: await b64ToBytes(window.KAO_MODEL_DETECTOR), delegate: 'CPU' },
+    ai.detector = await MPVision.FaceDetector.createFromOptions(await mediaPipeFileset(), {
+      baseOptions: { modelAssetBuffer: await base64ToBytes(window.KAO_MODEL_DETECTOR), delegate: 'CPU' },
       runningMode: 'IMAGE', minDetectionConfidence: 0.25, minSuppressionThreshold: 0.3,
     });
     window.KAO_WASM_B64 = window.KAO_MODEL_DETECTOR = window.KAO_WASM_LOADER = null; // メモリ節約
@@ -63,17 +57,10 @@ async function initAI() {
 }
 
 /* ---------- 便利関数 ---------- */
-function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
 function fmtTime(t, frac = true) {
   if (!isFinite(t)) t = 0;
   const m = Math.floor(t / 60), s = t - m * 60;
   return frac ? `${m}:${s.toFixed(1).padStart(4, '0')}` : `${m}:${String(Math.floor(s)).padStart(2, '0')}`;
-}
-function iou(a, b) {
-  const x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
-  const x2 = Math.min(a.x + a.w, b.x + b.w), y2 = Math.min(a.y + a.h, b.y + b.h);
-  const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
-  return { iou: inter / (a.w * a.h + b.w * b.h - inter || 1), cover: inter / (Math.min(a.w * a.h, b.w * b.h) || 1) };
 }
 const lerp = (a, b, k) => a + (b - a) * k;
 function lerpRegion(a, b, k) {
@@ -82,18 +69,6 @@ function lerpRegion(a, b, k) {
   else r.kp = a.kp || b.kp;
   return r;
 }
-function stamp() {
-  const d = new Date(), p = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
-}
-function download(blob, name) {
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-  // 保存した場所を、閉じるまで残るお知らせで出す（ほかのツールと同じ）
-  import('../shared/js/saved.js').then((m) => m.showSavedNotice(name)).catch(() => {});
-}
-function sanitize(s) { return String(s).replace(/[\\/:*?"<>|\r\n\t]/g, '_').trim(); }
 
 /* ---------- 顔検出（1コマ） ---------- */
 // 大きさの違う顔を拾うため、画面全体＋重なりのある小区画で検出する
@@ -137,7 +112,7 @@ function detectFrame(src, W, H, tiles, thr) {
   raw.sort((a, b) => b.score - a.score);
   const kept = [];
   for (const r of raw) {
-    if (kept.some((k) => { const o = iou(k, r); return o.iou > 0.3 || o.cover > 0.6; })) continue;
+    if (kept.some((k) => { const o = overlap(k, r); return o.iou > 0.3 || o.cover > 0.6; })) continue;
     kept.push(r);
   }
   return kept;
@@ -159,7 +134,7 @@ function makeTracker(gapFrames) {
         const k = q ? Math.min(1, (fi - p.fi) / Math.max(1, p.fi - q.fi)) : 0;
         const pred = q ? { x: p.x + (p.x - q.x) * k, y: p.y + (p.y - q.y) * k, w: p.w, h: p.h } : p;
         dets.forEach((d, di) => {
-          const o = iou(pred, d).iou;
+          const o = overlap(pred, d).iou;
           const dist = Math.hypot((pred.x + pred.w / 2) - (d.x + d.w / 2), (pred.y + pred.h / 2) - (d.y + d.h / 2)) / Math.max(pred.w, d.w);
           const size = Math.max(pred.w, d.w) / Math.min(pred.w, d.w);
           if ((o > 0.15 || dist < 0.7) && size < 1.8) pairs.push({ tr, di, cost: (1 - o) + dist });
@@ -569,15 +544,15 @@ async function analyze() {
         lastUI = now;
         const p = Math.min(1, wc.timestamp / Math.max(0.001, duration));
         const el = (now - t0) / 1000, rest = p > 0.02 ? el / p - el : NaN;
-        setBusyText(`顔を探しています… ${Math.round(p * 100)}%\n見つかった顔: ${tracker.tracks.length}　残り ${isFinite(rest) ? '約' + fmtTime(rest, false) : '計算中'}`);
-        setBusyBar(p);
+        busy.setText(`顔を探しています… ${Math.round(p * 100)}%\n見つかった顔: ${tracker.tracks.length}　残り ${isFinite(rest) ? '約' + fmtTime(rest, false) : '計算中'}`);
+        busy.setBar(p);
         pctx.drawImage(wc.canvas, 0, 0, prev.width, prev.height);
         pctx.strokeStyle = '#22c55e'; pctx.lineWidth = 2;
         for (const d of dets) pctx.strokeRect(d.x * prev.width, d.y * prev.height, d.w * prev.width, d.h * prev.height);
         await yieldUI();
       }
     }
-    if (cancelFlag) { hideBusy(); state.busy = false; updateButtons(); return; }
+    if (cancelFlag) { busy.hide(); state.busy = false; updateButtons(); return; }
     if (!frames.length) throw new Error('コマを取り出せませんでした');
     const { tracks, regions } = finalizeTracks(tracker.tracks, frames.length, frames, fpsEff);
     state.frames = frames; state.regions = regions; state.tracks = tracks;
@@ -590,7 +565,7 @@ async function analyze() {
     console.error(e);
     alert('顔を探す途中で問題が起きました：' + (e.message || e));
   } finally {
-    hideBusy(); state.busy = false; updateButtons(); redraw();
+    busy.hide(); state.busy = false; updateButtons(); redraw();
   }
 }
 
@@ -761,15 +736,15 @@ async function exportVideo() {
     const lostAudio = !$('dropAudio').checked && state.info.audio && conversion.discardedTracks.some((d) => d.track.type === 'audio');
     conversion.onProgress = (p) => {
       const el = (performance.now() - t0) / 1000, rest = p > 0.02 ? el / p - el : NaN;
-      setBusyText(`モザイク入りの動画を書き出しています… ${Math.round(p * 100)}%\n残り ${isFinite(rest) ? '約' + fmtTime(rest, false) : '計算中'}`);
-      setBusyBar(p);
+      busy.setText(`モザイク入りの動画を書き出しています… ${Math.round(p * 100)}%\n残り ${isFinite(rest) ? '約' + fmtTime(rest, false) : '計算中'}`);
+      busy.setBar(p);
     };
     await conversion.execute();
     if (cancelFlag) return;
     const ext = format.fileExtension || '.mp4';
     const blob = new Blob([output.target.buffer], { type: format.mimeType || 'video/mp4' });
-    const base = sanitize(state.file.name.replace(/\.[^.]+$/, '')) || 'video';
-    download(blob, `${base}_かおかくし_${stamp()}${ext}`);
+    const base = safeFileName(state.file.name.replace(/\.[^.]+$/, '')) || 'video';
+    download(blob, `${base}_かおかくし_${fileTimeStamp()}${ext}`);
     const sec = Math.round((performance.now() - t0) / 1000);
     $('exportInfo').textContent = `保存しました（${(blob.size / 1048576).toFixed(1)}MB、${codecName(codec)}、${fmtTime(sec, false)}かかりました）。` +
       (lostAudio ? '※ 音声はこのブラウザで変換できない形式のため入っていません。' : '') + '公開する前に、保存した動画を最後まで見て確認してください。';
@@ -777,18 +752,19 @@ async function exportVideo() {
     if (!cancelFlag) { console.error(e); alert('動画の書き出し中に問題が起きました：' + (e.message || e)); }
   } finally {
     conversion = null;
-    hideBusy(); state.busy = false; updateButtons();
+    busy.hide(); state.busy = false; updateButtons();
   }
 }
 
 /* ---------- 処理中の表示 ---------- */
-function showBusy(t, p, cancellable) { $('busy').hidden = false; setBusyText(t); setBusyBar(p); $('busyCancel').hidden = !cancellable; $('busyPreview').hidden = true; }
-function setBusyText(t) { $('busyText').textContent = t; $('busyText').style.whiteSpace = 'pre-line'; }
-function setBusyBar(p) { $('busyBar').style.width = Math.round((p || 0) * 100) + '%'; }
-function hideBusy() { $('busy').hidden = true; }
+function showBusy(text, progress, cancellable) {
+  busy.show(text, progress);
+  $('busyCancel').hidden = !cancellable;
+  $('busyPreview').hidden = true;
+}
 $('busyCancel').addEventListener('click', async () => {
   cancelFlag = true;
-  setBusyText('中止しています…');
+  busy.setText('中止しています…');
   if (conversion) { try { await conversion.cancel(); } catch {} }
 });
 
@@ -866,26 +842,17 @@ document.addEventListener('keydown', (e) => {
 });
 new ResizeObserver(fitView).observe($('stage'));
 
-function openAbout() {
-  $('netState').textContent = navigator.onLine
-    ? '※ 現在このパソコンはネットワークにつながっていますが、このアプリは通信を行いません。'
-    : '※ 現在このパソコンはネットワークにつながっていません。このままお使いいただけます。';
-  $('aboutDialog').showModal();
-}
-$('aboutLink').addEventListener('click', (e) => { e.preventDefault(); openAbout(); });
-$('offlineBadge').addEventListener('click', openAbout);
+bindAbout();
 
 /* ---------- 設定の保存・復元 ---------- */
 const SAVE_IDS = ['scanMode', 'sensitivity', 'everyOther', 'strength', 'area', 'shape', 'fillColor', 'outSize', 'outQuality', 'dropAudio', 'showBoxes'];
 function saveSettings() {
-  const o = { method: state.method };
-  for (const id of SAVE_IDS) { const el = $(id); o[id] = el.type === 'checkbox' ? el.checked : el.value; }
-  store.set('settings', o);
+  store.set('settings', { method: state.method, ...readControls(SAVE_IDS) });
 }
 function loadSettings() {
-  const o = store.get('settings', null) || {};
-  for (const id of SAVE_IDS) { const el = $(id); if (!(id in o)) continue; if (el.type === 'checkbox') el.checked = o[id]; else el.value = o[id]; }
-  setMethod(o.method || 'mosaic');
+  const saved = store.get('settings', null) || {};
+  writeControls(SAVE_IDS, saved);
+  setMethod(saved.method || 'mosaic');
   $('strengthOut').textContent = $('strength').value;
 }
 

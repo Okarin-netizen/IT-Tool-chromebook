@@ -1,5 +1,5 @@
 import { showStatus } from "../shared/js/status.js";
-import { download, onFileDrop } from "../shared/js/files.js";
+import { download, onFileDrop, safeFileName } from "../shared/js/files.js";
 import { makeZip } from "../shared/js/zip.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { addNextTool } from "../shared/js/handoff.js";
@@ -108,7 +108,7 @@ const toBlob = () => canvasToBlob(els.preview, "image/png");
 
 async function save() {
   if (!current) return;
-  const caption = els.caption.value.trim().replace(/[\\/:*?"<>|]/g, "_");
+  const caption = safeFileName(els.caption.value.trim());
   download(await toBlob(), `${caption || "QRコード"}.png`);
   showStatus("PNG画像を保存しました");
 }
@@ -182,7 +182,7 @@ function updateBatch() {
     : `${good.length}こ作りました${bad ? `（${bad}こは長すぎて入りません）` : ""}。`;
 }
 
-const fileSafe = (name) => name.replace(/[\\/:*?"<>|]/g, "_").slice(0, 60);
+const NAME_MAX = 60; // characters of the caption kept in each file name of the ZIP
 
 async function saveBatchZip() {
   const good = batch.filter((e) => e.qr);
@@ -190,7 +190,7 @@ async function saveBatchZip() {
   const files = [];
   for (const [i, e] of good.entries()) {
     const blob = await canvasToBlob(e.canvas, "image/png");
-    files.push({ name: `${String(i + 1).padStart(3, "0")}_${fileSafe(e.caption || "QRコード")}.png`, bytes: new Uint8Array(await blob.arrayBuffer()) });
+    files.push({ name: `${String(i + 1).padStart(3, "0")}_${safeFileName(e.caption || "QRコード").slice(0, NAME_MAX)}.png`, bytes: new Uint8Array(await blob.arrayBuffer()) });
   }
   download(makeZip(files), `QRコード_${good.length}こ.zip`);
   showStatus("ZIPで保存しました");

@@ -149,7 +149,7 @@ await test('台紙の並べ方（L判に証明写真 30×24mm）', () => {
   return { ok: g.cols === 3 && g.rows === 3 && g.per === 9, detail: `${g.cols}列 × ${g.rows}行 = ${g.per}枚` };
 });
 await test('ファイル名に使えない文字を置きかえる', () => {
-  const s = C.sanitize('3年1組/山田:花子?');
+  const s = window.KaoCommon.safeFileName('3年1組/山田:花子?');
   return { ok: s === '3年1組_山田_花子_', detail: s };
 });
 

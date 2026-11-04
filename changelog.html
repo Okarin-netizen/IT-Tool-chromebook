@@ -45,21 +45,10 @@
   </main>
 
   <script type="module">
-    import { registerOffline } from "./shared/js/offline.js";
-    import { CHANGELOG, LAST_UPDATED, formatDate } from "./shared/js/changelog.js";
-    registerOffline(["./", "index.html", "changelog.html", "about.html"]);
-    document.querySelectorAll(".updated").forEach((el) => { el.textContent = formatDate(LAST_UPDATED); });
-    document.getElementById("log").replaceChildren(...CHANGELOG.map((entry) => {
-      const tr = document.createElement("tr");
-      const th = document.createElement("th");
-      th.textContent = formatDate(entry.date);
-      const ul = document.createElement("ul");
-      ul.append(...entry.items.map((text) => Object.assign(document.createElement("li"), { textContent: text })));
-      const td = document.createElement("td");
-      td.append(ul);
-      tr.append(th, td);
-      return tr;
-    }));
+    import { CHANGELOG } from "./shared/js/changelog.js";
+    import { renderChangelog, setUpSitePage } from "./shared/js/site.js";
+    setUpSitePage();
+    renderChangelog(document.getElementById("log"), CHANGELOG);
   </script>
 </body>
 </html>
