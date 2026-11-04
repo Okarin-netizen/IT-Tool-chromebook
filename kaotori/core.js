@@ -178,8 +178,5 @@ function layoutGrid(pw, ph, fw, fh, margin, gap, label) {
   return { cols: Math.max(0, cols), rows: Math.max(0, rows), per: Math.max(0, cols) * Math.max(0, rows) };
 }
 
-/* ---------- ファイル名 ---------- */
-function sanitize(s) { return String(s).replace(/[\\/:*?"<>|\r\n\t]/g, '_').trim(); }
-
-window.KAO_CORE = { stripMeta, stripJpeg, stripPng, exifOrientation, hasJpegExif, minimalExif, fitToKB, dist, cluster, matchNames, layoutGrid, sanitize };
+window.KAO_CORE = { stripMeta, stripJpeg, stripPng, exifOrientation, hasJpegExif, minimalExif, fitToKB, dist, cluster, matchNames, layoutGrid };
 })();

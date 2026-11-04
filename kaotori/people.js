@@ -5,7 +5,7 @@
 'use strict';
 const K = window.__kaotori;
 const C = window.KAO_CORE;
-const $ = (id) => document.getElementById(id);
+const { $, makeCanvas, safeFileName, fileTimeStamp, download, busy } = window.KaoCommon;
 
 const rec = { ready: false, loading: null };
 let groups = [];          // [{id, name, auto, faces:[face]}]
@@ -57,7 +57,7 @@ function alignedChip(bmp, f) {
   return chip;
 }
 function makeThumb(bmp, f) {
-  const c = K.makeCanvas(84, 84); const ctx = c.getContext('2d');
+  const c = makeCanvas(84, 84); const ctx = c.getContext('2d');
   const b = f.box, side = Math.max(b.w, b.h) * 1.5;
   ctx.fillStyle = '#ddd'; ctx.fillRect(0, 0, 84, 84);
   ctx.imageSmoothingQuality = 'high';
@@ -79,7 +79,7 @@ async function describeAll() {
     for (const [, f] of mine) {
       f.desc = await describe(bmp, f);
       f.peopleThumb = makeThumb(bmp, f);
-      done++; K.setBusyBar(done / todo.length);
+      done++; busy.setBar(done / todo.length);
       if (done % 4 === 0) { await K.tick(); K.checkCancel(); }
     }
   }
@@ -92,11 +92,11 @@ async function run() {
   if (groups.length && !confirm('グループ分けをやり直します。付けた名前や手で移した内容はリセットされます。よろしいですか？')) return;
   K.resetCancel();
   try {
-    K.showBusy('顔認識の準備をしています…', 0);
+    busy.show('顔認識の準備をしています…', 0);
     await loadRecognizer();
-    K.setBusyText('顔の特徴を計算しています…（データは保存されません）');
+    busy.setText('顔の特徴を計算しています…（データは保存されません）');
     await describeAll();
-    K.setBusyText('似ている顔をまとめています…');
+    busy.setText('似ている顔をまとめています…');
     await K.tick();
     const list = faces().filter((f) => f.desc);
     if (list.length > 1500) throw new Error('顔が多すぎます（1500人分まで）。写真を分けて実行してください。');
@@ -109,7 +109,7 @@ async function run() {
   } catch (e) {
     console.error(e);
     if (e.cancelled) alert('グループ分けを中止しました'); else alert('グループ分けに失敗しました: ' + (e.message || e));
-  } finally { K.hideBusy(); K.resetCancel(); }
+  } finally { busy.hide(); K.resetCancel(); }
   render();
 }
 
@@ -121,12 +121,12 @@ async function loadRefs(files) {
   K.resetCancel();
   const failed = [];
   try {
-    K.showBusy('見本写真を読み込んでいます…', 0);
+    busy.show('見本写真を読み込んでいます…', 0);
     await loadRecognizer();
     for (let i = 0; i < files.length; i++) {
       let file = files[i];
-      const name = C.sanitize(file.name.replace(/\.[^.]+$/, '').replace(/[_\-\s]*\d+$/, '')) || file.name;
-      K.setBusyText(`見本写真を読み込んでいます（${i + 1} / ${files.length}）`);
+      const name = safeFileName(file.name.replace(/\.[^.]+$/, '').replace(/[_\-\s]*\d+$/, '')) || file.name;
+      busy.setText(`見本写真を読み込んでいます（${i + 1} / ${files.length}）`);
       try {
         if (K.isHeic(file)) file = await K.heicToJpeg(file);
         const bmp = await K.decodeFile(file);
@@ -139,10 +139,10 @@ async function loadRefs(files) {
         refs.push({ name, desc: await describe(bmp, f), thumb: makeThumb(bmp, f) });
         bmp.close?.();
       } catch (e) { if (e.cancelled) throw e; console.warn(e); failed.push(file.name); }
-      K.setBusyBar((i + 1) / files.length);
+      busy.setBar((i + 1) / files.length);
     }
   } catch (e) { if (e.cancelled) alert('見本写真の読み込みを中止しました'); else alert('見本写真の読み込みに失敗しました: ' + e.message); }
-  finally { K.hideBusy(); K.resetCancel(); }
+  finally { busy.hide(); K.resetCancel(); }
   K.logWork('見本写真の読み込み', `${refs.length}人分（顔が見つからない写真 ${failed.length}枚）`);
   const matched = applyRefs();
   $('refInfo').hidden = false;
@@ -225,7 +225,7 @@ function groupCard(g, i) {
   const card = document.createElement('div'); card.className = 'pgroup';
   const head = document.createElement('div'); head.className = 'phead';
   const rep = g.faces[0].peopleThumb;
-  if (rep) { const c = K.makeCanvas(48, 48); c.getContext('2d').drawImage(rep, 0, 0, 48, 48); c.className = 'prep'; head.appendChild(c); }
+  if (rep) { const c = makeCanvas(48, 48); c.getContext('2d').drawImage(rep, 0, 0, 48, 48); c.className = 'prep'; head.appendChild(c); }
   const name = document.createElement('input'); name.type = 'text'; name.value = g.name; name.placeholder = `人物${pad(i + 1)}（名前を入力）`;
   name.setAttribute('list', 'refNames');
   name.addEventListener('input', () => { g.name = name.value; g.auto = false; });
@@ -234,7 +234,7 @@ function groupCard(g, i) {
   if (g.auto) {
     const ref = refs.find((r) => r.name === g.name);
     const tag = document.createElement('span'); tag.className = 'pauto'; tag.textContent = '見本と一致';
-    if (ref?.thumb) { const c = K.makeCanvas(28, 28); c.getContext('2d').drawImage(ref.thumb, 0, 0, 28, 28); tag.prepend(c); }
+    if (ref?.thumb) { const c = makeCanvas(28, 28); c.getContext('2d').drawImage(ref.thumb, 0, 0, 28, 28); tag.prepend(c); }
     head.appendChild(tag);
   }
   const cnt = document.createElement('span'); cnt.className = 'pcount'; cnt.textContent = `写真 ${photoCount(g)}枚`; head.appendChild(cnt);
@@ -252,7 +252,7 @@ function groupCard(g, i) {
     const t = document.createElement('div'); t.className = 'pface';
     const photo = K.state.photos.find((p) => p.id === f.photoId);
     t.title = `${photo?.name || ''}\nドラッグで別の人へ移動（指は長押ししてから）／ダブルクリックで写真を開く`;
-    if (f.peopleThumb) { const c = K.makeCanvas(84, 84); c.getContext('2d').drawImage(f.peopleThumb, 0, 0); t.appendChild(c); }
+    if (f.peopleThumb) { const c = makeCanvas(84, 84); c.getContext('2d').drawImage(f.peopleThumb, 0, 0); t.appendChild(c); }
     dragSource(t, f, g);
     t.addEventListener('dblclick', () => { const idx = K.state.photos.indexOf(photo); if (idx >= 0) { K.state.current = idx; K.showTab('photo'); K.refreshAll(); } });
     body.appendChild(t);
@@ -320,7 +320,7 @@ function startDrag(x, y) {
   clearTimeout(press.timer);
   const ghost = document.createElement('div'); ghost.className = 'pface-ghost';
   const src = press.tile.querySelector('canvas');
-  if (src) { const c = K.makeCanvas(src.width, src.height); c.getContext('2d').drawImage(src, 0, 0); ghost.appendChild(c); }
+  if (src) { const c = makeCanvas(src.width, src.height); c.getContext('2d').drawImage(src, 0, 0); ghost.appendChild(c); }
   document.body.appendChild(ghost);
   press.tile.classList.add('dragging');
   drag = { ghost, target: null, x, y, raf: 0 };
@@ -387,18 +387,18 @@ async function cleanFile(file) {
   const r = await C.stripMeta(file);
   if (r) return { blob: r.blob, name: file.name };
   const bmp = await K.decodeFile(file);
-  const c = K.makeCanvas(bmp.width, bmp.height); c.getContext('2d').drawImage(bmp, 0, 0); bmp.close?.();
+  const c = makeCanvas(bmp.width, bmp.height); c.getContext('2d').drawImage(bmp, 0, 0); bmp.close?.();
   const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.95));
   return { blob, name: file.name.replace(/\.[^.]+$/, '') + '.jpg' };
 }
 async function saveZip() {
   const named = $('peopleNamedOnly').checked, withOthers = $('peopleOthers').checked, strip = $('peopleStrip').checked;
-  const list = groups.map((g, i) => ({ g, name: C.sanitize(label(g, i)), other: isOther(g) }))
+  const list = groups.map((g, i) => ({ g, name: safeFileName(label(g, i)), other: isOther(g) }))
     .filter((x) => x.g.faces.length && (!named || x.g.name.trim()) && (withOthers || !x.other));
   if (!list.length) { alert(named ? '名前を付けた人がいません' : '保存する人がいません'); return; }
   K.resetCancel();
   try {
-    K.showBusy('人ごとのフォルダにまとめています…', 0);
+    busy.show('人ごとのフォルダにまとめています…', 0);
     const zip = new JSZip();
     const usedFolders = new Set();
     const cleaned = new Map(); // 同じ写真は一度だけ処理する
@@ -419,17 +419,17 @@ async function saveZip() {
         zip.file(`${folder}/${fn}`, entry.blob); total++;
       }
       csv.push([list[i].other ? `その他（${list[i].name}）` : folder, String(photos.length), names.join(' / ')]);
-      K.setBusyBar((i + 1) / list.length);
+      busy.setBar((i + 1) / list.length);
       await K.tick(); K.checkCancel();
     }
     const esc = (v) => /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
     zip.file('人ごとの写真一覧.csv', '﻿' + csv.map((r) => r.map(esc).join(',')).join('\r\n'));
-    K.setBusyText('ZIPを作っています…');
+    busy.setText('ZIPを作っています…');
     const blob = await zip.generateAsync({ type: 'blob' });
-    K.download(blob, `かおトリ_人ごと_${K.stamp()}.zip`);
+    download(blob, `かおトリ_人ごと_${fileTimeStamp()}.zip`);
     K.logWork('人ごとの保存', `${list.length}人分・写真${total}枚${strip ? '（撮影場所などの情報を削除）' : ''}`);
   } catch (e) { console.error(e); if (e.cancelled) alert('保存を中止しました'); else alert('保存に失敗しました: ' + e.message); }
-  finally { K.hideBusy(); K.resetCancel(); }
+  finally { busy.hide(); K.resetCancel(); }
 }
 
 $('peopleRun').addEventListener('click', run);

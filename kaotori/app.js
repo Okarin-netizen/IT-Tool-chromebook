@@ -4,16 +4,16 @@
 (() => {
 'use strict';
 
-const $ = (id) => document.getElementById(id);
+const {
+  $, makeCanvas, overlap, base64ToBytes, mediaPipeFileset, safeFileName, fileTimeStamp,
+  download, createStore, readControls, writeControls, busy, bindAbout,
+} = window.KaoCommon;
 const PI = Math.PI;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const tick = () => new Promise((r) => requestAnimationFrame(() => r()));
 
 /* ---------- 保存（ブラウザ内） ---------- */
-const store = {
-  get(k, d) { try { const v = localStorage.getItem('kaotori.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem('kaotori.' + k, JSON.stringify(v)); } catch { /* 保存できない環境でも動作は続ける */ } },
-};
+const store = createStore('kaotori.');
 
 /* ---------- 状態 ---------- */
 const state = {
@@ -41,30 +41,23 @@ function logWork(action, detail) {
   workLog.push(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}\t${action}\t${detail || ''}`);
 }
 
-async function b64ToBytes(b64) {
-  const res = await fetch('data:application/octet-stream;base64,' + b64);
-  return new Uint8Array(await res.arrayBuffer());
-}
-
 async function initAI() {
   const st = $('aiStatus');
   try {
     if (!window.MPVision || !window.KAO_WASM_B64 || !window.KAO_MODEL_DETECTOR) throw new Error('lib フォルダのファイルが見つかりません');
-    const loader = URL.createObjectURL(new Blob([window.KAO_WASM_LOADER], { type: 'text/javascript' }));
-    const wasm = URL.createObjectURL(new Blob([await b64ToBytes(window.KAO_WASM_B64)], { type: 'application/wasm' }));
-    const fileset = { wasmLoaderPath: loader, wasmBinaryPath: wasm };
+    const fileset = await mediaPipeFileset();
     ai.detector = await MPVision.FaceDetector.createFromOptions(fileset, {
-      baseOptions: { modelAssetBuffer: await b64ToBytes(window.KAO_MODEL_DETECTOR), delegate: 'CPU' },
+      baseOptions: { modelAssetBuffer: await base64ToBytes(window.KAO_MODEL_DETECTOR), delegate: 'CPU' },
       runningMode: 'IMAGE', minDetectionConfidence: 0.3, minSuppressionThreshold: 0.3,
     });
     ai.landmarker = await MPVision.FaceLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetBuffer: await b64ToBytes(window.KAO_MODEL_LANDMARKER), delegate: 'CPU' },
+      baseOptions: { modelAssetBuffer: await base64ToBytes(window.KAO_MODEL_LANDMARKER), delegate: 'CPU' },
       runningMode: 'IMAGE', numFaces: 1, minFaceDetectionConfidence: 0.3, minFacePresenceConfidence: 0.3,
     });
     // メモリ節約: 巨大な文字列を解放
     try { // 背景の置き換え用（人物の切り抜き）
       ai.segmenter = await MPVision.ImageSegmenter.createFromOptions(fileset, {
-        baseOptions: { modelAssetBuffer: await b64ToBytes(window.KAO_MODEL_SEGMENTER), delegate: 'CPU' },
+        baseOptions: { modelAssetBuffer: await base64ToBytes(window.KAO_MODEL_SEGMENTER), delegate: 'CPU' },
         runningMode: 'IMAGE', outputConfidenceMasks: true, outputCategoryMask: false,
       });
     } catch (e) { console.warn('背景の置き換えは使えません', e); }
@@ -100,15 +93,8 @@ async function decodeFile(file) {
     finally { URL.revokeObjectURL(url); }
   }
 }
-function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
 
 /* ---------- 顔検出 ---------- */
-function iou(a, b) {
-  const x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
-  const x2 = Math.min(a.x + a.w, b.x + b.w), y2 = Math.min(a.y + a.h, b.y + b.h);
-  const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
-  return { iou: inter / (a.w * a.h + b.w * b.h - inter), cover: inter / Math.min(a.w * a.h, b.w * b.h) };
-}
 
 async function detectFaces(bmp, onProgress) {
   const W = bmp.width, H = bmp.height;
@@ -156,7 +142,7 @@ async function detectFaces(bmp, onProgress) {
   raw.sort((a, b) => b.score - a.score);
   const kept = [];
   for (const r of raw) {
-    if (kept.some((k) => { const o = iou(k.box, r.box); return o.iou > 0.3 || o.cover > 0.6; })) continue;
+    if (kept.some((k) => { const o = overlap(k.box, r.box); return o.iou > 0.3 || o.cover > 0.6; })) continue;
     kept.push(r);
   }
   return kept;
@@ -248,7 +234,7 @@ const OK_EXT = /\.(jpe?g|png|bmp|webp|gif|tiff?|heic|heif|avif)$/i;
 async function addFiles(files) {
   files = [...files].filter((f) => f.type.startsWith('image/') || OK_EXT.test(f.name));
   if (!files.length) return;
-  if (!ai.ready) { pendingFiles.push(...files); showBusy('準備ができしだい読み込みます…', 0); waitAIThenHide(); return; }
+  if (!ai.ready) { pendingFiles.push(...files); busy.show('準備ができしだい読み込みます…', 0); waitAIThenHide(); return; }
   cancelFlag = false;
   let doneCount = 0, faceCount = 0;
   for (let i = 0; i < files.length; i++) {
@@ -258,13 +244,13 @@ async function addFiles(files) {
     state.photos.push(photo);
     try {
       if (isHeic(file)) {
-        showBusy(`iPhoneの写真（HEIC）をJPGに変換しています（${i + 1} / ${files.length}）\n${file.name}`, i / files.length);
+        busy.show(`iPhoneの写真（HEIC）をJPGに変換しています（${i + 1} / ${files.length}）\n${file.name}`, i / files.length);
         try { file = await heicToJpeg(file); }
         catch (e) { console.error(e); throw Object.assign(new Error('heic'), { heic: true }); }
         photo.file = file; photo.converted = file !== files[i];
       }
-      showBusy(`顔を探しています（${i + 1} / ${files.length}）\n${photo.name}`, i / files.length);
-      await processPhoto(photo, (p) => setBusyBar((i + p) / files.length));
+      busy.show(`顔を探しています（${i + 1} / ${files.length}）\n${photo.name}`, i / files.length);
+      await processPhoto(photo, (p) => busy.setBar((i + p) / files.length));
       doneCount++; faceCount += photo.faces.filter((f) => f.include).length;
     } catch (e) {
       if (!e.cancelled) console.error(e);
@@ -275,13 +261,13 @@ async function addFiles(files) {
     renderPhotoList();
   }
   if (state.current < 0) state.current = 0;
-  hideBusy();
+  busy.hide();
   logWork('写真の読み込み', `${doneCount}枚・顔${faceCount}人${cancelFlag ? '（途中で中止）' : ''}`);
   if (cancelFlag) alert(`読み込みを中止しました（${doneCount}枚まで読み込み済み）`);
   cancelFlag = false;
   refreshAll();
 }
-async function waitAIThenHide() { while (!ai.ready && !$('aiStatus').classList.contains('error')) await sleep(200); if (!ai.ready) hideBusy(); }
+async function waitAIThenHide() { while (!ai.ready && !$('aiStatus').classList.contains('error')) await sleep(200); if (!ai.ready) busy.hide(); }
 
 /* ---------- 切り抜きの計算 ---------- */
 function num(id, d = 0) { const v = parseFloat($(id).value); return isFinite(v) ? v : d; }
@@ -452,7 +438,6 @@ function includedFaces() {
   for (const p of state.photos) for (const f of p.faces) if (f.include) out.push({ photo: p, face: f });
   return out;
 }
-function sanitize(s) { return String(s).replace(/[\\/:*?"<>|\r\n\t]/g, '_').trim(); }
 function computeNames(list) {
   const mode = $('nameMode').value, start = Math.round(num('startNo', 1)), digits = Math.max(1, Math.round(num('digits', 2)));
   const roster = $('roster').value.split(/\r?\n/).map((s) => s.split('\t')[0].trim()).filter(Boolean);
@@ -466,7 +451,7 @@ function computeNames(list) {
     else if (mode === 'custom') n = `${$('customText').value}${pad(i + start)}`;
     else if (mode === 'roster') n = roster[i] || `名簿なし_${pad(i + start)}`;
     else n = pad(i + start);
-    n = sanitize(n) || pad(i + start);
+    n = safeFileName(n) || pad(i + start);
     const k = n.toLowerCase();
     if (used.has(k)) { const c = used.get(k) + 1; used.set(k, c); n = `${n}(${c})`; } else used.set(k, 1);
     return n;
@@ -778,14 +763,6 @@ async function setJpegDpi(blob, dpi) {
   }
   return new Blob([buf], { type: 'image/jpeg' });
 }
-function download(blob, name) {
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 30000);
-  // 保存した場所を、閉じるまで残るお知らせで出す（ほかのツールと同じ）
-  import('../shared/js/saved.js').then((m) => m.showSavedNotice(name)).catch(() => {});
-}
-function stamp() { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`; }
 
 async function renderAllFaces(onEach) {
   const list = includedFaces(), names = computeNames(list), S = settings();
@@ -793,7 +770,7 @@ async function renderAllFaces(onEach) {
     const bmp = await getBitmap(list[i].photo);
     const r = renderFace(list[i].face, bmp, S);
     await onEach(r.canvas, names[i], i, list.length);
-    setBusyBar((i + 1) / list.length);
+    busy.setBar((i + 1) / list.length);
     if (i % 3 === 2) await tick();
     checkCancel();
   }
@@ -804,7 +781,7 @@ $('saveZipBtn').addEventListener('click', async () => {
   let overCount = 0, fileCount = 0;
   try {
     cancelFlag = false;
-    showBusy('画像を書き出しています…', 0);
+    busy.show('画像を書き出しています…', 0);
     const zip = new JSZip();
     if (state.mode === 'privacy') {
       const photos = state.photos.filter((p) => !p.error);
@@ -813,24 +790,24 @@ $('saveZipBtn').addEventListener('click', async () => {
         const bmp = await getBitmap(photos[i]);
         const { blob, ext, over } = await encode(renderPrivacy(photos[i], bmp, 1), 0);
         if (over) overCount++; fileCount++;
-        let n = sanitize(photos[i].base + '_加工'); while (used.has(n)) n += '_'; used.add(n);
+        let n = safeFileName(photos[i].base + '_加工'); while (used.has(n)) n += '_'; used.add(n);
         zip.file(`${n}.${ext}`, blob);
-        setBusyBar((i + 1) / photos.length); await tick(); checkCancel();
+        busy.setBar((i + 1) / photos.length); await tick(); checkCancel();
       }
-      setBusyText('ZIPにまとめています…');
-      download(await zip.generateAsync({ type: 'blob' }), `かおトリ_加工_${stamp()}.zip`);
+      busy.setText('ZIPにまとめています…');
+      download(await zip.generateAsync({ type: 'blob' }), `かおトリ_加工_${fileTimeStamp()}.zip`);
       logWork('モザイク加工の保存', `${fileCount}枚`);
     } else {
       const dpi = state.mode === 'id' ? num('dpi', 350) : 0;
       await renderAllFaces(async (c, name) => { const { blob, ext, over } = await encode(c, dpi); if (over) overCount++; fileCount++; zip.file(`${name}.${ext}`, blob); });
-      setBusyText('ZIPにまとめています…');
+      busy.setText('ZIPにまとめています…');
       const out = await zip.generateAsync({ type: 'blob' });
-      download(out, `かおトリ_${stamp()}.zip`);
+      download(out, `かおトリ_${fileTimeStamp()}.zip`);
       logWork(state.mode === 'id' ? '証明写真の保存' : '顔の切り抜きの保存', `${fileCount}枚`);
     }
     if (overCount) alert(`${overCount}枚は、画質をいちばん下げても上限（${num('maxKB')}KB）に収まりませんでした。出力サイズを小さくしてください。`);
   } catch (e) { if (e.cancelled) alert('保存を中止しました'); else { alert('保存に失敗しました: ' + e.message); console.error(e); } }
-  finally { hideBusy(); cancelFlag = false; }
+  finally { busy.hide(); cancelFlag = false; }
 });
 
 /* 台紙レイアウト */
@@ -898,20 +875,20 @@ async function renderLayouts() {
 }
 $('layoutZipBtn').addEventListener('click', async () => {
   try {
-    showBusy('台紙を作っています…', 0);
+    busy.show('台紙を作っています…', 0);
     const { pages, L } = await renderLayouts();
     const zip = new JSZip();
     for (let i = 0; i < pages.length; i++) {
       const { blob, ext } = await encode(pages[i], L.dpi, false);
       zip.file(`台紙_${String(i + 1).padStart(2, '0')}.${ext}`, blob);
     }
-    download(await zip.generateAsync({ type: 'blob' }), `かおトリ_台紙_${stamp()}.zip`);
+    download(await zip.generateAsync({ type: 'blob' }), `かおトリ_台紙_${fileTimeStamp()}.zip`);
   } catch (e) { alert(e.message); console.error(e); }
-  finally { hideBusy(); }
+  finally { busy.hide(); }
 });
 $('printBtn').addEventListener('click', async () => {
   try {
-    showBusy('印刷用の台紙を作っています…', 0);
+    busy.show('印刷用の台紙を作っています…', 0);
     const { pages, L } = await renderLayouts();
     const area = $('printArea'); area.textContent = '';
     let st = document.getElementById('pageStyle');
@@ -920,10 +897,10 @@ $('printBtn').addEventListener('click', async () => {
     for (const p of pages) {
       const img = new Image(); img.src = URL.createObjectURL(await canvasToBlob(p, 'image/png')); await img.decode(); area.appendChild(img);
     }
-    hideBusy();
+    busy.hide();
     await sleep(100);
     window.print();
-  } catch (e) { hideBusy(); alert(e.message); console.error(e); }
+  } catch (e) { busy.hide(); alert(e.message); console.error(e); }
 });
 
 /* ---------- プリセット ---------- */
@@ -1022,7 +999,7 @@ $('showBoxes').addEventListener('change', () => drawPhoto());
 $('showOriginal').addEventListener('change', () => drawPhoto());
 $('logBtn').addEventListener('click', () => {
   const head = 'かおトリ 作業ログ（件数と日時のみ。写真・名前・顔のデータは含みません）\r\n日時\t作業\t内容\r\n';
-  download(new Blob(['\ufeff' + head + (workLog.join('\r\n') || '（まだ作業はありません）')], { type: 'text/plain' }), `かおトリ_作業ログ_${stamp()}.txt`);
+  download(new Blob(['\ufeff' + head + (workLog.join('\r\n') || '（まだ作業はありません）')], { type: 'text/plain' }), `かおトリ_作業ログ_${fileTimeStamp()}.txt`);
 });
 $('privStrength').addEventListener('input', () => { $('privStrengthOut').textContent = $('privStrength').value; });
 document.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
@@ -1080,12 +1057,12 @@ $('zoomOut').addEventListener('click', () => { state.zoom = Math.max(1, (state.z
 $('zoomFit').addEventListener('click', () => { state.zoom = 0; drawPhoto(); });
 $('redetect').addEventListener('click', async () => {
   const p = state.photos[state.current]; if (!p || p.error || !ai.ready) return;
-  showBusy('もう一度顔を探しています…', 0);
+  busy.show('もう一度顔を探しています…', 0);
   ai.threshold = parseFloat($('sensitivity').value);
   const manual = p.faces.filter((f) => f.manual);
-  await processPhoto(p, setBusyBar);
+  await processPhoto(p, busy.setBar);
   p.faces = sortFaces(p.faces.concat(manual));
-  hideBusy(); refreshAll();
+  busy.hide(); refreshAll();
 });
 $('sensitivity').addEventListener('change', () => { ai.threshold = parseFloat($('sensitivity').value); saveSettings(); });
 window.addEventListener('resize', () => { if (!$('pane-photo').hidden) scheduleRefresh(true); });
@@ -1103,21 +1080,13 @@ $('cropShift').addEventListener('input', () => { $('cropShiftOut').textContent =
 $('hair').addEventListener('input', () => { $('hairOut').textContent = (+$('hair').value).toFixed(2); });
 document.querySelector('.side').addEventListener('input', (e) => { if (e.target.id !== 'fileInput') scheduleRefresh(); });
 document.querySelector('.side').addEventListener('change', (e) => { if (e.target.id !== 'fileInput') scheduleRefresh(); });
-function openAbout() {
-  $('netState').textContent = navigator.onLine
-    ? '※ 現在このパソコンはネットワークにつながっていますが、このアプリは通信を行いません。'
-    : '※ 現在このパソコンはネットワークにつながっていません。このままお使いいただけます。';
-  $('aboutDialog').showModal();
-}
-$('aboutLink').addEventListener('click', (e) => { e.preventDefault(); openAbout(); });
-$('offlineBadge').addEventListener('click', openAbout);
+bindAbout();
 
 /* ---------- 処理中の表示 ---------- */
-function showBusy(t, p) { $('busy').hidden = false; setBusyText(t); setBusyBar(p); }
-$('busyCancel').addEventListener('click', () => { cancelFlag = true; setBusyText('中止しています…'); });
-function setBusyText(t) { $('busyText').textContent = t; $('busyText').style.whiteSpace = 'pre-line'; }
-function setBusyBar(p) { $('busyBar').style.width = Math.round((p || 0) * 100) + '%'; }
-function hideBusy() { $('busy').hidden = true; }
+$('busyCancel').addEventListener('click', () => {
+  cancelFlag = true;
+  busy.setText('中止しています…');
+});
 
 /* ---------- 設定の保存・復元 ---------- */
 const SAVE_IDS = ['cropX', 'cropY', 'cropShift', 'resizeMode', 'resizeLong', 'resizeW', 'resizeH', 'idW', 'idH', 'idFace', 'idTop', 'dpi',
@@ -1125,15 +1094,14 @@ const SAVE_IDS = ['cropX', 'cropY', 'cropShift', 'resizeMode', 'resizeLong', 're
   'paper', 'paperW', 'paperH', 'pMargin', 'pGap', 'cutline', 'showName', 'nameSize',
   'privFace', 'privMask', 'privStrength', 'privColor', 'privArea', 'privShape', 'bgReplace', 'maxKB'];
 function saveSettings() {
-  const o = { mode: state.mode, unit: state.unit, orient: state.orient, preset: $('idPreset').value };
-  for (const id of SAVE_IDS) { const el = $(id); o[id] = el.type === 'checkbox' ? el.checked : el.value; }
+  const o = { mode: state.mode, unit: state.unit, orient: state.orient, preset: $('idPreset').value, ...readControls(SAVE_IDS) };
   store.set('settings', o);
 }
 function loadSettings() {
   fillPresets(0);
   const o = store.get('settings', null);
   if (!o) { applyPreset(0); return; }
-  for (const id of SAVE_IDS) { const el = $(id); if (!(id in o)) continue; if (el.type === 'checkbox') el.checked = o[id]; else el.value = o[id]; }
+  writeControls(SAVE_IDS, o);
   if (o.preset != null && $('idPreset').querySelector(`option[value="${o.preset}"]`)) $('idPreset').value = o.preset;
   state.unit = o.unit === 'px' ? 'mm' : 'px'; setUnit(o.unit || 'mm', false);
   if (o.orient) document.querySelector(`[data-orient="${o.orient}"]`)?.click();
@@ -1155,7 +1123,7 @@ setTimeout(initAI, 50);
 
 // テスト用フック
 window.__kaotori = { state, ai, settings, includedFaces, computeNames, renderLayouts,
-  getBitmap, makeCanvas, mid, sanitize, download, stamp, showBusy, setBusyBar, setBusyText, hideBusy, tick, showTab, refreshAll,
+  getBitmap, mid, tick, showTab, refreshAll,
   detectFaces, refineFace, decodeFile, isHeic, heicToJpeg, logWork, checkCancel, resetCancel: () => { cancelFlag = false; }, isCancelled: () => cancelFlag };
 })();
 
