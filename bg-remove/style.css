@@ -11,3 +11,7 @@
   --accent-soft: color-mix(in srgb, var(--accent) 12%, #fff);
   --accent-text: #ffffff;
 }
+
+.ai-status { font-size: 13px; color: var(--muted); }
+.ai-status.error { color: #b42318; }
+.preview.painting { cursor: crosshair; touch-action: none; }
