@@ -11,3 +11,10 @@
   --accent-soft: color-mix(in srgb, var(--accent) 12%, #fff);
   --accent-text: #ffffff;
 }
+
+.summary { margin: 4px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); font-size: 15px; font-weight: 600; }
+.preview { background: #fff; }
+
+@media (prefers-color-scheme: dark) {
+  .summary { background: var(--soft); }
+}
