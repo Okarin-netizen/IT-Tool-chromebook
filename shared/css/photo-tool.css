@@ -66,6 +66,7 @@ body {
   background: var(--surface);
   box-shadow: 0 1px 3px rgba(0,0,0,.1);
 }
+.form > * { flex-shrink: 0; }
 .form h2 { margin: 6px 0 0; font-size: 14px; color: var(--muted); font-weight: 600; }
 .form h2:first-child { margin-top: 0; }
 .label, .field-label { font-size: 14px; font-weight: 600; }

@@ -11,3 +11,13 @@
   --accent-soft: color-mix(in srgb, var(--accent) 12%, #fff);
   --accent-text: #ffffff;
 }
+
+.form { max-height: calc(100vh - 90px); overflow: auto; }
+.form .tabs .tab { padding: 0 6px; }
+.photos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.photo { display: grid; grid-template-columns: 48px 1fr auto; gap: 8px; align-items: center; }
+.photo canvas { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; box-shadow: 0 0 0 1px var(--line); }
+.photo input { min-width: 0; }
+.photo .buttons { display: flex; gap: 2px; }
+.photo .btn.icon { width: 30px; min-height: 30px; }
+.photo .btn.icon .i { width: 16px; height: 16px; }

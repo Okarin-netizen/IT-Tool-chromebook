@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>写真を並べて1枚に</title>
+  <meta name="description" content="何枚かの写真を並べて1枚の画像にするブラウザだけで動くツール。比べる写真、学級通信や掲示物、スライドに">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#7a4fb5">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="../shared/css/photo-tool.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  </svg>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">写真を並べて1枚に</span>
+      <label class="btn primary" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-image"/></svg>写真を追加</label>
+      <input id="file-input" type="file" accept="image/*,.heic,.heif" multiple hidden>
+    </div>
+    <div class="group end">
+      <button id="save-btn" class="btn primary" disabled><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>保存</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="welcome" class="welcome">
+      <h1>写真を並べて1枚に</h1>
+      <p>2枚から20枚くらいの写真を、すきまをそろえて1枚の画像にします。実験の前と後をくらべる写真、学級通信や掲示物、スライドにはる1枚に。</p>
+      <ol>
+        <li>「写真を追加」を押すか、写真をここにドラッグします。</li>
+        <li>並べ方・できあがりの形・すきまを選びます。写真の順番は左の一覧の矢印で変えられます。</li>
+        <li>上に題名、写真の下に名前（「前」「後」など）を入れることもできます。</li>
+        <li>「保存」で1枚の画像（JPG）にします。</li>
+      </ol>
+      <p class="note">写真はこのパソコンの中だけで処理され、どこにも送信されません。</p>
+    </section>
+
+    <div id="work" class="layout" hidden>
+      <section class="form" aria-label="並べ方">
+        <span class="label">並べ方</span>
+        <div class="tabs" role="radiogroup" aria-label="並べ方">
+          <button class="tab" role="radio" data-columns="0" aria-checked="true">自動</button>
+          <button class="tab" role="radio" data-columns="row" aria-checked="false">横1列</button>
+          <button class="tab" role="radio" data-columns="1" aria-checked="false">縦1列</button>
+          <button class="tab" role="radio" data-columns="2" aria-checked="false">2列</button>
+          <button class="tab" role="radio" data-columns="3" aria-checked="false">3列</button>
+        </div>
+        <label class="field">できあがりの形
+          <select id="sheet">
+            <option value="wide">横長（スライド 16:9）</option>
+            <option value="a4">A4 縦</option>
+            <option value="a4-landscape">A4 横</option>
+            <option value="square">正方形</option>
+            <option value="fit">写真に合わせる</option>
+          </select>
+        </label>
+        <div class="row">
+          <span class="field-label">写真の入れ方</span>
+          <div class="tabs" role="radiogroup" aria-label="写真の入れ方">
+            <button class="tab" role="radio" data-fit="cover" aria-checked="true" title="わくいっぱいに入れて、はみ出したところを切る">わくいっぱい</button>
+            <button class="tab" role="radio" data-fit="contain" aria-checked="false" title="写真の全体を入れる（すきまができることがあります）">全体を入れる</button>
+          </div>
+        </div>
+        <label class="slider">すきま<input id="gap" type="range" min="0" max="60" value="16"><output></output></label>
+        <div class="row">
+          <label class="field">背景の色<input id="background" type="color" value="#ffffff"></label>
+          <label class="field check"><input id="rounded" type="checkbox">角を丸く</label>
+        </div>
+        <label class="label" for="title">上に入れる題名（なくてもOK）</label>
+        <input id="title" type="text" maxlength="40" placeholder="例: 実験の前と後" autocomplete="off">
+        <label class="field check"><input id="labels" type="checkbox">写真の下に名前を入れる</label>
+
+        <span class="label">写真（<span id="count">0</span>枚）</span>
+        <ul id="photos" class="photos" aria-label="写真の順番"></ul>
+      </section>
+
+      <section class="preview-wrap" aria-label="見本">
+        <canvas id="preview" class="preview" width="1" height="1"></canvas>
+        <p id="info" class="info"></p>
+      </section>
+    </div>
+  </main>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+  <div id="drop-overlay" class="drop-overlay" hidden>ここに写真をドロップ</div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
