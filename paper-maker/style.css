@@ -1,0 +1,131 @@
+/* The shared look is in ../shared/css/base.css. This file sets the tool's colors and layout. */
+:root {
+  --bg: #f4f5f7;
+  --bar: #ffffff;
+  --text: #1d2228;
+  --muted: #5f6670;
+  --line: #dcdfe4;
+  --accent: #6b7d2a; /* the tool's color: also in icon.svg, manifest.webmanifest and theme-color */
+  --accent-dark: #55641f;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, #fff);
+  --accent-text: #ffffff;
+}
+
+html, body { min-height: 100%; margin: 0; }
+
+body {
+  font-family: system-ui, "Noto Sans JP", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 400px) 1fr;
+  gap: 24px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 16px 16px 40px;
+  align-items: start;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
+.label, .field-label { font-size: 14px; font-weight: 600; }
+
+.kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.kind {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.kind:hover { background: var(--soft); }
+.kind[aria-checked="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-dark); font-weight: 600; }
+
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.field { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+.field.check { font-weight: 400; cursor: pointer; }
+select, #title {
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+}
+#title { width: 100%; }
+select:focus-visible, #title:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+/* Switches as a segmented control, like the timer. */
+.tabs { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.tab {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.tab + .tab { border-left: 1px solid var(--line); }
+.tab[aria-checked="true"] { background: var(--accent-soft); color: var(--accent-dark); font-weight: 600; }
+
+.note { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+
+.preview-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/* The paper stays white in dark mode. */
+.preview { display: block; max-width: 100%; height: auto; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+.info { margin: 0; color: var(--muted); font-size: 14px; }
+
+@media (prefers-color-scheme: dark) {
+  .kind[aria-checked="true"], .tab[aria-checked="true"] { color: var(--text); }
+}
+
+@media (max-width: 760px) {
+  .layout { grid-template-columns: 1fr; }
+}
