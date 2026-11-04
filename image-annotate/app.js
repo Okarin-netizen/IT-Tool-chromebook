@@ -57,6 +57,8 @@ const state = {
   // pen/marker: { type, points: [[x, y], ...], color, mul }
   // text: { type, x, y, text, color, mul }
   // number (①②③ stamp): { type, x, y, n, color, mul }, (x, y) its center
+  // callout (吹き出し): { type, x, y, text, color, mul, tx, ty }, text as for text items, in a
+  // white box whose tail points at (tx, ty)
   selected: null,
   tool: "select",
   color: "#e11d48",
@@ -168,6 +170,8 @@ const markerWidth = (it) => state.unit * 6 * it.mul;
 const fontSize = (it) => Math.round(Math.max(14, state.unit * 8) * Math.sqrt(it.mul));
 const mosaicBlock = () => Math.max(10, state.unit * 4);
 const numberRadius = (it) => fontSize(it) * 0.8;
+const calloutPad = (it) => fontSize(it) * 0.45;
+const hasText = (it) => it.type === "text" || it.type === "callout";
 // image pixels per screen pixel
 const pxRatio = () => state.W / els.canvas.getBoundingClientRect().width;
 
@@ -198,6 +202,25 @@ function draw(c, overlay) {
   }
   if (overlay && state.selected && state.selected !== state.editing) drawSelection(c, state.selected);
   if (overlay && state.crop) drawCrop(c, state.crop);
+  if (overlay && drag?.mode === "callout") drawCalloutGuide(c, drag.tip, drag.end);
+}
+
+// While a callout is being placed: a dot on the spot and a dashed line to where the box goes.
+function drawCalloutGuide(c, [tx, ty], [x, y]) {
+  const r = pxRatio();
+  c.save();
+  c.strokeStyle = state.color;
+  c.fillStyle = state.color;
+  c.lineWidth = 2 * r;
+  c.setLineDash([6 * r, 4 * r]);
+  c.beginPath();
+  c.moveTo(tx, ty);
+  c.lineTo(x, y);
+  c.stroke();
+  c.beginPath();
+  c.arc(tx, ty, 4 * r, 0, Math.PI * 2);
+  c.fill();
+  c.restore();
 }
 
 // The part to keep stays bright; the rest is dimmed.
@@ -275,6 +298,7 @@ const DRAW = {
   },
   mosaic: (c, it) => drawMosaic(c, it),
   text: (c, it) => drawText(c, it),
+  callout: (c, it) => drawCallout(c, it),
   number(c, it) {
     // A colored disc with the number in white (black on a light color), ringed in white.
     const r = numberRadius(it);
@@ -385,6 +409,58 @@ function drawText(c, it) {
   });
 }
 
+// The white box around a callout's text.
+function calloutBox(it) {
+  const b = textBox(it);
+  const pad = calloutPad(it);
+  return { x: b.x - pad, y: b.y - pad, w: b.w + pad * 2, h: b.h + pad * 2 };
+}
+
+// The tail: a triangle from the tip to a short base in the middle of the box.
+function calloutTail(it) {
+  const b = calloutBox(it);
+  const cx = b.x + b.w / 2;
+  const cy = b.y + b.h / 2;
+  const angle = Math.atan2(it.ty - cy, it.tx - cx);
+  const half = Math.min(b.w, b.h) * 0.22;
+  const nx = -Math.sin(angle) * half;
+  const ny = Math.cos(angle) * half;
+  return [[it.tx, it.ty], [cx + nx, cy + ny], [cx - nx, cy - ny]];
+}
+
+// A white box with a tail, outlined in the item's color, with dark text. The box and the tail are
+// outlined first and filled after, so only the outline of the two together shows.
+function drawCallout(c, it) {
+  const b = calloutBox(it);
+  const [tip, left, right] = calloutTail(it);
+  const shape = () => {
+    c.beginPath();
+    c.roundRect(b.x, b.y, b.w, b.h, calloutPad(it));
+    c.moveTo(...tip);
+    c.lineTo(...left);
+    c.lineTo(...right);
+    c.closePath();
+  };
+  c.lineWidth = strokeWidth(it) * 2;
+  shape();
+  c.stroke();
+  // Filled one at a time: filled as one path, the overlap could cancel out and stay empty.
+  c.fillStyle = "#ffffff";
+  c.beginPath();
+  c.roundRect(b.x, b.y, b.w, b.h, calloutPad(it));
+  c.fill();
+  c.beginPath();
+  c.moveTo(...tip);
+  c.lineTo(...left);
+  c.lineTo(...right);
+  c.fill();
+  const size = fontSize(it);
+  c.font = FONT.replace("{size}", size);
+  c.textBaseline = "middle";
+  c.fillStyle = "#1d2228";
+  textLines(it).forEach((line, i) => c.fillText(line, it.x, it.y + size * LINE_HEIGHT * (i + 0.5)));
+}
+
 function isLight(hex) {
   const n = parseInt(hex.slice(1), 16);
   return ((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114 > 160;
@@ -393,6 +469,7 @@ function isLight(hex) {
 function bounds(it) {
   if (TWO_POINT.has(it.type)) return box(it);
   if (it.type === "text") return textBox(it);
+  if (it.type === "callout") return calloutBox(it);
   if (it.type === "number") {
     const r = numberRadius(it);
     return { x: it.x - r, y: it.y - r, w: r * 2, h: r * 2 };
@@ -415,6 +492,7 @@ function handles(it) {
       { x: it.x2, y: it.y2, kx: "x2", ky: "y2" },
     ];
   }
+  if (it.type === "callout") return [{ x: it.tx, y: it.ty, kx: "tx", ky: "ty" }];
   if (TWO_POINT.has(it.type)) {
     return [
       { x: it.x1, y: it.y1, kx: "x1", ky: "y1" },
@@ -485,6 +563,11 @@ function hits(it, x, y, tol) {
     case "text": {
       const b = textBox(it);
       return x >= b.x - tol && x <= b.x + b.w + tol && y >= b.y - tol && y <= b.y + b.h + tol;
+    }
+    case "callout": {
+      const b = calloutBox(it);
+      const inBox = x >= b.x - tol && x <= b.x + b.w + tol && y >= b.y - tol && y <= b.y + b.h + tol;
+      return inBox || distToSegment(x, y, it.tx, it.ty, b.x + b.w / 2, b.y + b.h / 2) <= strokeWidth(it) + tol;
     }
     case "ellipse": {
       const b = box(it);
@@ -567,14 +650,14 @@ function toImage(e) {
   return [(e.clientX - r.left) * (state.W / r.width), (e.clientY - r.top) * (state.H / r.height)];
 }
 
-let drag = null; // { mode: "move" | "handle" | "draw", ... }
+let drag = null; // { mode: "move" | "handle" | "draw" | "crop" | "callout", ... }
 
 els.canvas.addEventListener("pointerdown", (e) => {
   if (!state.base || e.button !== 0) return;
   e.preventDefault(); // keeps focus in the text editor instead of moving it to the canvas
   if (state.editing) {
     closeEditor(true);
-    if (state.tool === "text") return; // the click just finishes the text being typed
+    if (state.tool === "text" || state.tool === "callout") return; // the click just finishes the text being typed
   }
   const [x, y] = toImage(e);
   const handle = handleAt(x, y);
@@ -588,9 +671,14 @@ els.canvas.addEventListener("pointerdown", (e) => {
     updateButtons();
   } else if (state.tool === "text") {
     const hit = itemAt(x, y);
-    if (hit && hit.type === "text") openEditor(hit);
+    if (hit && hasText(hit)) openEditor(hit);
     else openEditor(null, x, y - fontSize({ mul: state.mul }) * LINE_HEIGHT / 2);
     return;
+  } else if (state.tool === "callout") {
+    // Press on what to point at, let go where the box goes.
+    const hit = itemAt(x, y);
+    if (hit && hit.type === "callout") return openEditor(hit);
+    drag = { mode: "callout", tip: [x, y], end: [x, y] };
   } else if (state.tool === "crop") {
     state.crop = { x1: clampX(x), y1: clampY(y), x2: clampX(x), y2: clampY(y) };
     drag = { mode: "crop" };
@@ -624,6 +712,8 @@ els.canvas.addEventListener("pointermove", (e) => {
   }
   if (drag.mode === "crop") {
     dragCrop(x, y);
+  } else if (drag.mode === "callout") {
+    drag.end = [x, y];
   } else if (drag.mode === "move") {
     const dx = x - drag.last[0];
     const dy = y - drag.last[1];
@@ -706,6 +796,7 @@ function isTooSmall(it) {
 
 function endDrag() {
   if (!drag) return;
+  if (drag.mode === "callout") return placeCallout();
   if (drag.mode === "crop") {
     drag = null;
     render();
@@ -726,12 +817,26 @@ function endDrag() {
   updateButtons();
 }
 els.canvas.addEventListener("pointerup", endDrag);
+
+// Opens the text box of a new callout where the drag ended. A plain click puts the box up and
+// to the right of the spot.
+function placeCallout() {
+  const r = pxRatio();
+  const [tx, ty] = drag.tip;
+  let [x, y] = drag.end;
+  drag = null;
+  if (Math.hypot(x - tx, y - ty) < HIT_PX * 3 * r) [x, y] = [tx + 50 * r, ty - 80 * r];
+  const size = fontSize({ mul: state.mul });
+  x = Math.max(calloutPad({ mul: state.mul }), Math.min(state.W - size * 3, x));
+  y = Math.max(calloutPad({ mul: state.mul }), Math.min(state.H - size * 2, y - (size * LINE_HEIGHT) / 2));
+  openEditor(null, x, y, { type: "callout", tx, ty });
+}
 els.canvas.addEventListener("pointercancel", endDrag);
 
 els.canvas.addEventListener("dblclick", (e) => {
   if (!state.base) return;
   const hit = itemAt(...toImage(e));
-  if (hit && hit.type === "text") openEditor(hit);
+  if (hit && hasText(hit)) openEditor(hit);
 });
 
 function snapAngle(ox, oy, x, y) {
@@ -750,6 +855,11 @@ function moveItem(it, dx, dy) {
   } else if (it.type === "text" || it.type === "number") {
     it.x += dx;
     it.y += dy;
+  } else if (it.type === "callout") {
+    it.x += dx;
+    it.y += dy;
+    it.tx += dx;
+    it.ty += dy;
   } else {
     for (const p of it.points) {
       p[0] += dx;
@@ -760,9 +870,9 @@ function moveItem(it, dx, dy) {
 
 /* ---------- text editing ---------- */
 
-function openEditor(item, x, y) {
+function openEditor(item, x, y, extra = {}) {
   if (!item) {
-    item = { type: "text", x, y, text: "", color: state.color, mul: state.mul, isNew: true };
+    item = { type: "text", x, y, text: "", color: state.color, mul: state.mul, isNew: true, ...extra };
   }
   state.editing = item;
   state.selected = item.isNew ? null : item;
@@ -782,8 +892,9 @@ function positionEditor() {
     left: `${it.x * s}px`,
     top: `${it.y * s}px`,
     fontSize: `${size}px`,
-    color: it.color,
-    textShadow: isLight(it.color) ? "0 0 2px #000" : "0 0 2px #fff",
+    color: it.type === "callout" ? "#1d2228" : it.color,
+    textShadow: it.type === "callout" || !isLight(it.color) ? "0 0 2px #fff" : "0 0 2px #000",
+    background: it.type === "callout" ? "#ffffff" : "",
   });
   els.editor.style.width = "0";
   els.editor.style.height = "0";
@@ -911,6 +1022,9 @@ function mapItems(map) {
       [it.x2, it.y2] = map(it.x2, it.y2);
     } else if (it.type === "text" || it.type === "number") {
       [it.x, it.y] = map(it.x, it.y);
+    } else if (it.type === "callout") {
+      [it.x, it.y] = map(it.x, it.y);
+      [it.tx, it.ty] = map(it.tx, it.ty);
     } else {
       it.points = it.points.map(([x, y]) => map(x, y));
     }
@@ -1044,7 +1158,7 @@ onFileDrop((files) => {
 
 const TOOL_KEYS = {
   v: "select", a: "arrow", t: "text", r: "rect", o: "ellipse", l: "line", p: "pen", m: "marker", b: "mosaic",
-  n: "number", c: "crop",
+  n: "number", c: "crop", f: "callout",
 };
 
 document.addEventListener("keydown", (e) => {
