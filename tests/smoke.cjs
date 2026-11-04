@@ -770,6 +770,16 @@ const TOOLS = {
       for (const [x, y] of [[60, 60], [120, 60], [180, 60]]) await t.page.mouse.click(...(await t.page.locator("#canvas").boundingBox().then((b) => [b.x + x, b.y + y])));
       const numbers = await t.page.evaluate(() => __imageAnnotate.state.items.filter((i) => i.type === "number").map((i) => i.n).join());
       t.expect(numbers === "1,2,3", `番号が進まない: ${numbers}`);
+      // A callout: press on the spot, drag to where the box goes, type, click away.
+      await t.page.click("#more-btn");
+      await t.page.click("[data-tool='callout']");
+      await t.drag(t.page.locator("#canvas"), [[300, 120], [360, 160], [420, 200]]);
+      await t.page.keyboard.type("ここを押す");
+      await t.page.mouse.click(...(await t.page.locator("#canvas").boundingBox().then((b) => [b.x + 40, b.y + 300])));
+      const callout = await t.page.evaluate(() => JSON.stringify(__imageAnnotate.state.items.filter((i) => i.type === "callout").map((i) => [i.text, Math.round(i.tx), Math.round(i.ty)])));
+      t.expect(callout.includes("ここを押す"), `吹き出しが書けない: ${callout}`);
+      await t.shot("callout");
+      await t.page.click("#undo-btn");
       // Turning right swaps width and height and carries the drawings along; crop keeps a part.
       const size = () => t.page.evaluate(() => `${__imageAnnotate.state.W}x${__imageAnnotate.state.H}`);
       const first = () => t.page.evaluate(() => {
@@ -1231,6 +1241,150 @@ const TOOLS = {
     },
   },
 
+  // 写真の情報を見る・消す: shows the place a phone photo was taken and saves it without.
+  "photo-info": {
+    async run(t) {
+      await t.setFiles("#file-input", [t.photo("スマホの写真.jpg"), t.png("図.png", 300, 200)]);
+      await t.until(() => __photoInfo.state.items.length === 2);
+      await t.shot("open");
+      const text = await t.page.textContent("#list");
+      t.expect(text.includes("位置情報あり") && text.includes("iPhone 15") && text.includes("2026年11月4日"), "撮った場所・機種・日時が出ない");
+      t.expect((await t.page.textContent("#summary")).includes("1枚に位置情報"), "位置情報のある枚数が出ない");
+      await t.page.click("#save-btn");
+      const [zip] = await t.downloads(1);
+      t.expectName(zip, "写真_情報なし.zip");
+      const names = fixtures.zipNames(zip.bytes).join(",");
+      t.expect(names === "スマホの写真_情報なし.jpg,図_情報なし.png", `ZIPの中身が違う: ${names}`);
+      await t.page.click(".item:nth-child(2) button");
+      await t.page.click("#save-btn");
+      const [jpeg] = await t.downloads(1);
+      t.expectName(jpeg, "スマホの写真_情報なし.jpg");
+      const bytes = Buffer.from(jpeg.bytes);
+      t.expect(!bytes.includes("iPhone") && !bytes.includes("2026:11:04"), "保存した写真に情報が残っている");
+      t.expect(bytes[0] === 0xff && bytes[1] === 0xd8 && bytes.at(-2) === 0xff && bytes.at(-1) === 0xd9, "保存した写真がJPEGの形になっていない");
+    },
+  },
+
+  // 写真を直す: a photo of a print becomes straight, white and sharp.
+  "photo-fix": {
+    async run(t) {
+      await t.setFiles("#file-input", [t.photo("プリント.jpg", false)]);
+      await t.until(() => __photoFix.state.bitmap);
+      await t.page.click("#auto-btn");
+      await t.page.fill("#brightness", "20");
+      await t.page.dispatchEvent("#brightness", "input");
+      await t.shot("photo");
+      await t.page.click(".tab[data-mode='board']");
+      await t.page.click("#corners-btn");
+      await t.until(() => __photoFix.state.cornerEdit);
+      await t.page.click("#corners-ok");
+      await t.until(() => __photoFix.state.settings.corners);
+      await t.page.waitForTimeout(100);
+      await t.shot("board");
+      // The paper fills the picture now, and is white.
+      const corner = await t.page.evaluate(() => [...document.getElementById("preview").getContext("2d").getImageData(20, 20, 1, 1).data].slice(0, 3));
+      t.expect(corner.every((v) => v > 230), `紙が白くならない: ${corner}`);
+      await t.page.click("#save-btn");
+      const [file] = await t.downloads(1);
+      t.expectName(file, "プリント_補正.jpg");
+      t.expect(file.bytes.length > 5000, "保存した写真が空");
+    },
+  },
+
+  // 写真を並べて1枚に
+  "photo-collage": {
+    async run(t) {
+      await t.setFiles("#file-input", [t.png("前.png", 800, 600), t.png("後.png", 800, 600), t.photo("まとめ.jpg", false)]);
+      await t.until(() => __photoCollage.state.photos.length === 3);
+      await t.page.fill("#title", "実験の前と後");
+      await t.page.check("#labels");
+      await t.page.click("#photos li:nth-child(2) [aria-label='前へ']");
+      const order = await t.page.evaluate(() => __photoCollage.state.photos.map((p) => p.label).join(","));
+      t.expect(order === "後,前,まとめ", `順番が変わらない: ${order}`);
+      await t.shot("open");
+      await t.page.click("#save-btn");
+      const [file] = await t.downloads(1);
+      t.expectName(file, "実験の前と後.jpg");
+      const size = await t.page.evaluate(() => {
+        const p = __photoCollage.plan();
+        return `${p.width}x${p.height}`;
+      });
+      t.expect(size === "1920x1080", `できあがりの大きさが違う: ${size}`);
+    },
+  },
+
+  // 大きく分けて印刷: a picture across 3 A4 sheets, and as many rows as its shape needs.
+  "poster-print": {
+    async run(t) {
+      await t.setFiles("#file-input", [t.png("地図.png", 1600, 1200)]);
+      await t.until(() => __posterPrint.state.bitmap);
+      await t.page.fill("#across", "3");
+      await t.page.dispatchEvent("#across", "input");
+      await t.shot("open");
+      const layout = await t.page.evaluate(() => {
+        const p = __posterPrint.plan();
+        return { sheets: p.across * p.down, text: document.getElementById("summary").textContent };
+      });
+      t.expect(layout.text.includes(`${layout.sheets}枚`), `枚数の表示が違う: ${layout.text}`);
+      await t.page.click("#save-btn");
+      const [file] = await t.downloads(1, 60000);
+      t.expectName(file, `地図_A4${layout.sheets}枚.pdf`);
+      await t.expectPdfPages(file, layout.sheets);
+    },
+  },
+
+  // 人の背景を消す: the person stays, the background turns see-through.
+  "bg-remove": {
+    async run(t) {
+      await t.until(() => document.getElementById("ai-status").textContent === "", 60000);
+      await t.setFiles("#file-input", [t.person("人.jpg")]);
+      await t.until(() => __bgRemove.state.source, 60000);
+      await t.shot("open");
+      const alpha = await t.page.evaluate(() => {
+        const ctx = __bgRemove.compose().getContext("2d");
+        return [ctx.getImageData(128, 60, 1, 1).data[3], ctx.getImageData(5, 5, 1, 1).data[3]];
+      });
+      t.expect(alpha[0] > 200 && alpha[1] < 40, `人が残らないか、背景が消えない: ${alpha}`);
+      await t.page.click("[data-brush='erase']");
+      await t.drag(t.page.locator("#preview"), [[100, 100], [140, 140]]);
+      t.expect(await t.page.isEnabled("#clear-edits"), "消すペンで直せない");
+      await t.page.click("#save-btn");
+      const [file] = await t.downloads(1);
+      t.expectName(file, "人_背景なし.png");
+      await t.page.click("[data-background='color']");
+      await t.page.click("#save-btn");
+      const [jpeg] = await t.downloads(1);
+      t.expectName(jpeg, "人_背景.jpg");
+    },
+    async offline(t) {
+      await t.until(() => document.getElementById("ai-status").textContent === "", 60000);
+    },
+  },
+
+  // 写真をつなげてGIF
+  "gif-maker": {
+    async run(t) {
+      await t.setFiles("#file-input", [t.png("3.png", 320, 240), t.png("1.png", 400, 300), t.png("2.png", 640, 480)]);
+      await t.until(() => __gifMaker.state.frames.length === 3);
+      await t.page.check("#bounce");
+      await t.shot("open");
+      await t.page.click("#save-btn");
+      const [file] = await t.downloads(1, 60000);
+      t.expectName(file, "GIFアニメ.gif");
+      const bytes = Buffer.from(file.bytes);
+      t.expect(bytes.subarray(0, 6).toString("latin1") === "GIF89a" && bytes.at(-1) === 0x3b, "GIFの形になっていない");
+      const frames = bytes.toString("latin1").split("\x21\xf9\x04").length - 1;
+      t.expect(frames === 4, `行ったり来たりのコマ数が違う: ${frames}`);
+      // The GIF opens in the browser, at the size chosen.
+      const size = await t.page.evaluate(async (data) => {
+        const bitmap = await createImageBitmap(new Blob([new Uint8Array(data)], { type: "image/gif" }));
+        return `${bitmap.width}x${bitmap.height}`;
+      }, [...bytes]);
+      // Files are put in name order, so 1.png (400x300) comes first and sets the size.
+      t.expect(size === "400x300", `GIFの大きさが違う: ${size}`);
+    },
+  },
+
   // The starting point for new tools (not on the top page). Checked so it keeps working
   // かおトリ: the face models need a real photo to find a face, so the test draws a face box by
   // hand (as a user does for a missed face), saves it, and groups it with the face-recognition model.
@@ -1566,6 +1720,17 @@ class ToolTest {
 
   png(name, width, height) {
     return { name, mimeType: "image/png", buffer: fixtures.png(width, height) };
+  }
+
+  // A 480x360 photo of a print on a desk, taken at a slant, with a phone's Exif (GPS included).
+  photo(name, exif = true) {
+    const jpeg = fs.readFileSync(path.join(__dirname, "fixtures", "print.jpg"));
+    return { name, mimeType: "image/jpeg", buffer: exif ? fixtures.withExif(jpeg) : jpeg };
+  }
+
+  // A 256x256 photo of a person (NASA's portrait of Eileen Collins, public domain).
+  person(name) {
+    return { name, mimeType: "image/jpeg", buffer: fs.readFileSync(path.join(__dirname, "fixtures", "person.jpg")) };
   }
 
   setFiles(selector, files) {

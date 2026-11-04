@@ -128,4 +128,49 @@ function zipNames(buf) {
 
 const formPdf = () => pdfCache.get("form");
 
-module.exports = { PDFLib, prepare, pdf, formPdf, png, zipNames };
+
+/* ---------- Exif ---------- */
+
+// An Exif block (APP1) like a phone's: maker, model, the time taken and where (GPS), big-endian.
+function exifBlock({ make = "Apple", model = "iPhone 15", taken = "2026:11:04 08:15:30", lat = [35, 41, 22.2], lon = [139, 41, 30.1], orientation = 1 } = {}) {
+  const ascii = (text) => Buffer.from(text + "\0", "latin1");
+  const short = (n) => { const b = Buffer.alloc(2); b.writeUInt16BE(n); return b; };
+  const long = (n) => { const b = Buffer.alloc(4); b.writeUInt32BE(n); return b; };
+  const rationals = (numbers) => Buffer.concat(numbers.map((n) => Buffer.concat([long(Math.round(n * 100)), long(100)])));
+  // Lays out IFDs one after another; values over 4 bytes go after each IFD.
+  const ifds = [
+    [[0x010f, 2, ascii(make)], [0x0110, 2, ascii(model)], [0x0112, 3, short(orientation)], [0x8769, 4, null], [0x8825, 4, null]],
+    [[0x9003, 2, ascii(taken)]],
+    [[1, 2, Buffer.from("N\0\0\0", "latin1")], [2, 5, rationals(lat)], [3, 2, Buffer.from("E\0\0\0", "latin1")], [4, 5, rationals(lon)]],
+  ];
+  const sizes = ifds.map((list) => 2 + list.length * 12 + 4 + list.reduce((sum, [, , value]) => sum + (value && value.length > 4 ? value.length : 0), 0));
+  const offsets = [8, 8 + sizes[0], 8 + sizes[0] + sizes[1]];
+  ifds[0][3][2] = long(offsets[1]);
+  ifds[0][4][2] = long(offsets[2]);
+  const parts = [Buffer.from("MM\0\x2a", "latin1"), long(8)];
+  ifds.forEach((list, n) => {
+    let extra = offsets[n] + 2 + list.length * 12 + 4;
+    const head = [short(list.length)];
+    const tail = [];
+    for (const [tag, type, value] of list) {
+      const COUNTS = { 2: value.length, 3: 1, 4: 1, 5: value.length / 8 };
+      const count = COUNTS[type];
+      const field = Buffer.alloc(4);
+      if (value.length <= 4) value.copy(field);
+      else { field.writeUInt32BE(extra); tail.push(value); extra += value.length; }
+      head.push(short(tag), short(type), long(count), field);
+    }
+    parts.push(...head, long(0), ...tail);
+  });
+  const body = Buffer.concat([Buffer.from("Exif\0\0", "latin1"), ...parts]);
+  const length = Buffer.alloc(2);
+  length.writeUInt16BE(body.length + 2);
+  return Buffer.concat([Buffer.from([0xff, 0xe1]), length, body]);
+}
+
+// A JPEG with a phone's Exif (with GPS) put in right after its start.
+function withExif(jpeg, options) {
+  return Buffer.concat([jpeg.subarray(0, 2), exifBlock(options), jpeg.subarray(2)]);
+}
+
+module.exports = { PDFLib, prepare, pdf, formPdf, png, zipNames, withExif };

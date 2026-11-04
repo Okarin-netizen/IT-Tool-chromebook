@@ -1,0 +1,20 @@
+/* The shared look is in ../shared/css/base.css and ../shared/css/photo-tool.css (the layout the
+   photo tools share). This file sets the tool's colors and anything only it has. */
+:root {
+  --bg: #f4f5f7;
+  --bar: #ffffff;
+  --text: #1d2228;
+  --muted: #5f6670;
+  --line: #dcdfe4;
+  --accent: #2f7d5b; /* the tool's color: also in icon.svg, manifest.webmanifest and theme-color */
+  --accent-dark: #256348;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, #fff);
+  --accent-text: #ffffff;
+}
+
+.summary { margin: 4px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); font-size: 15px; font-weight: 600; }
+.preview { background: #fff; }
+
+@media (prefers-color-scheme: dark) {
+  .summary { background: var(--soft); }
+}

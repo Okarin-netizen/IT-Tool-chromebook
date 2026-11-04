@@ -7,7 +7,7 @@ import { loadText, saveText } from "../shared/js/storage.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
 import { createSortable } from "../shared/js/sortable.js";
-import { detectCorners, scanLook, warp } from "./straighten.js";
+import { detectCorners, scanLook, warp } from "../shared/js/straighten.js";
 import "../shared/js/guide.js";
 
 const MAX_IMAGE_PX = 2400; // longest side kept per photo; enough to read handwriting, keeps PDFs small
@@ -614,7 +614,6 @@ registerOffline([
   "index.html",
   "style.css",
   "app.js",
-  "straighten.js",
   "icon.svg",
   "manifest.webmanifest",
   "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",

@@ -1,0 +1,17 @@
+/* The shared look is in ../shared/css/base.css and ../shared/css/photo-tool.css (the layout the
+   photo tools share). This file sets the tool's colors and anything only it has. */
+:root {
+  --bg: #f4f5f7;
+  --bar: #ffffff;
+  --text: #1d2228;
+  --muted: #5f6670;
+  --line: #dcdfe4;
+  --accent: #9c3d78; /* the tool's color: also in icon.svg, manifest.webmanifest and theme-color */
+  --accent-dark: #7e3161;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, #fff);
+  --accent-text: #ffffff;
+}
+
+.ai-status { font-size: 13px; color: var(--muted); }
+.ai-status.error { color: #b42318; }
+.preview.painting { cursor: crosshair; touch-action: none; }

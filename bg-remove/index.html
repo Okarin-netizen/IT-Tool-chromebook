@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- The photo never leaves the computer: the page may not send anything anywhere. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' blob: 'unsafe-eval' 'wasm-unsafe-eval'; worker-src 'self' blob:; manifest-src 'self'; connect-src 'self' data: blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; form-action 'none'; base-uri 'none'">
+  <title>人の背景を消す</title>
+  <meta name="description" content="写真に写った人だけを切り抜いて、背景を透明・好きな色・ぼかし・別の写真にするブラウザだけで動くツール">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#9c3d78">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="../shared/css/photo-tool.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></symbol>
+  </svg>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">人の背景を消す</span>
+      <label class="btn primary" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-image"/></svg>写真を開く</label>
+      <input id="file-input" type="file" accept="image/*,.heic,.heif" hidden>
+    </div>
+    <div class="group end">
+      <span id="ai-status" class="ai-status">人を見つけるAIを準備しています…</span>
+      <button id="save-btn" class="btn primary" disabled><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>保存</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="welcome" class="welcome">
+      <h1>人の背景を消す</h1>
+      <p>写真に写った<b>人だけ</b>を切り抜いて、背景を透明・好きな色・ぼかし・別の写真にします。自己紹介カードやスライド、行事の掲示物に。</p>
+      <ol>
+        <li>「写真を開く」を押すか、写真をここにドラッグします。人をAIが自動で見つけます。</li>
+        <li>「背景」で、透明・色・ぼかし・別の写真から選びます。</li>
+        <li>うまく切り抜けなかった所は「残すペン」「消すペン」でなぞって直します。</li>
+        <li>「保存」で保存します（透明はPNG、そのほかはJPG）。</li>
+      </ol>
+      <p class="note">人を見つけるためのAIです。物や動物は、うまく切り抜けないことがあります。最初の1回はAIの準備に少し時間がかかります。写真はこのパソコンの中だけで処理され、どこにも送信されません。</p>
+    </section>
+
+    <div id="work" class="layout" hidden>
+      <section class="form" aria-label="背景の消し方">
+        <span class="label">背景</span>
+        <div class="tabs" role="radiogroup" aria-label="背景">
+          <button class="tab" role="radio" data-background="clear" aria-checked="true">透明</button>
+          <button class="tab" role="radio" data-background="color" aria-checked="false">色</button>
+          <button class="tab" role="radio" data-background="blur" aria-checked="false">ぼかし</button>
+          <button class="tab" role="radio" data-background="photo" aria-checked="false">別の写真</button>
+        </div>
+        <label id="color-field" class="field" hidden>背景の色<input id="color" type="color" value="#ffffff"></label>
+        <label id="blur-field" class="slider" hidden>ぼかす強さ<input id="blur" type="range" min="2" max="40" value="14"><output></output></label>
+        <div id="photo-field" class="row" hidden>
+          <label class="btn small" for="background-input">背景の写真を選ぶ</label>
+          <input id="background-input" type="file" accept="image/*,.heic,.heif" hidden>
+          <span id="background-name" class="note"></span>
+        </div>
+
+        <h2>境目</h2>
+        <label class="slider" title="右にすると、人のまわりを広めに残す">残す広さ<input id="spread" type="range" min="-10" max="10" value="0"><output></output></label>
+        <label class="slider" title="右にすると、境目をやわらかくする">やわらかさ<input id="soft" type="range" min="0" max="10" value="3"><output></output></label>
+
+        <h2>手で直す</h2>
+        <div class="tabs" role="radiogroup" aria-label="手で直す">
+          <button class="tab" role="radio" data-brush="none" aria-checked="true">直さない</button>
+          <button class="tab" role="radio" data-brush="keep" aria-checked="false">残すペン</button>
+          <button class="tab" role="radio" data-brush="erase" aria-checked="false">消すペン</button>
+        </div>
+        <label class="slider">ペンの太さ<input id="brush-size" type="range" min="5" max="120" value="40"><output></output></label>
+        <button id="clear-edits" class="btn" disabled><svg class="i" aria-hidden="true"><use href="#i-undo"/></svg>手で直した所をやめる</button>
+        <p class="note">残すペンは消えてしまった体や物を、消すペンは残ってしまった背景をなぞります。</p>
+      </section>
+
+      <section class="preview-wrap" aria-label="見本">
+        <canvas id="preview" class="preview checker" width="1" height="1"></canvas>
+        <p id="info" class="info"></p>
+      </section>
+    </div>
+  </main>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+  <div id="drop-overlay" class="drop-overlay" hidden>ここに写真をドロップ</div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

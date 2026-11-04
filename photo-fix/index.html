@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>写真を直す</title>
+  <meta name="description" content="写真の明るさ・色・傾きを直したり、板書やプリントの写真を白くくっきりさせたりするブラウザだけで動くツール">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#b8650f">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="../shared/css/photo-tool.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.6"/><path d="M4 4v5h5"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></symbol>
+    <symbol id="i-flip" viewBox="0 0 24 24"><path d="M12 3v18M8 7L3 12l5 5zM16 7l5 5-5 5z"/></symbol>
+    <symbol id="i-corners" viewBox="0 0 24 24"><path d="M5 6l14-2 1 15-15 1z"/><circle cx="5" cy="6" r="1.5"/><circle cx="19" cy="4" r="1.5"/><circle cx="20" cy="19" r="1.5"/><circle cx="5" cy="20" r="1.5"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></symbol>
+    <symbol id="i-magic" viewBox="0 0 24 24"><path d="M4 20L16 8M14 4v2M18 6h2M18 10v2M10 4H8"/></symbol>
+  </svg>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">写真を直す</span>
+      <label class="btn primary" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-image"/></svg>写真を開く</label>
+      <input id="file-input" type="file" accept="image/*,.heic,.heif" hidden>
+    </div>
+    <div class="group end">
+      <button id="compare-btn" class="btn" disabled title="押しているあいだ、直す前の写真を見せる">元と比べる</button>
+      <button id="save-btn" class="btn primary" disabled><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>保存</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="welcome" class="welcome">
+      <h1>写真を直す</h1>
+      <p>暗い・色がおかしい・ななめに写った写真を直したり、<b>板書やプリントの写真</b>を白くくっきりさせたりします。</p>
+      <ol>
+        <li>「写真を開く」を押すか、写真をここにドラッグします。</li>
+        <li>ふつうの写真は「写真」で「自動で整える」を押すか、つまみで明るさや色を直します。</li>
+        <li>黒板・ホワイトボード・プリント・ノートは「板書・プリント」にします。影が消えて、読みやすくなります。ななめに撮ったときは「4つの角でまっすぐにする」。</li>
+        <li>「保存」で、直した写真を保存します。</li>
+      </ol>
+      <p class="note">写真はこのパソコンの中だけで処理され、どこにも送信されません。</p>
+    </section>
+
+    <div id="work" class="layout" hidden>
+      <section class="form" aria-label="直し方">
+        <div class="tabs" role="radiogroup" aria-label="写っているもの">
+          <button class="tab" role="radio" data-mode="photo" aria-checked="true">写真</button>
+          <button class="tab" role="radio" data-mode="board" aria-checked="false">板書・プリント</button>
+        </div>
+
+        <div id="photo-panel" class="mode-panel">
+          <button id="auto-btn" class="btn" aria-pressed="false" title="暗さや色のかたよりを自動で直す"><svg class="i" aria-hidden="true"><use href="#i-magic"/></svg>自動で整える</button>
+          <label class="slider">明るさ<input id="brightness" type="range" min="-100" max="100" value="0"><output></output></label>
+          <label class="slider">コントラスト<input id="contrast" type="range" min="-100" max="100" value="0"><output></output></label>
+          <label class="slider">あざやかさ<input id="saturation" type="range" min="-100" max="100" value="0"><output></output></label>
+          <label class="slider" title="左にすると青っぽく、右にすると赤っぽくなる">色み<input id="warmth" type="range" min="-100" max="100" value="0"><output></output></label>
+        </div>
+
+        <div id="board-panel" class="mode-panel" hidden>
+          <div class="tabs" role="radiogroup" aria-label="板書・プリントの種類">
+            <button class="tab" role="radio" data-kind="paper" aria-checked="true">白い紙・ホワイトボード</button>
+            <button class="tab" role="radio" data-kind="blackboard" aria-checked="false">黒板</button>
+          </div>
+          <label class="slider">くっきり<input id="strength" type="range" min="0" max="100" value="50"><output></output></label>
+          <div class="row">
+            <span class="field-label">色</span>
+            <div class="tabs" role="radiogroup" aria-label="色">
+              <button class="tab" role="radio" data-color="color" aria-checked="true">カラー</button>
+              <button class="tab" role="radio" data-color="gray" aria-checked="false">灰色</button>
+              <button class="tab" role="radio" data-color="bw" aria-checked="false">白黒</button>
+            </div>
+          </div>
+          <label id="invert-field" class="field check" hidden><input id="invert" type="checkbox">白い紙のように明るさを逆にする（印刷向け）</label>
+        </div>
+
+        <h2>向き・傾き</h2>
+        <div class="row">
+          <button id="left-btn" class="btn small" title="左に90°回す"><svg class="i" aria-hidden="true"><use href="#i-left"/></svg>左へ</button>
+          <button id="right-btn" class="btn small" title="右に90°回す"><svg class="i" aria-hidden="true"><use href="#i-right"/></svg>右へ</button>
+          <button id="flip-btn" class="btn small" aria-pressed="false" title="左右を反対にする（鏡写し）"><svg class="i" aria-hidden="true"><use href="#i-flip"/></svg>左右反転</button>
+        </div>
+        <label class="slider">傾き<input id="tilt" type="range" min="-15" max="15" step="0.5" value="0"><output></output></label>
+        <button id="corners-btn" class="btn" title="ななめに撮ったプリントや黒板を、4つの角を合わせて長方形にする"><svg class="i" aria-hidden="true"><use href="#i-corners"/></svg>4つの角でまっすぐにする</button>
+        <button id="reset-btn" class="btn" title="直したところをすべて元に戻す"><svg class="i" aria-hidden="true"><use href="#i-undo"/></svg>はじめに戻す</button>
+      </section>
+
+      <section class="preview-wrap" aria-label="見本">
+        <div id="stage" class="stage">
+          <canvas id="preview" class="preview" width="1" height="1"></canvas>
+          <svg id="frame" class="frame" hidden aria-hidden="true"><polygon/></svg>
+        </div>
+        <div id="corner-bar" class="row corner-bar" hidden>
+          <span>4つの丸を、紙や黒板の角に合わせてください。</span>
+          <button id="corners-auto" class="btn small">自動で合わせる</button>
+          <button id="corners-whole" class="btn small">写真全体</button>
+          <button id="corners-cancel" class="btn small">やめる</button>
+          <button id="corners-ok" class="btn small primary">まっすぐにする</button>
+        </div>
+        <p id="info" class="info"></p>
+      </section>
+    </div>
+  </main>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+  <div id="drop-overlay" class="drop-overlay" hidden>ここに写真をドロップ</div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
