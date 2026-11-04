@@ -8,7 +8,8 @@ import { History } from "../shared/js/history.js";
 import {
   tracePath, drawStroke, drawStamp, previewCanvas, renderInkImage, createInkEditor, trackPointer,
 } from "../shared/js/ink.js";
-import { createStamps, createMenus, syncToolbar, bindToolbar } from "../shared/js/markup.js";
+import { createStamps, syncToolbar, bindToolbar } from "../shared/js/markup.js";
+import { createMenus } from "../shared/js/menus.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
@@ -558,9 +559,6 @@ els.signBtn.addEventListener("click", () => {
   else toggleMenu(els.signMenu);
 });
 els.newSignBtn.addEventListener("click", openSignDialog);
-document.addEventListener("pointerdown", (e) => {
-  if (!e.target.closest(".menu-wrap")) closeMenus();
-});
 
 els.sealName.addEventListener("input", () => {
   state.sealName = els.sealName.value;

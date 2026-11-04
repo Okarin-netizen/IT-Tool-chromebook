@@ -1,6 +1,6 @@
 // The parts PDFに手書き・署名 (pdf-sign) and PDF一括採点 (pdf-grade) build alike on top of
-// ink.js: their list of stamps, the menus that drop down from the toolbar, and the toolbar
-// buttons for the tools, colors and undo.
+// ink.js: their list of stamps and the toolbar buttons for the tools, colors and undo.
+// (The menus that drop down from the toolbar are in menus.js.)
 
 import { drawStamp, previewCanvas, textWidth, MARKER_FACTOR, SEAL_COLOR, TEXT_FONT } from "./ink.js";
 
@@ -45,17 +45,6 @@ export function createStamps(list, state) {
   }
 
   return { stampDef, newStamp, renderChoices };
-}
-
-// Menus that drop down from the toolbar; opening one closes the others.
-export function createMenus(...menus) {
-  const close = () => menus.forEach((menu) => (menu.hidden = true));
-  const toggle = (menu) => {
-    const show = menu.hidden;
-    close();
-    menu.hidden = !show;
-  };
-  return { close, toggle };
 }
 
 // Marks the chosen tool and color, and turns undo, redo and delete on or off.

@@ -1,5 +1,5 @@
 import { showStatus } from "../shared/js/status.js";
-import { download, onFileDrop } from "../shared/js/files.js";
+import { download, onFileDrop, safeFileName } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { isImage, isHeic, readableImage } from "../shared/js/heic.js";
 import { registerOffline } from "../shared/js/offline.js";
@@ -505,7 +505,7 @@ const DEFAULT_NAME = "まとめ";
 let askedForName = false;
 
 function outputName() {
-  const base = els.fileName.value.trim().replace(/\.pdf$/i, "").replace(/[\\/:*?"<>|]/g, "_") || DEFAULT_NAME;
+  const base = safeFileName(els.fileName.value.trim().replace(/\.pdf$/i, "")) || DEFAULT_NAME;
   return `${base}.pdf`;
 }
 

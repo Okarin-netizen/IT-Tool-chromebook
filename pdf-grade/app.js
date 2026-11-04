@@ -7,7 +7,8 @@ import { History } from "../shared/js/history.js";
 import {
   TEXT_FONT, textWidth, drawStroke, drawStamp, hits, renderInkImage, createInkEditor, trackPointer,
 } from "../shared/js/ink.js";
-import { createStamps, createMenus, syncToolbar, bindToolbar } from "../shared/js/markup.js";
+import { createStamps, syncToolbar, bindToolbar } from "../shared/js/markup.js";
+import { createMenus } from "../shared/js/menus.js";
 import { makeZip } from "../shared/js/zip.js";
 import { readZip } from "../shared/js/unzip.js";
 import { kvGet, kvSet, kvDelete } from "../shared/js/kv.js";
@@ -1217,9 +1218,6 @@ els.commentForm.addEventListener("submit", (e) => {
   e.preventDefault();
   addComment(els.commentInput.value);
   els.commentInput.value = "";
-});
-document.addEventListener("pointerdown", (e) => {
-  if (!e.target.closest(".menu-wrap")) closeMenus();
 });
 
 els.scoreMax.addEventListener("input", () => {

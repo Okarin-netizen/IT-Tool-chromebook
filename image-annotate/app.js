@@ -6,6 +6,7 @@ import { registerOffline } from "../shared/js/offline.js";
 import { canvasToBlob } from "../shared/js/canvas.js";
 import { copyImage } from "../shared/js/clipboard.js";
 import { History } from "../shared/js/history.js";
+import { createMenus } from "../shared/js/menus.js";
 import "../shared/js/guide.js";
 
 const MAX_IMAGE_PX = 4000; // longest side; larger photos are shrunk so the canvas stays responsive
@@ -850,12 +851,10 @@ function setTool(tool) {
 for (const b of els.tools) b.addEventListener("click", () => setTool(b.dataset.tool));
 
 // 「その他」: the tools used less often. A pick closes it, so it does not cover the picture.
-els.moreBtn.addEventListener("click", () => (els.moreMenu.hidden = !els.moreMenu.hidden));
+const { close: closeMenu, toggle: toggleMenu } = createMenus(els.moreMenu);
+els.moreBtn.addEventListener("click", () => toggleMenu(els.moreMenu));
 els.moreMenu.addEventListener("click", (e) => {
-  if (e.target.closest("button")) els.moreMenu.hidden = true;
-});
-document.addEventListener("pointerdown", (e) => {
-  if (!e.target.closest(".menu-wrap")) els.moreMenu.hidden = true;
+  if (e.target.closest("button")) closeMenu();
 });
 
 // Changing color, width or fill also restyles whatever is selected.

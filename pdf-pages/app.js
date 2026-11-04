@@ -11,6 +11,7 @@ import { registerOffline } from "../shared/js/offline.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { pixelRatio } from "../shared/js/canvas.js";
 import { parseRange } from "../shared/js/range.js";
+import { createMenus } from "../shared/js/menus.js";
 import "../shared/js/guide.js";
 
 const THUMB_SIZES = { small: 110, medium: 150, large: 220 }; // longest side of a thumbnail, in CSS pixels
@@ -433,11 +434,6 @@ function selectByRange() {
   showStatus(`${picked.length}ページを選びました`);
 }
 
-function closeMenu() {
-  els.moreMenu.hidden = true;
-  els.moreBtn.setAttribute("aria-expanded", "false");
-}
-
 /* ---------- undo / redo ---------- */
 
 // A step is the pages in order with the turn each had then (the page objects are reused).
@@ -764,14 +760,8 @@ els.saveBtn.addEventListener("click", saveAll);
 addNextTool({ saveBtn: els.saveBtn, save: saveAll, kind: "pdf" });
 els.extractBtn.addEventListener("click", saveSelected);
 els.splitBtn.addEventListener("click", saveEachPage);
-els.moreBtn.addEventListener("click", () => {
-  const show = els.moreMenu.hidden;
-  els.moreMenu.hidden = !show;
-  els.moreBtn.setAttribute("aria-expanded", String(show));
-});
-document.addEventListener("pointerdown", (e) => {
-  if (!e.target.closest(".menu-wrap")) closeMenu();
-});
+const { close: closeMenu, toggle: toggleMenu } = createMenus(els.moreMenu);
+els.moreBtn.addEventListener("click", () => toggleMenu(els.moreMenu));
 const menuActions = [
   [els.blankBtn, insertBlank],
   [els.duplicateBtn, duplicatePages],

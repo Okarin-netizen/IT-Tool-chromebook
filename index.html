@@ -252,34 +252,28 @@
   </main>
 
   <script type="module">
-    import { RECENT_KEY, registerOffline } from "./shared/js/offline.js";
+    import { RECENT_KEY } from "./shared/js/offline.js";
     import { loadJson, saveJson } from "./shared/js/storage.js";
-    import { CHANGELOG, LAST_UPDATED, formatDate } from "./shared/js/changelog.js";
+    import { CHANGELOG, formatDate } from "./shared/js/changelog.js";
+    import { renderChangelog, setUpSitePage } from "./shared/js/site.js";
 
     // Keeps the top page (and its tool icons) available without a network.
-    registerOffline(["./", "index.html", "changelog.html", "about.html", ...[...document.querySelectorAll(".apps img")].map((img) => img.getAttribute("src"))]);
+    setUpSitePage([...document.querySelectorAll(".apps img")].map((img) => img.getAttribute("src")));
 
+    const $ = (id) => document.getElementById(id);
     const groups = [...document.querySelectorAll("section.group")];
     const views = [...document.querySelectorAll(".side a[data-view]")];
     // 「使う人で見る」: 先生用 = tools tagged data-for="先生向け"; 生徒用 = every other tool.
     const forTeacher = (li) => li.dataset.for === "先生向け";
     const WHO = { teacher: forTeacher, student: (li) => !forTeacher(li) };
-    const q = document.getElementById("q");
+    const q = $("q");
+    // Shown only on すべて, and hidden while searching.
+    const ALL_VIEW_PARTS = ["news", "tasks", "history"];
 
     // ---------- update history ----------
-    document.querySelectorAll(".updated").forEach((el) => { el.textContent = formatDate(LAST_UPDATED); });
-    document.getElementById("news-text").textContent = `${formatDate(CHANGELOG[0].date)}　${CHANGELOG[0].items[0]}`;
-    document.getElementById("log").replaceChildren(...CHANGELOG.slice(0, 3).map((entry) => {
-      const tr = document.createElement("tr");
-      const th = document.createElement("th");
-      th.textContent = formatDate(entry.date);
-      const ul = document.createElement("ul");
-      ul.append(...entry.items.map((text) => Object.assign(document.createElement("li"), { textContent: text })));
-      const td = document.createElement("td");
-      td.append(ul);
-      tr.append(th, td);
-      return tr;
-    }));
+    const HISTORY_SHOWN = 3;
+    $("news-text").textContent = `${formatDate(CHANGELOG[0].date)}　${CHANGELOG[0].items[0]}`;
+    renderChangelog($("log"), CHANGELOG.slice(0, HISTORY_SHOWN));
 
     // "新しい" on tools added in the last 30 days (<li data-added="2026-11-03">).
     const NEW_DAYS = 30;
@@ -293,7 +287,7 @@
     for (const li of document.querySelectorAll("li[data-for]")) {
       li.querySelector(".title").append(Object.assign(document.createElement("span"), { className: "for", textContent: li.dataset.for }));
     }
-    document.getElementById("show-all").addEventListener("click", (e) => {
+    $("show-all").addEventListener("click", (e) => {
       e.preventDefault();
       q.value = "";
       search();
@@ -309,7 +303,7 @@
         else a.removeAttribute("aria-current");
       }
       const link = views.find((a) => a.dataset.view === known);
-      document.getElementById("view-title").textContent =
+      $("view-title").textContent =
         known === "all" ? "すべてのツール" : link.dataset.title ?? link.firstChild.textContent;
       document.body.dataset.view = known;
       const who = WHO[known];
@@ -318,11 +312,9 @@
         items.forEach((li) => { li.hidden = who ? !who(li) : false; });
         sec.hidden = who ? items.every((li) => li.hidden) : !(known === "all" || known === sec.id);
       }
-      document.getElementById("who-note-teacher").hidden = known !== "teacher";
-      document.getElementById("who-note-student").hidden = known !== "student";
-      document.getElementById("news").hidden = known !== "all";
-      document.getElementById("tasks").hidden = known !== "all";
-      document.getElementById("history").hidden = known !== "all";
+      $("who-note-teacher").hidden = known !== "teacher";
+      $("who-note-student").hidden = known !== "student";
+      for (const id of ALL_VIEW_PARTS) $(id).hidden = known !== "all";
       renderQuick();
     }
     window.addEventListener("hashchange", () => {
@@ -336,7 +328,7 @@
       const words = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
       const searching = words.length > 0;
       document.body.classList.toggle("searching", searching);
-      if (!searching) { showView(); document.getElementById("empty").hidden = true; return; }
+      if (!searching) { showView(); $("empty").hidden = true; return; }
       let shown = 0;
       for (const sec of groups) {
         let inSection = 0;
@@ -349,15 +341,10 @@
         sec.hidden = inSection === 0;
         shown += inSection;
       }
-      document.getElementById("view-title").textContent = "さがした結果";
-      document.getElementById("tasks").hidden = true;
-      document.getElementById("news").hidden = true;
-      document.getElementById("history").hidden = true;
-      document.getElementById("fav-hint").hidden = true;
-      document.getElementById("who-note-teacher").hidden = true;
-      document.getElementById("who-note-student").hidden = true;
-      document.getElementById("empty-q").textContent = q.value.trim();
-      document.getElementById("empty").hidden = shown > 0;
+      $("view-title").textContent = "さがした結果";
+      for (const id of [...ALL_VIEW_PARTS, "fav-hint", "who-note-teacher", "who-note-student"]) $(id).hidden = true;
+      $("empty-q").textContent = q.value.trim();
+      $("empty").hidden = shown > 0;
     }
     q.addEventListener("input", search);
     q.addEventListener("keydown", (e) => {
@@ -394,7 +381,7 @@
     }
 
     function fill(id, tools, show) {
-      const sec = document.getElementById(id);
+      const sec = $(id);
       sec.querySelector("ul").replaceChildren(...tools.map((tool) => {
         const li = tiles.get(tool).cloneNode(true);
         li.hidden = false;
@@ -410,12 +397,16 @@
       for (const [tool, li] of tiles) addStar(li, tool, favs.includes(tool));
       fill("quick-fav", favs, view === "all" || view === "fav");
       fill("quick-recent", known(loadJson(RECENT_KEY, [])).filter((t) => !favs.includes(t)).slice(0, RECENT_SHOWN), view === "all");
-      document.getElementById("fav-hint").hidden = !(view === "fav" && !favs.length);
-      // Counts next to each menu item.
-      for (const a of views) {
-        const v = a.dataset.view;
-        a.querySelector("small").textContent = v === "all" ? tiles.size : v === "fav" ? favs.length : WHO[v] ? [...tiles.values()].filter(WHO[v]).length : document.getElementById(v).querySelectorAll("li").length;
-      }
+      $("fav-hint").hidden = !(view === "fav" && !favs.length);
+      for (const a of views) a.querySelector("small").textContent = toolCount(a.dataset.view, favs);
+    }
+
+    // The count next to a menu item: how many tools that view shows.
+    function toolCount(view, favs) {
+      if (view === "all") return tiles.size;
+      if (view === "fav") return favs.length;
+      if (WHO[view]) return [...tiles.values()].filter(WHO[view]).length;
+      return $(view).querySelectorAll("li").length;
     }
 
     showView();
