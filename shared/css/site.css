@@ -2,31 +2,36 @@
    このサイトについて (about.html). A menu on the left, the content on the right. */
 
 :root {
-  --bg: #ffffff;
-  --side: #f4f5f7;
-  --text: #1d2228;
-  --muted: #5f6670;
-  --line: #dcdfe4;
-  --line-soft: #e8eaee;
-  --hover: #e9ecf0;
+  /* Colors after pictogram signs: a calm warm gray ground, white cards, strong contrast */
+  --bg: #f2f1ee;
+  --side: #ffffff;
+  --card: #ffffff;
+  --text: #111418;
+  --muted: #5c5f66;
+  --line: #e2e0db;
+  --line-soft: #e2e0db;
+  --hover: #eceae5;
   --field: #ffffff;
-  --accent: #1c4aa6;
-  --accent-soft: #dde5f4;
+  --accent: #1d3f99;
+  --accent-soft: #fdf3a0;
+  --current: #111418;
   --new: #c2410c;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1d2127;
-    --side: #252a31;
-    --text: #eef0f3;
-    --muted: #a4abb6;
-    --line: #3a4049;
-    --line-soft: #30353d;
-    --hover: #313740;
-    --field: #1d2127;
+    --bg: #16181c;
+    --side: #1f2227;
+    --card: #1f2227;
+    --text: #f2f1ee;
+    --muted: #a7abb3;
+    --line: #33373e;
+    --line-soft: #33373e;
+    --hover: #2a2e35;
+    --field: #16181c;
     --accent: #8fb0f0;
-    --accent-soft: #2f3b52;
+    --accent-soft: #3a3620;
+    --current: #ffe866;
     --new: #f08a5d;
     color-scheme: dark;
   }
@@ -78,7 +83,7 @@ a { color: var(--accent); }
   margin-bottom: 12px;
   padding: 0 10px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--field);
   color: var(--muted);
 }
@@ -93,14 +98,14 @@ a { color: var(--accent); }
   gap: 8px;
   min-height: 38px;
   padding: 0 10px;
-  border-radius: 6px;
+  border-radius: 4px;
   color: inherit;
   font-size: 14px;
   text-decoration: none;
 }
 .nav a:hover { background: var(--hover); }
 .nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.nav a[aria-current] { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.nav a[aria-current] { background: var(--accent-soft); color: var(--current); font-weight: 700; }
 .nav small { color: var(--muted); font-size: 12px; font-weight: 400; }
 .sep { height: 1px; margin: 10px 4px; background: var(--line); }
 .nav-label { margin: 0 8px 4px; color: var(--muted); font-size: 12px; font-weight: 700; }
@@ -113,7 +118,7 @@ a { color: var(--accent); }
 
 main { padding: 26px 32px 48px; min-width: 0; }
 .top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 6px; }
-.top h1 { margin: 0; font-size: 22px; }
+.top h1 { margin: 0; font-size: 24px; letter-spacing: .06em; }
 .top p { margin: 0; color: var(--muted); font-size: 13px; }
 .news {
   display: flex;
@@ -125,6 +130,7 @@ main { padding: 26px 32px 48px; min-width: 0; }
   border: 1px solid var(--line);
   border-left: 4px solid var(--accent);
   border-radius: 4px;
+  background: var(--card);
   font-size: 13.5px;
 }
 .news a { margin-left: auto; white-space: nowrap; }
@@ -133,27 +139,31 @@ main { padding: 26px 32px 48px; min-width: 0; }
 .tasks-label { color: var(--muted); font-size: 13px; font-weight: 700; margin-right: 2px; }
 .tasks a {
   display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px;
-  border: 1px solid var(--line); border-radius: 16px;
+  border: 1px solid transparent; border-radius: 4px; background: var(--card);
   color: var(--text); font-size: 13px; text-decoration: none;
 }
-.tasks a:hover { background: var(--hover); border-color: var(--accent); }
+.tasks a:hover { border-color: var(--text); }
 .tasks a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 h2 {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 20px 0 10px;
-  color: var(--muted);
-  font-size: 14px;
+  margin: 26px 0 12px;
+  color: var(--text);
+  font-size: 15px;
   font-weight: 700;
+  letter-spacing: .08em;
 }
-h2::after { content: ""; flex: 1; height: 1px; background: var(--line-soft); }
+h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+/* A colored square before each group of tools (like a sign's color block) */
+.group h2::before, .quick h2::before { content: ""; flex: none; width: 12px; height: 12px; background: var(--g, var(--text)); }
+#g-pdf { --g: #3565c9; } #g-class { --g: #5c8a00; } #g-photo { --g: #c2571a; } #g-other { --g: #c03a2a; } #g-fav { --g: #d99a00; }
 
 /* Tool cards */
 .apps {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 10px;
+  gap: 14px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -161,20 +171,21 @@ h2::after { content: ""; flex: 1; height: 1px; background: var(--line-soft); }
 .apps li { position: relative; }
 .app {
   display: grid;
-  grid-template-columns: 42px 1fr;
+  grid-template-columns: 44px 1fr;
   grid-template-rows: auto auto;
   align-content: start;
   gap: 2px 12px;
   height: 100%;
   padding: 12px 40px 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: var(--card);
   color: inherit;
   text-decoration: none;
 }
-.app:hover { background: var(--side); border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+.app:hover { border-color: var(--text); }
 .app:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.app img { grid-row: span 2; width: 42px; height: 42px; }
+.app img { grid-row: span 2; width: 44px; height: 44px; }
 .title { font-size: 14.5px; font-weight: 700; line-height: 1.4; }
 .desc {
   display: -webkit-box;
