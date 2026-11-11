@@ -6,7 +6,7 @@ import { loadPhoto, stripExtension, makeCanvas, fitWithin } from "../shared/js/p
 import { canvasToBlob } from "../shared/js/canvas.js";
 import { makeZip } from "../shared/js/zip.js";
 import { registerOffline } from "../shared/js/offline.js";
-import { readInfo, cleanJpeg, cleanPng } from "./exif.js";
+import { readInfo, cleanJpeg, cleanPng } from "../shared/js/exif.js";
 import "../shared/js/guide.js";
 
 const THUMB = 120; // px, the longer side of a thumbnail
@@ -246,7 +246,7 @@ onFileDrop(addFiles);
 render();
 
 // Keeps this tool working without a network once it has been opened.
-registerOffline(["./", "index.html", "style.css", "app.js", "exif.js", "icon.svg", "manifest.webmanifest"]);
+registerOffline(["./", "index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest"]);
 
 // Hook for automated tests.
 window.__photoInfo = { state, addFiles, save };

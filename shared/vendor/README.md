@@ -15,7 +15,7 @@
 | `harfbuzz-1.6.3/` | [harfbuzzjs](https://github.com/harfbuzz/harfbuzzjs) 1.6.3 | 使う文字だけにフォントを縮小 | PDF文字入れ、ページ番号・透かし入れ | MIT |
 | `noto-sans-jp/` | [Noto Sans JP](https://fonts.google.com/noto/specimen/Noto+Sans+JP) | 日本語フォント | PDF文字入れ、ページ番号・透かし入れ | SIL OFL 1.1 |
 | `tesseract-7.0.0/` | [tesseract.js](https://github.com/naptha/tesseract.js) 7.0.0 / tesseract.js-core 7.0.0（SIMD版のみ）、[tessdata_best](https://github.com/tesseract-ocr/tessdata_best)（`@tesseract.js-data` 1.0.0 の jpn / jpn_vert / eng、best_int） | OCR | PDF文字取り出し | Apache-2.0 |
-| `heic-to-1.6.6/` | [heic-to](https://github.com/hoppergee/heic-to) 1.6.6（libheif を WebAssembly にしたもの。CSP 版） | iPhoneの写真（HEIC）をJPEGに変換。HEICを開いたときだけ読み込みます | 画像→PDF、画像を小さく、画像に書き込み、かおトリ、写真のツール（写真の情報・写真を直す・並べて1枚に・大きく分けて印刷・人の背景を消す・GIF） | LGPL-3.0（libheif） |
+| `heic-to-1.6.6/` | [heic-to](https://github.com/hoppergee/heic-to) 1.6.6（libheif を WebAssembly にしたもの。CSP 版） | iPhoneの写真（HEIC）をJPEGに変換。HEICを開いたときだけ読み込みます | 画像→PDF、画像を圧縮、画像に書き込み、かおトリ、写真のツール（写真の情報・写真を直す・並べて1枚に・大きく分けて印刷・人の背景を消す・GIF） | LGPL-3.0（libheif） |
 | `qrcode-generator-2.0.4/` | [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 2.0.4（ESM版 `qrcode.mjs`） | QRコードの作成 | QRコード作成 | MIT |
 | `mediapipe-tasks-vision-1.2.0/` | [MediaPipe Tasks Vision](https://github.com/google-ai-edge/mediapipe)（`@mediapipe/tasks-vision` 1.2.0）。`vision.js` は本体（利用状況を送る処理を1か所無効にしたもの）、`wasm.js` は WebAssembly を base64 にして JavaScript に入れたもの | 顔の検出・顔の向き・人物の切り抜き | かおトリ、かおかくし、人の背景を消す | Apache-2.0 |
 | `mediapipe-face-models/` | MediaPipe のモデル（base64）: BlazeFace（full range）の顔検出 `face-detector.js`、Face Landmarker `face-landmarker.js`、Selfie Segmenter `selfie-segmenter.js` | 同上 | 顔検出はかおトリ・かおかくし、Face Landmarker はかおトリ、Selfie Segmenter はかおトリ・人の背景を消す | Apache-2.0 |
