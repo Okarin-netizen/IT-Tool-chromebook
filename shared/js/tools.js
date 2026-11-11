@@ -21,6 +21,7 @@ export const TOOLS = [
   { id: "photo-collage", name: "写真を並べて1枚に", takes: ["image"] },
   { id: "poster-print", name: "大きく分けて印刷", takes: ["image"] },
   { id: "gif-maker", name: "写真をつなげてGIF", takes: ["image"] },
+  { id: "video-frame", name: "動画から写真" },
   { id: "class-picker", name: "名前ルーレット・班分け" },
   { id: "class-screen", name: "授業の画面" },
   { id: "qr-maker", name: "QRコード作成" },

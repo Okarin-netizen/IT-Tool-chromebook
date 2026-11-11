@@ -9,6 +9,7 @@ function fileWord(input) {
   const accept = input.accept || "";
   const pdf = /pdf/.test(accept);
   const image = /image/.test(accept);
+  if (/video/.test(accept)) return "動画";
   if (pdf && image) return "PDFか写真";
   if (pdf) return "PDF";
   return "写真・画像";

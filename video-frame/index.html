@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>動画から写真</title>
+  <meta name="description" content="動画の好きな場面を、写真（JPG・PNG）として切り出すブラウザだけで動くツール。1コマ送り、ブレの少ないコマ選び、何秒ごとのまとめて切り出しができます">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#0f766e">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="../shared/css/photo-tool.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-left2" viewBox="0 0 24 24"><path d="M12 6l-6 6 6 6M19 6l-6 6 6 6"/></symbol>
+    <symbol id="i-right2" viewBox="0 0 24 24"><path d="M5 6l6 6-6 6M12 6l6 6-6 6"/></symbol>
+    <symbol id="i-shot" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></symbol>
+    <symbol id="i-many" viewBox="0 0 24 24"><rect x="7" y="7" width="14" height="12" rx="2"/><path d="M4 16V5a1 1 0 0 1 1-1h12"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 21V4M6 4h11l-2 4 2 4H6"/></symbol>
+  </svg>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">動画から写真</span>
+      <label class="btn" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-video"/></svg>動画を開く</label>
+      <input id="file-input" type="file" accept="video/*,.mp4,.m4v,.mov,.webm" hidden>
+    </div>
+    <div class="group end">
+      <button id="save-btn" class="btn primary" disabled title="切り出した写真を保存します（2枚以上のときはZIPにまとめます）"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>写真を保存</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="welcome" class="welcome">
+      <h1>動画から写真</h1>
+      <p>動画の好きな場面を、写真として切り出します。体育のフォームの連続写真、実験の変化の記録、行事の動画から1枚を選ぶときに。</p>
+      <ol>
+        <li>「動画を開く」で動画（MP4・MOV・WebM）を選びます。</li>
+        <li>再生したり、下のボタンで1コマずつ動かしたりして、ほしい場面で止めます。</li>
+        <li>「この場面を写真にする」を押すと、右の列に写真がたまります。「ブレの少ないコマを選ぶ」にしておくと、近くのコマからいちばんくっきりしたコマを選びます。</li>
+        <li>何秒ごとにまとめて切り出すこともできます（左の「まとめて切り出す」）。</li>
+        <li>「写真を保存」で保存します。何枚もあるときはZIPにまとめます。</li>
+      </ol>
+      <p class="note">動画はこのパソコンの中だけで処理され、どこにも送信されません。</p>
+    </section>
+
+    <div id="work" class="layout video-layout" hidden>
+      <section class="form" aria-label="切り出し方">
+        <h2>まとめて切り出す</h2>
+        <div class="range-row">
+          <span class="field-label">はじめ</span>
+          <span id="from-text" class="time-text">0:00.00</span>
+          <button id="from-btn" class="btn small" title="今の場面を、まとめて切り出すはじめにする"><svg class="i" aria-hidden="true"><use href="#i-flag"/></svg>今の場面</button>
+        </div>
+        <div class="range-row">
+          <span class="field-label">おわり</span>
+          <span id="to-text" class="time-text">0:00.00</span>
+          <button id="to-btn" class="btn small" title="今の場面を、まとめて切り出すおわりにする"><svg class="i" aria-hidden="true"><use href="#i-flag"/></svg>今の場面</button>
+        </div>
+        <div class="tabs" role="radiogroup" aria-label="切り出す間かく">
+          <button class="tab" role="radio" data-mode="every" aria-checked="true">○秒ごと</button>
+          <button class="tab" role="radio" data-mode="count" aria-checked="false">全部で○枚</button>
+        </div>
+        <label id="every-field" class="field"><input id="every" type="number" min="0.1" max="600" step="0.1" value="1">秒ごと</label>
+        <label id="count-field" class="field" hidden><input id="count" type="number" min="2" max="300" step="1" value="10">枚</label>
+        <p id="batch-info" class="note"></p>
+        <button id="batch-btn" class="btn primary"><svg class="i" aria-hidden="true"><use href="#i-many"/></svg>まとめて切り出す</button>
+
+        <h2>写真の形</h2>
+        <span class="field-label">形式</span>
+        <div class="tabs" role="radiogroup" aria-label="写真の形式">
+          <button class="tab" role="radio" data-format="jpg" aria-checked="true">JPG</button>
+          <button class="tab" role="radio" data-format="png" aria-checked="false">PNG</button>
+        </div>
+        <p class="note">JPGはファイルが小さく、PNGは少しきれいでファイルが大きくなります。</p>
+        <label class="field">大きさ
+          <select id="size">
+            <option value="0">動画のまま</option>
+            <option value="1920">大きい（1920）</option>
+            <option value="1280">ふつう（1280）</option>
+            <option value="640">小さい（640）</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="player" aria-label="動画">
+        <div class="screen">
+          <video id="video" playsinline muted preload="auto"></video>
+        </div>
+        <input id="seek" class="seek" type="range" min="0" max="1" step="any" value="0" aria-label="場面の位置">
+        <div class="controls">
+          <span id="time" class="time-text">0:00.00 / 0:00.00</span>
+          <div class="step-buttons">
+            <button id="back-second" class="btn icon" title="1秒もどる（Shift＋←）" aria-label="1秒もどる"><svg class="i" aria-hidden="true"><use href="#i-left2"/></svg><span class="mini-text">1秒</span></button>
+            <button id="back-frame" class="btn icon" title="1コマもどる（←）" aria-label="1コマもどる"><svg class="i" aria-hidden="true"><use href="#i-left"/></svg><span class="mini-text">1コマ</span></button>
+            <button id="play-btn" class="btn icon play" title="再生・止める（スペース）" aria-label="再生"><svg class="i" aria-hidden="true"><use href="#i-play"/></svg><span class="mini-text">再生</span></button>
+            <button id="next-frame" class="btn icon" title="1コマ進む（→）" aria-label="1コマ進む"><svg class="i" aria-hidden="true"><use href="#i-right"/></svg><span class="mini-text">1コマ</span></button>
+            <button id="next-second" class="btn icon" title="1秒進む（Shift＋→）" aria-label="1秒進む"><svg class="i" aria-hidden="true"><use href="#i-right2"/></svg><span class="mini-text">1秒</span></button>
+          </div>
+          <label class="field">速さ
+            <select id="speed">
+              <option value="1">ふつう</option>
+              <option value="0.5">1/2</option>
+              <option value="0.25">1/4</option>
+            </select>
+          </label>
+        </div>
+        <div class="row center">
+          <button id="shot-btn" class="btn primary big" title="今の場面を写真にする（Enter）"><svg class="i" aria-hidden="true"><use href="#i-shot"/></svg>この場面を写真にする</button>
+          <label class="field check" title="止めた場面の前後0.5秒のコマから、いちばんくっきりしたコマを写真にします。まとめて切り出すときも使います"><input id="sharp" type="checkbox">ブレの少ないコマを選ぶ</label>
+        </div>
+        <p id="info" class="info"></p>
+      </section>
+
+      <section class="shots-wrap" aria-label="切り出した写真">
+        <div class="shots-head">
+          <span class="label">切り出した写真 <span id="shot-count">0</span>枚</span>
+          <button id="clear-btn" class="btn small" disabled>全部外す</button>
+        </div>
+        <p id="shots-empty" class="note">「この場面を写真にする」を押すと、ここに写真がたまります。写真を押すと、その場面にもどります。</p>
+        <ol id="shots" class="shots"></ol>
+      </section>
+    </div>
+  </main>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+  <div id="drop-overlay" class="drop-overlay" hidden>ここに動画をドロップ</div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
