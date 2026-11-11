@@ -2,13 +2,11 @@
 // 画像→PDF → ページ番号・透かし入れ → PDF圧縮 without saving and opening each file in between
 // (like BentoPDF's and Stirling-PDF's chaining of tools). The files wait in IndexedDB; the next
 // tool picks them up in onFileDrop (files.js) when it opens with "#handoff".
-import { captureDownloads, currentTool } from "./files.js";
+import { HANDOFF_KEY, captureDownloads, currentTool } from "./files.js";
 import { kvSet } from "./kv.js";
 import { showStatus } from "./status.js";
 import { TOOLS } from "./tools.js";
 import { readZip } from "./unzip.js";
-
-export const HANDOFF_KEY = "handoff";
 
 // The type each file in a ZIP gets, by its extension; the next tools sort files by type.
 const TYPES = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp" };

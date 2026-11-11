@@ -5,6 +5,7 @@ import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { randomInt } from "../shared/js/random.js";
 import { toggleFullscreen } from "../shared/js/fullscreen.js";
+import { iconButton } from "../shared/js/buttons.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use: users would lose
 // their settings. Add a new key instead.
@@ -227,26 +228,15 @@ function teamCard(team, i) {
   buttons.className = "team-buttons";
   buttons.append(
     iconButton("i-minus", `${settings.step}点減らす`, () => addPoints(i, -settings.step)),
-    iconButton("i-plus", `${settings.step}点増やす`, () => addPoints(i, settings.step), "primary"),
+    iconButton("i-plus", `${settings.step}点増やす`, () => addPoints(i, settings.step), { className: "btn icon primary" }),
   );
-  const remove = iconButton("i-close", "このチームを消す", () => removeTeam(i), "team-remove");
+  const remove = iconButton("i-close", "このチームを消す", () => removeTeam(i), { className: "btn icon team-remove" });
   remove.disabled = settings.teams.length <= 1;
   const card = document.createElement("li");
   card.className = "team";
   card.style.setProperty("--team", `var(--team-${i % MAX_TEAMS})`);
   card.append(remove, name, points, buttons);
   return card;
-}
-
-function iconButton(icon, label, onClick, extraClass = "") {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = `btn icon ${extraClass}`.trim();
-  btn.title = label;
-  btn.setAttribute("aria-label", label);
-  btn.innerHTML = `<svg class="i" aria-hidden="true"><use href="#${icon}"/></svg>`;
-  btn.addEventListener("click", onClick);
-  return btn;
 }
 
 function addPoints(i, delta) {

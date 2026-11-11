@@ -1,5 +1,5 @@
 import { showStatus } from "../shared/js/status.js";
-import { download, onFileDrop, safeFileName } from "../shared/js/files.js";
+import { download, onFileDrop, onFilePaste, safeFileName } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { isImage } from "../shared/js/heic.js";
 import { loadPhoto, stripExtension, makeCanvas, fitWithin } from "../shared/js/photo.js";
@@ -7,6 +7,7 @@ import { canvasToBlob } from "../shared/js/canvas.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 import "../shared/js/guide.js";
+import { iconButton } from "../shared/js/buttons.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use.
 const SETTINGS_KEY = "photo-collage-settings-v1";
@@ -106,23 +107,12 @@ function photoRow(photo, index) {
   const buttons = document.createElement("div");
   buttons.className = "buttons";
   buttons.append(
-    iconButton("i-up", "前へ", () => move(index, -1), index === 0),
-    iconButton("i-down", "後ろへ", () => move(index, 1), index === state.photos.length - 1),
-    iconButton("i-close", "この写真を外す", () => remove(index), false),
+    iconButton("i-up", "前へ", () => move(index, -1), { disabled: index === 0 }),
+    iconButton("i-down", "後ろへ", () => move(index, 1), { disabled: index === state.photos.length - 1 }),
+    iconButton("i-close", "この写真を外す", () => remove(index)),
   );
   li.append(thumb, label, buttons);
   return li;
-}
-
-function iconButton(icon, title, onClick, disabled) {
-  const button = document.createElement("button");
-  button.className = "btn icon";
-  button.title = title;
-  button.setAttribute("aria-label", title);
-  button.disabled = disabled;
-  button.innerHTML = `<svg class="i" aria-hidden="true"><use href="#${icon}"/></svg>`;
-  button.addEventListener("click", onClick);
-  return button;
 }
 
 function move(index, step) {
@@ -362,10 +352,7 @@ els.gap.addEventListener("input", changed);
 els.title.addEventListener("input", render);
 els.saveBtn.addEventListener("click", save);
 addNextTool({ saveBtn: els.saveBtn, save, kind: "image" });
-window.addEventListener("paste", (e) => {
-  const files = [...(e.clipboardData?.files ?? [])];
-  if (files.length) addFiles(files);
-});
+onFilePaste(addFiles);
 onFileDrop(addFiles);
 syncControls();
 render();

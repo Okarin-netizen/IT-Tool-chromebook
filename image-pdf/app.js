@@ -9,6 +9,7 @@ import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
 import { createSortable } from "../shared/js/sortable.js";
 import { detectCorners, scanLook, warp } from "../shared/js/straighten.js";
 import "../shared/js/guide.js";
+import { iconButton } from "../shared/js/buttons.js";
 
 const MAX_IMAGE_PX = 2400; // longest side kept per photo; enough to read handwriting, keeps PDFs small
 const JPEG_QUALITY = 0.88;
@@ -193,28 +194,15 @@ function card(img, index, opts) {
   const bar = document.createElement("div");
   bar.className = "card-bar";
   bar.append(
-    iconButton("i-left", "前へ移動", () => move(img.id, -1), index === 0, "", "前へ"),
-    iconButton("i-right", "後ろへ移動", () => move(img.id, 1), index === state.images.length - 1, "", "後ろへ"),
-    iconButton("i-rotate", "右に90°回転", () => rotate(img.id), false, "", "回転"),
-    iconButton("i-straighten", "まっすぐにする（ななめに撮ったプリントを長方形に直す）", () => openStraighten(img.id), false, img.corners ? "on" : "", "まっすぐ"),
-    iconButton("i-close", "このページを消す", () => remove(img.id), false, "del", "消す"),
+    iconButton("i-left", "前へ移動", () => move(img.id, -1), { className: "btn", disabled: index === 0, text: "前へ" }),
+    iconButton("i-right", "後ろへ移動", () => move(img.id, 1), { className: "btn", disabled: index === state.images.length - 1, text: "後ろへ" }),
+    iconButton("i-rotate", "右に90°回転", () => rotate(img.id), { className: "btn", text: "回転" }),
+    iconButton("i-straighten", "まっすぐにする（ななめに撮ったプリントを長方形に直す）", () => openStraighten(img.id), { className: img.corners ? "btn on" : "btn", text: "まっすぐ" }),
+    iconButton("i-close", "このページを消す", () => remove(img.id), { className: "btn del", text: "消す" }),
   );
 
   li.append(num, sheet, bar);
   return li;
-}
-
-// `text` is a short word under the icon, so the buttons can be told apart without hovering.
-function iconButton(icon, title, onClick, disabled = false, extra = "", text = "") {
-  const b = document.createElement("button");
-  b.className = `btn ${extra}`.trim();
-  b.innerHTML = `<svg class="i" aria-hidden="true"><use href="#${icon}"/></svg>`;
-  if (text) b.insertAdjacentHTML("beforeend", `<span class="mini-text">${text}</span>`);
-  b.title = title;
-  b.setAttribute("aria-label", title);
-  b.disabled = disabled;
-  b.addEventListener("click", onClick);
-  return b;
 }
 
 const indexOf = (id) => state.images.findIndex((img) => img.id === id);

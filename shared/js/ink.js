@@ -178,7 +178,7 @@ function drawMark(ctx, { x, y, w, h }, shape) {
 }
 
 // Highlighter goes underneath so it never covers pen ink (the layer is opaque within itself).
-export function drawItems(ctx, items, drawItem) {
+function drawItems(ctx, items, drawItem) {
   const markers = items.filter((i) => i.type === "stroke" && i.tool === "marker");
   for (const item of markers) drawItem(ctx, item);
   for (const item of items) if (!markers.includes(item)) drawItem(ctx, item);

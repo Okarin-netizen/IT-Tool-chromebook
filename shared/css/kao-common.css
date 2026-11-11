@@ -1,0 +1,105 @@
+/* The look shared by かおトリ (kaotori/) and かおかくし (kaokakushi/). Loaded after base.css and
+   before each tool's style.css, which holds its colors (:root) and its own parts.
+   Written compactly, one rule per line, like the two tools' original style sheets. */
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;display:flex;flex-direction:column}
+button,input,select,textarea{font:inherit;color:inherit}
+h1{font-size:18px;margin:0}
+h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.num{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:13px}
+.sub{margin:0;color:var(--muted);font-size:13px}
+.topright{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.offline{display:flex;align-items:center;gap:8px;border:1px solid color-mix(in srgb, var(--accent) 35%, transparent);background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:4px 14px 4px 10px;cursor:pointer;text-align:left;line-height:1.25}
+.offline strong{display:block;font-size:13px}
+.offline small{display:block;font-size:11px;color:var(--muted)}
+.ver{font-size:13px;font-weight:normal;color:var(--muted)}
+.about{max-height:88vh;overflow:auto}
+.about h4{margin:18px 0 6px;font-size:14px}
+.info{border-collapse:collapse;font-size:13px;margin:8px 0}
+.info th{text-align:left;color:var(--muted);font-weight:normal;padding:2px 14px 2px 0;white-space:nowrap}
+.history{font-size:13px;margin:0}
+.history dt{font-weight:600;margin-top:8px}
+.history dd{margin:2px 0 0 1em;color:var(--ink)}
+.ai-status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.ai-status .dot{width:10px;height:10px;border-radius:50%;background:#f59e0b;animation:pulse 1s infinite alternate}
+.ai-status.ready .dot{background:var(--face);animation:none}
+.ai-status.error .dot{background:var(--face-off);animation:none}
+@keyframes pulse{to{opacity:.3}}
+.layout{display:grid;grid-template-columns:340px 1fr;flex:1;min-height:0}
+.side{overflow:auto;padding:12px;border-right:1px solid var(--line)}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px}
+.field{margin:8px 0}
+.field label,.lbl{display:block;font-size:13.5px;color:var(--muted)}
+.field input[type=number],.field input[type=text],.field select,.field textarea{display:block;width:100%;margin-top:3px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+.field input[type=range]{width:100%}
+.field.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.u{font-style:normal;color:var(--accent);font-size:11px}
+.hint{color:var(--muted);font-size:13px;margin:4px 0}
+.hint.inline{margin:6px 12px}
+.check{display:flex;gap:6px;align-items:center;margin:6px 0;font-size:13px}
+.row{display:flex;align-items:center}
+.gap{gap:8px}
+.spacer{flex:1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);color:var(--text);padding:7px 14px;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover:not(:disabled){border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.small{min-height:30px;padding:3px 11px;font-size:13.5px;border-radius:15px}
+.btn.small .i{width:16px;height:16px}
+.btn.ghost{background:transparent}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.block{width:100%;margin-top:6px}
+.drop{display:block;border:2px dashed var(--line);border-radius:var(--radius);padding:16px;text-align:center;cursor:pointer;color:var(--muted);transition:.15s}
+.drop strong{color:var(--accent);display:block}
+.drop.over,.drop:hover{border-color:var(--accent);background:var(--accent-soft)}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:8px}
+.seg-btn{flex:1;border:0;background:var(--surface);padding:7px 8px;cursor:pointer;white-space:nowrap}
+.seg-btn.active{background:var(--accent);color:var(--accent-ink)}
+.more{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
+.more summary{cursor:pointer;color:var(--accent);font-size:13px}
+.foot{font-size:11.5px;color:var(--muted);padding:0 4px}
+.foot a{color:var(--accent)}
+.tabs{display:flex;gap:4px;padding:10px 12px 0;border-bottom:1px solid var(--line);background:var(--panel)}
+.tab{border:0;background:none;padding:8px 14px;border-bottom:3px solid transparent;cursor:pointer;color:var(--muted)}
+.tab.active{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+.badge{display:inline-block;min-width:20px;padding:0 6px;border-radius:10px;background:var(--accent-soft);color:var(--accent);font-size:13px}
+.pane{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column}
+.empty{margin:auto;text-align:center;color:var(--muted);padding:40px}
+.empty-icon .i{width:52px;height:52px;stroke-width:1.4}
+.viewbar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.ptitle{font-weight:600;max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stage{flex:1;overflow:auto;background:#2b2f36;min-height:0;position:relative}
+.stage canvas{display:block;margin:0 auto;cursor:crosshair}
+.busy{position:fixed;inset:0;background:rgba(20,24,32,.45);display:grid;place-items:center;z-index:50}
+.busy[hidden]{display:none}
+.busy-box{background:var(--surface);border-radius:12px;padding:22px 28px;min-width:300px;text-align:center}
+.spinner{width:34px;height:34px;border:4px solid var(--accent-soft);border-top-color:var(--accent);border-radius:50%;margin:0 auto 10px;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.bar{height:6px;background:var(--bg);border-radius:3px;overflow:hidden}
+.bar span{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+dialog{border:0;border-radius:12px;padding:0;max-width:96vw;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(20,24,32,.55)}
+.about h3{margin-top:0}
+/* 安心して使うための説明 */
+.card.safe{border-color:#9fd3b0;background:#f2fbf5}
+.card.safe h2{font-size:14px;margin:0 0 6px}
+.card.safe ul{margin:0;padding-left:1.2em;font-size:13.5px;line-height:1.6}
+.card.safe a{color:var(--accent);font-size:13px}
+@media (prefers-color-scheme: dark){.card.safe{background:#13261a;border-color:#2f5d3e}}
+
+/* Shared app bar (base.css) */
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;flex:none}
+.toolbar .sub{color:var(--muted);font-size:13px}
+.offline .i{width:18px;height:18px}
+.card h2 .i{width:18px;height:18px;color:var(--accent)}
+dialog{background:var(--surface);color:var(--text)}
+@media (max-width:1100px){.toolbar .sub{display:none}}
+@media (max-width:800px){body{display:block}}
+@media (prefers-color-scheme: dark){
+  .people-note,.pauto{color:var(--text)}
+}
+.card.safe summary{cursor:pointer}
+.card.safe summary h2{display:inline-flex;margin:0}
+.card.safe[open] summary h2{margin-bottom:6px}

@@ -1,5 +1,5 @@
 import { showStatus, hideStatus } from "../shared/js/status.js";
-import { download, formatSize, onFileDrop } from "../shared/js/files.js";
+import { download, formatSize, onFileDrop, onFilePaste } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { isImage, readableImage } from "../shared/js/heic.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
@@ -431,10 +431,7 @@ els.colors.addEventListener("change", () => setOwn({ colors: Number(els.colors.v
 els.resetOwn.addEventListener("click", resetOwn);
 els.applyAll.addEventListener("click", applyToAll);
 addNextTool({ saveBtn: els.saveBtn, save: save, kind: "image" });
-window.addEventListener("paste", (e) => {
-  const files = [...(e.clipboardData?.files ?? [])];
-  if (files.length) addFiles(files);
-});
+onFilePaste(addFiles);
 onFileDrop(addFiles);
 
 restoreSettings();
