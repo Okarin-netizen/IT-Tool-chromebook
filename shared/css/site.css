@@ -110,7 +110,7 @@ a { color: var(--accent); }
 .sep { height: 1px; margin: 10px 4px; background: var(--line); }
 .nav-label { margin: 0 8px 4px; color: var(--muted); font-size: 12px; font-weight: 700; }
 /* 11.6-inch Chromebook (about 650px tall inside the browser): keep the whole menu on screen */
-@media (max-height: 720px) { .nav a { min-height: 34px; } }
+@media (max-height: 720px) { .nav a { min-height: 32px; } }
 .meta { margin: auto 0 0; padding: 16px 8px 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
 .meta a { color: inherit; }
 
@@ -157,7 +157,7 @@ h2 {
 h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 /* A colored square before each group of tools (like a sign's color block) */
 .group h2::before, .quick h2::before { content: ""; flex: none; width: 12px; height: 12px; background: var(--g, var(--text)); }
-#g-pdf { --g: #3565c9; } #g-class { --g: #5c8a00; } #g-photo { --g: #c2571a; } #g-other { --g: #c03a2a; } #g-fav { --g: #d99a00; }
+#g-pdf { --g: #3565c9; } #g-class { --g: #5c8a00; } #g-photo { --g: #c2571a; } #g-video { --g: #b0306a; } #g-print { --g: #1f8a86; } #g-fav { --g: #d99a00; }
 
 /* Tool cards */
 .apps {

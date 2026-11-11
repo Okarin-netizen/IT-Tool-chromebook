@@ -22,9 +22,10 @@
         <li><a href="#" data-view="all" aria-current="page">すべて<small></small></a></li>
         <li><a href="#fav" data-view="fav">お気に入り<small></small></a></li>
         <li><a href="#pdf" data-view="pdf">PDF<small></small></a></li>
-        <li><a href="#class" data-view="class">授業で使う<small></small></a></li>
-        <li><a href="#photo" data-view="photo">写真・動画<small></small></a></li>
-        <li><a href="#other" data-view="other">そのほかのツール<small></small></a></li>
+        <li><a href="#photo" data-view="photo">写真・画像<small></small></a></li>
+        <li><a href="#video" data-view="video">動画・GIF<small></small></a></li>
+        <li><a href="#print" data-view="print">印刷<small></small></a></li>
+        <li><a href="#class" data-view="class">授業・勉強<small></small></a></li>
       </ul>
       <div class="sep"></div>
       <p class="nav-label" id="who-label">使う人で見る</p>
@@ -81,6 +82,13 @@
             <span class="desc">PDFに日本語の文字や写真を書き込んで、新しいPDFとして保存します。</span>
           </a>
         </li>
+        <li data-keywords="ハンコ 印鑑 押印 判子 署名 サイン 手書き ペン 済 黒塗り 墨消し">
+          <a class="app" href="pdf-sign/" title="プリントのPDFにペンで書き込んだり、ハンコや署名を押したりして保存します。">
+            <img src="pdf-sign/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">PDFに手書き・署名</span></span>
+            <span class="desc">プリントのPDFにペンで書き込んだり、ハンコや署名を押したりして保存します。</span>
+          </a>
+        </li>
         <li data-keywords="まとめる くっつける 合体 結合 分ける 抜き出す 並べかえ 並べ替え 削除 向き 横向き">
           <a class="app" href="pdf-pages/" title="PDFを1つにまとめたり、必要なページだけ抜き出したり、向きを直したりします。">
             <img src="pdf-pages/icon.svg" alt="" width="48" height="48">
@@ -109,20 +117,6 @@
             <span class="desc">PDFのページをPNGやJPGの画像にして保存・コピーします。スライドやClassroomに貼りたいときに。</span>
           </a>
         </li>
-        <li data-keywords="番号 ページ数 ノンブル 下書き 見本 マル秘 社外秘 ヘッダー フッター" data-for="先生向け">
-          <a class="app" href="pdf-stamp/" title="PDFの全ページにページ番号や「下書き」「見本」などの透かしをまとめて入れます。">
-            <img src="pdf-stamp/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">ページ番号・透かし入れ</span></span>
-            <span class="desc">PDFの全ページにページ番号や「下書き」「見本」などの透かしをまとめて入れます。</span>
-          </a>
-        </li>
-        <li data-added="2026-10-30" data-keywords="冊子 製本 中とじ 両面 印刷 しおり パンフレット 問題冊子" data-for="先生向け">
-          <a class="app" href="pdf-booklet/" title="PDFのページを、両面印刷して半分に折ると冊子になる順番に並べかえます。">
-            <img src="pdf-booklet/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">冊子印刷</span></span>
-            <span class="desc">PDFのページを、両面印刷して半分に折ると冊子になる順番に並べかえます。</span>
-          </a>
-        </li>
         <li data-keywords="文字起こし 読み取り テキスト コピー OCR スキャン 検索">
           <a class="app" href="pdf-extract/" title="PDFや写真の文字を取り出してコピーやテキスト保存ができます。スキャンしたPDFもOCRで読み取り、検索できるPDFにできます。">
             <img src="pdf-extract/icon.svg" alt="" width="48" height="48">
@@ -130,11 +124,11 @@
             <span class="desc">PDFの文字を取り出してコピーやテキスト保存ができます。スキャンしたPDFもOCRで読み取れます。</span>
           </a>
         </li>
-        <li data-keywords="ハンコ 印鑑 押印 判子 署名 サイン 手書き ペン 済 黒塗り 墨消し">
-          <a class="app" href="pdf-sign/" title="プリントのPDFにペンで書き込んだり、ハンコや署名を押したりして保存します。">
-            <img src="pdf-sign/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">PDFに手書き・署名</span></span>
-            <span class="desc">プリントのPDFにペンで書き込んだり、ハンコや署名を押したりして保存します。</span>
+        <li data-keywords="番号 ページ数 ノンブル 下書き 見本 マル秘 社外秘 ヘッダー フッター" data-for="先生向け">
+          <a class="app" href="pdf-stamp/" title="PDFの全ページにページ番号や「下書き」「見本」などの透かしをまとめて入れます。">
+            <img src="pdf-stamp/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">ページ番号・透かし入れ</span></span>
+            <span class="desc">PDFの全ページにページ番号や「下書き」「見本」などの透かしをまとめて入れます。</span>
           </a>
         </li>
         <li data-keywords="採点 丸つけ まるつけ 添削 点数 返却 提出物 テスト 小テスト" data-for="先生向け">
@@ -147,8 +141,117 @@
       </ul>
     </section>
 
+    <section class="group" id="photo" aria-labelledby="g-photo">
+      <h2 id="g-photo">写真・画像</h2>
+      <ul class="apps">
+        <li data-added="2026-11-04" data-keywords="明るさ 暗い 色 傾き 回転 補正 板書 黒板 ホワイトボード プリント ノート くっきり 影 白く スキャン">
+          <a class="app" href="photo-fix/" title="暗い・色がおかしい・ななめの写真を直したり、板書・ホワイトボード・プリントの写真を影のない白くくっきりした画像にしたりします。">
+            <img src="photo-fix/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">写真を直す</span></span>
+            <span class="desc">明るさ・色・傾きを直したり、板書やプリントの写真を白くくっきりさせたりします。</span>
+          </a>
+        </li>
+        <li data-added="2026-11-11" data-keywords="圧縮 容量 重い 軽く 小さく サイズ 縮小 リサイズ 写真 スクリーンショット スクショ KB MB 提出">
+          <a class="app" href="image-resize/" title="写真やスクリーンショットのファイルを軽くします。元の画像と見くらべながら画質を決められ、「200KB以下」のような指定や、まとめての変換もできます。">
+            <img src="image-resize/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">画像を圧縮</span></span>
+            <span class="desc">写真やスクリーンショットを軽くします。元の画像と見くらべて画質を決められ、「200KB以下」の指定もできます。</span>
+          </a>
+        </li>
+        <li data-keywords="矢印 書き込み スクリーンショット スクショ モザイク 番号 切り抜き 説明">
+          <a class="app" href="image-annotate/" title="スクリーンショットや写真に矢印・文字・図形を書き込んで、PNG画像で保存します。">
+            <img src="image-annotate/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">画像に書き込み</span></span>
+            <span class="desc">スクリーンショットや写真に矢印・文字・図形を書き込んで、PNG画像で保存します。</span>
+          </a>
+        </li>
+        <li data-added="2026-11-04" data-keywords="コラージュ 並べる 比較 比べる 前後 ビフォーアフター 学級通信 掲示 まとめる">
+          <a class="app" href="photo-collage/" title="何枚かの写真をすきまをそろえて並べ、題名や名前を入れた1枚の画像にします。実験の前と後の比較や、学級通信・掲示物・スライドに。">
+            <img src="photo-collage/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">写真を並べて1枚に</span></span>
+            <span class="desc">何枚かの写真を並べて、題名や名前を入れた1枚の画像にします。</span>
+          </a>
+        </li>
+        <li data-added="2026-11-04" data-keywords="背景 切り抜き 透明 透過 人物 合成 ぼかし 背景色 AI">
+          <a class="app" href="bg-remove/" title="写真に写った人だけをAIで切り抜いて、背景を透明・好きな色・ぼかし・別の写真にします。自己紹介カードやスライドに。">
+            <img src="bg-remove/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">人の背景を消す</span></span>
+            <span class="desc">写真に写った人だけを切り抜いて、背景を透明・色・ぼかし・別の写真にします。</span>
+          </a>
+        </li>
+        <li data-added="2026-11-04" data-keywords="位置情報 GPS 撮影場所 Exif メタデータ 個人情報 SNS 日時 機種">
+          <a class="app" href="photo-info/" title="写真に入っている撮った場所（位置情報）・日時・スマホの機種を見て、消してから保存します。SNSや学級通信にのせる前の確認に。">
+            <img src="photo-info/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">写真の情報を見る・消す</span></span>
+            <span class="desc">写真に入っている撮った場所・日時・機種を見て、消してから保存します。</span>
+          </a>
+        </li>
+        <li data-added="2026-11-03" data-keywords="顔 切り抜き 証明写真 モザイク 集合写真 名札 個人情報" data-for="先生向け">
+          <a class="app" href="kaotori/" title="集合写真から1人ずつ顔を切り抜いたり、証明写真の大きさに整えたり、顔や名札にモザイクを入れたりします。写っている人ごとに写真を分けることもできます。">
+            <img src="kaotori/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">かおトリ</span></span>
+            <span class="desc">集合写真から1人ずつ顔を切り抜いたり、証明写真を作ったり、顔や名札にモザイクを入れたりします。</span>
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <section class="group" id="video" aria-labelledby="g-video">
+      <h2 id="g-video">動画・GIF</h2>
+      <ul class="apps">
+        <li data-added="2026-11-11" data-keywords="動画 静止画 切り出し 切り抜き スクリーンショット コマ フレーム キャプチャ 連続写真 フォーム 体育 行事 MP4 MOV">
+          <a class="app" href="video-frame/" title="動画の好きな場面を写真として切り出します。1コマずつ動かしたり、ブレの少ないコマを選んだり、何秒ごとにまとめて切り出したりできます。">
+            <img src="video-frame/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">動画から写真</span></span>
+            <span class="desc">動画の好きな場面を写真に切り出します。1コマ送りや、何秒ごとのまとめて切り出しも。</span>
+          </a>
+        </li>
+        <li data-added="2026-11-04" data-keywords="GIF アニメ 動く パラパラ コマ撮り ストップモーション カメラ 連続">
+          <a class="app" href="gif-maker/" title="何枚かの写真やカメラで1コマずつ撮った写真をつなげて、動くGIFを作ります。パラパラまんが・コマ撮りアニメ・変化のようすに。">
+            <img src="gif-maker/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">写真をつなげてGIF</span></span>
+            <span class="desc">写真やカメラで撮ったコマをつなげて、動くGIF（コマ撮りアニメ）を作ります。</span>
+          </a>
+        </li>
+        <li data-added="2026-11-03" data-keywords="顔 動画 ビデオ モザイク ぼかし 隠す 個人情報" data-for="先生向け">
+          <a class="app" href="kaokakushi/" title="動画に写った顔を自動で見つけて追いかけ、モザイク・ぼかし・目線を入れたMP4を作ります。行事の動画を共有するときに。">
+            <img src="kaokakushi/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">かおかくし</span></span>
+            <span class="desc">動画に写った顔を自動で見つけて、モザイク・ぼかし・目線を入れたMP4を作ります。</span>
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <section class="group" id="print" aria-labelledby="g-print">
+      <h2 id="g-print">印刷</h2>
+      <ul class="apps">
+        <li data-added="2026-10-30" data-keywords="冊子 製本 中とじ 両面 印刷 しおり パンフレット 問題冊子" data-for="先生向け">
+          <a class="app" href="pdf-booklet/" title="PDFのページを、両面印刷して半分に折ると冊子になる順番に並べかえます。">
+            <img src="pdf-booklet/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">冊子印刷</span></span>
+            <span class="desc">PDFのページを、両面印刷して半分に折ると冊子になる順番に並べかえます。</span>
+          </a>
+        </li>
+        <li data-added="2026-11-04" data-keywords="ポスター 拡大 印刷 分割 掲示 模造紙 貼り合わせ 大きく A3">
+          <a class="app" href="poster-print/" title="1枚の画像を何枚かの紙に分けて印刷できるPDFにします。貼り合わせると、模造紙のような大きな掲示物になります。">
+            <img src="poster-print/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">大きく分けて印刷</span></span>
+            <span class="desc">1枚の画像を何枚かの紙に分けて印刷し、貼り合わせて大きな掲示物にします。</span>
+          </a>
+        </li>
+        <li data-added="2026-11-04" data-keywords="方眼紙 方眼 グラフ用紙 罫線 ノート 4線 英語 漢字 マス 座標 グラフ 五線譜 プリント 印刷">
+          <a class="app" href="paper-maker/" title="方眼紙・罫線・英語の4線・漢字のマス・座標・五線譜を、印刷できるPDFにします。名前の欄も入れられます。">
+            <img src="paper-maker/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">方眼紙・罫線プリント</span></span>
+            <span class="desc">方眼紙・罫線・英語の4線・漢字のマス・座標・五線譜を、印刷できるPDFにします。名前の欄も入れられます。</span>
+          </a>
+        </li>
+      </ul>
+    </section>
+
     <section class="group" id="class" aria-labelledby="g-class">
-      <h2 id="g-class">授業で使う</h2>
+      <h2 id="g-class">授業・勉強</h2>
       <ul class="apps">
         <li data-keywords="くじ 抽選 指名 当てる ランダム 名簿 班 グループ 席替え" data-for="先生向け">
           <a class="app" href="class-picker/" title="名簿から発表する人をルーレットで選んだり、班をランダムに分けたり、席替えをしたりします。">
@@ -164,11 +267,25 @@
             <span class="desc">声の大きさメーター・信号・サイコロ・得点板を、教室のスクリーンに大きく映せます。</span>
           </a>
         </li>
+        <li data-keywords="時計 時間 タイマー ストップウォッチ カウントダウン 何分 集中">
+          <a class="app" href="timer/" title="勉強時間やテスト練習の時間を計れます。ポモドーロ・タイマー・ストップウォッチの3つのモード。">
+            <img src="timer/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">タイマー・ポモドーロ</span></span>
+            <span class="desc">勉強時間やテスト練習の時間を計れます。ポモドーロ・タイマー・ストップウォッチの3つのモード。</span>
+          </a>
+        </li>
         <li data-keywords="QR バーコード リンク URL フォーム 読み取る">
           <a class="app" href="qr-maker/" title="URLや文字からQRコードの画像を作ります。Googleフォームやスライドを配るときに。">
             <img src="qr-maker/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">QRコード作成</span></span>
             <span class="desc">URLや文字からQRコードの画像を作ります。Googleフォームやスライドを配るときに。</span>
+          </a>
+        </li>
+        <li data-keywords="計算 電卓 グラフ 関数 sin 分数 統計">
+          <a class="app" href="calc/" title="三角関数・対数・累乗などの計算と、y = f(x) のグラフ描画ができます。">
+            <img src="calc/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">関数電卓・グラフ</span></span>
+            <span class="desc">三角関数・対数・累乗などの計算と、y = f(x) のグラフ描画ができます。</span>
           </a>
         </li>
         <li data-keywords="キーボード ローマ字 打つ 練習 英語" data-for="生徒向け">
@@ -178,93 +295,11 @@
             <span class="desc">日本語（ローマ字入力）と英語のタイピングを練習します。自分で決めたことばでも練習できます。</span>
           </a>
         </li>
-      </ul>
-    </section>
-
-    <section class="group" id="photo" aria-labelledby="g-photo">
-      <h2 id="g-photo">写真・動画</h2>
-      <ul class="apps">
-        <li data-added="2026-11-03" data-keywords="顔 切り抜き 証明写真 モザイク 集合写真 名札 個人情報" data-for="先生向け">
-          <a class="app" href="kaotori/" title="集合写真から1人ずつ顔を切り抜いたり、証明写真の大きさに整えたり、顔や名札にモザイクを入れたりします。写っている人ごとに写真を分けることもできます。">
-            <img src="kaotori/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">かおトリ</span></span>
-            <span class="desc">集合写真から1人ずつ顔を切り抜いたり、証明写真を作ったり、顔や名札にモザイクを入れたりします。</span>
-          </a>
-        </li>
-        <li data-added="2026-11-03" data-keywords="顔 動画 ビデオ モザイク ぼかし 隠す 個人情報" data-for="先生向け">
-          <a class="app" href="kaokakushi/" title="動画に写った顔を自動で見つけて追いかけ、モザイク・ぼかし・目線を入れたMP4を作ります。行事の動画を共有するときに。">
-            <img src="kaokakushi/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">かおかくし</span></span>
-            <span class="desc">動画に写った顔を自動で見つけて、モザイク・ぼかし・目線を入れたMP4を作ります。</span>
-          </a>
-        </li>
-        <li data-added="2026-11-04" data-keywords="位置情報 GPS 撮影場所 Exif メタデータ 個人情報 SNS 日時 機種">
-          <a class="app" href="photo-info/" title="写真に入っている撮った場所（位置情報）・日時・スマホの機種を見て、消してから保存します。SNSや学級通信にのせる前の確認に。">
-            <img src="photo-info/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">写真の情報を見る・消す</span></span>
-            <span class="desc">写真に入っている撮った場所・日時・機種を見て、消してから保存します。</span>
-          </a>
-        </li>
-        <li data-added="2026-11-11" data-keywords="圧縮 容量 重い 軽く 小さく サイズ 縮小 リサイズ 写真 スクリーンショット スクショ KB MB 提出">
-          <a class="app" href="image-resize/" title="写真やスクリーンショットのファイルを軽くします。元の画像と見くらべながら画質を決められ、「200KB以下」のような指定や、まとめての変換もできます。">
-            <img src="image-resize/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">画像を圧縮</span></span>
-            <span class="desc">写真やスクリーンショットを軽くします。元の画像と見くらべて画質を決められ、「200KB以下」の指定もできます。</span>
-          </a>
-        </li>
-        <li data-added="2026-11-04" data-keywords="明るさ 暗い 色 傾き 回転 補正 板書 黒板 ホワイトボード プリント ノート くっきり 影 白く スキャン">
-          <a class="app" href="photo-fix/" title="暗い・色がおかしい・ななめの写真を直したり、板書・ホワイトボード・プリントの写真を影のない白くくっきりした画像にしたりします。">
-            <img src="photo-fix/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">写真を直す</span></span>
-            <span class="desc">明るさ・色・傾きを直したり、板書やプリントの写真を白くくっきりさせたりします。</span>
-          </a>
-        </li>
-        <li data-added="2026-11-04" data-keywords="コラージュ 並べる 比較 比べる 前後 ビフォーアフター 学級通信 掲示 まとめる">
-          <a class="app" href="photo-collage/" title="何枚かの写真をすきまをそろえて並べ、題名や名前を入れた1枚の画像にします。実験の前と後の比較や、学級通信・掲示物・スライドに。">
-            <img src="photo-collage/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">写真を並べて1枚に</span></span>
-            <span class="desc">何枚かの写真を並べて、題名や名前を入れた1枚の画像にします。</span>
-          </a>
-        </li>
-        <li data-added="2026-11-04" data-keywords="ポスター 拡大 印刷 分割 掲示 模造紙 貼り合わせ 大きく A3">
-          <a class="app" href="poster-print/" title="1枚の画像を何枚かの紙に分けて印刷できるPDFにします。貼り合わせると、模造紙のような大きな掲示物になります。">
-            <img src="poster-print/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">大きく分けて印刷</span></span>
-            <span class="desc">1枚の画像を何枚かの紙に分けて印刷し、貼り合わせて大きな掲示物にします。</span>
-          </a>
-        </li>
-        <li data-added="2026-11-04" data-keywords="背景 切り抜き 透明 透過 人物 合成 ぼかし 背景色 AI">
-          <a class="app" href="bg-remove/" title="写真に写った人だけをAIで切り抜いて、背景を透明・好きな色・ぼかし・別の写真にします。自己紹介カードやスライドに。">
-            <img src="bg-remove/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">人の背景を消す</span></span>
-            <span class="desc">写真に写った人だけを切り抜いて、背景を透明・色・ぼかし・別の写真にします。</span>
-          </a>
-        </li>
-        <li data-added="2026-11-04" data-keywords="GIF アニメ 動く パラパラ コマ撮り ストップモーション カメラ 連続">
-          <a class="app" href="gif-maker/" title="何枚かの写真やカメラで1コマずつ撮った写真をつなげて、動くGIFを作ります。パラパラまんが・コマ撮りアニメ・変化のようすに。">
-            <img src="gif-maker/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">写真をつなげてGIF</span></span>
-            <span class="desc">写真やカメラで撮ったコマをつなげて、動くGIF（コマ撮りアニメ）を作ります。</span>
-          </a>
-        </li>
-        <li data-added="2026-11-11" data-keywords="動画 静止画 切り出し 切り抜き スクリーンショット コマ フレーム キャプチャ 連続写真 フォーム 体育 行事 MP4 MOV">
-          <a class="app" href="video-frame/" title="動画の好きな場面を写真として切り出します。1コマずつ動かしたり、ブレの少ないコマを選んだり、何秒ごとにまとめて切り出したりできます。">
-            <img src="video-frame/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">動画から写真</span></span>
-            <span class="desc">動画の好きな場面を写真に切り出します。1コマ送りや、何秒ごとのまとめて切り出しも。</span>
-          </a>
-        </li>
-      </ul>
-    </section>
-
-    <section class="group" id="other" aria-labelledby="g-other">
-      <h2 id="g-other">そのほかのツール</h2>
-      <ul class="apps">
-        <li data-keywords="計算 電卓 グラフ 関数 sin 分数 統計">
-          <a class="app" href="calc/" title="三角関数・対数・累乗などの計算と、y = f(x) のグラフ描画ができます。">
-            <img src="calc/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">関数電卓・グラフ</span></span>
-            <span class="desc">三角関数・対数・累乗などの計算と、y = f(x) のグラフ描画ができます。</span>
+        <li data-added="2026-11-04" data-keywords="字数 文字数 作文 感想文 レポート 原稿用紙 何字 カウント 数える">
+          <a class="app" href="char-count/" title="作文やレポートの字数を数えます。原稿用紙で何枚分か、目標の字数まであと何字かも分かり、原稿用紙の形で印刷できます。">
+            <img src="char-count/icon.svg" alt="" width="48" height="48">
+            <span class="title"><span class="name">文字数カウンター</span></span>
+            <span class="desc">作文やレポートの字数を数えます。原稿用紙で何枚分か、目標の字数まであと何字かも分かり、原稿用紙の形で印刷できます。</span>
           </a>
         </li>
         <li data-keywords="時間割 課題 宿題 提出 締め切り チェック やること" data-for="生徒向け">
@@ -274,39 +309,11 @@
             <span class="desc">時間割と課題の締め切りをブラウザに保存して、やることを管理します。</span>
           </a>
         </li>
-        <li data-keywords="時計 時間 タイマー ストップウォッチ カウントダウン 何分 集中">
-          <a class="app" href="timer/" title="勉強時間やテスト練習の時間を計れます。ポモドーロ・タイマー・ストップウォッチの3つのモード。">
-            <img src="timer/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">タイマー・ポモドーロ</span></span>
-            <span class="desc">勉強時間やテスト練習の時間を計れます。ポモドーロ・タイマー・ストップウォッチの3つのモード。</span>
-          </a>
-        </li>
-        <li data-keywords="矢印 書き込み スクリーンショット スクショ モザイク 番号 切り抜き 説明">
-          <a class="app" href="image-annotate/" title="スクリーンショットや写真に矢印・文字・図形を書き込んで、PNG画像で保存します。">
-            <img src="image-annotate/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">画像に書き込み</span></span>
-            <span class="desc">スクリーンショットや写真に矢印・文字・図形を書き込んで、PNG画像で保存します。</span>
-          </a>
-        </li>
-        <li data-added="2026-11-04" data-keywords="字数 文字数 作文 感想文 レポート 原稿用紙 何字 カウント 数える">
-          <a class="app" href="char-count/" title="作文やレポートの字数を数えます。原稿用紙で何枚分か、目標の字数まであと何字かも分かり、原稿用紙の形で印刷できます。">
-            <img src="char-count/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">文字数カウンター</span></span>
-            <span class="desc">作文やレポートの字数を数えます。原稿用紙で何枚分か、目標の字数まであと何字かも分かり、原稿用紙の形で印刷できます。</span>
-          </a>
-        </li>
         <li data-added="2026-11-04" data-keywords="日付 何日後 何日前 曜日 カウントダウン あと何日 和暦 令和 祝日 カレンダー 日数">
           <a class="app" href="date-calc/" title="何日後・何日前の日付、2つの日付のあいだの日数、テストや行事まであと何日かが分かります。祝日と和暦も出ます。">
             <img src="date-calc/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">日付の計算</span></span>
             <span class="desc">何日後・何日前の日付、2つの日付のあいだの日数、テストや行事まであと何日かが分かります。祝日と和暦も出ます。</span>
-          </a>
-        </li>
-        <li data-added="2026-11-04" data-keywords="方眼紙 方眼 グラフ用紙 罫線 ノート 4線 英語 漢字 マス 座標 グラフ 五線譜 プリント 印刷">
-          <a class="app" href="paper-maker/" title="方眼紙・罫線・英語の4線・漢字のマス・座標・五線譜を、印刷できるPDFにします。名前の欄も入れられます。">
-            <img src="paper-maker/icon.svg" alt="" width="48" height="48">
-            <span class="title"><span class="name">方眼紙・罫線プリント</span></span>
-            <span class="desc">方眼紙・罫線・英語の4線・漢字のマス・座標・五線譜を、印刷できるPDFにします。名前の欄も入れられます。</span>
           </a>
         </li>
       </ul>
