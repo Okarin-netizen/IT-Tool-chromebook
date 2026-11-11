@@ -1,11 +1,12 @@
 import { showStatus } from "../shared/js/status.js";
-import { download, onFileDrop } from "../shared/js/files.js";
+import { download, onFileDrop, onFilePaste } from "../shared/js/files.js";
 import { isImage } from "../shared/js/heic.js";
 import { loadPhoto, makeCanvas, fitWithin } from "../shared/js/photo.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { encodeGif } from "./gif.js";
 import "../shared/js/guide.js";
+import { iconButton } from "../shared/js/buttons.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use.
 const SETTINGS_KEY = "gif-maker-settings-v1";
@@ -94,24 +95,13 @@ function frameCard(frame, index) {
   const buttons = document.createElement("div");
   buttons.className = "buttons";
   buttons.append(
-    iconButton("i-left", "前へ", () => move(index, -1), index === 0),
-    iconButton("i-copy", "このコマを増やす（長く見せる）", () => duplicate(index), false),
-    iconButton("i-right", "後ろへ", () => move(index, 1), index === state.frames.length - 1),
-    iconButton("i-close", "このコマを外す", () => remove(index), false),
+    iconButton("i-left", "前へ", () => move(index, -1), { disabled: index === 0 }),
+    iconButton("i-copy", "このコマを増やす（長く見せる）", () => duplicate(index)),
+    iconButton("i-right", "後ろへ", () => move(index, 1), { disabled: index === state.frames.length - 1 }),
+    iconButton("i-close", "このコマを外す", () => remove(index)),
   );
   li.append(thumb, `${index + 1}`, buttons);
   return li;
-}
-
-function iconButton(icon, title, onClick, disabled) {
-  const button = document.createElement("button");
-  button.className = "btn icon";
-  button.title = title;
-  button.setAttribute("aria-label", title);
-  button.disabled = disabled;
-  button.innerHTML = `<svg class="i" aria-hidden="true"><use href="#${icon}"/></svg>`;
-  button.addEventListener("click", onClick);
-  return button;
 }
 
 function move(index, step) {
@@ -324,10 +314,7 @@ document.addEventListener("keydown", (e) => {
   shoot();
 });
 els.saveBtn.addEventListener("click", save);
-window.addEventListener("paste", (e) => {
-  const files = [...(e.clipboardData?.files ?? [])];
-  if (files.length) addFiles(files);
-});
+onFilePaste(addFiles);
 onFileDrop(addFiles);
 render();
 

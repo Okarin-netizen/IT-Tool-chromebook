@@ -51,14 +51,17 @@ export async function captureDownloads(save) {
   return files;
 }
 
+// Where handoff.js leaves the files for the next tool (IndexedDB, kv.js).
+export const HANDOFF_KEY = "handoff";
+
 // Files handed over by "次のツールで開く" (handoff.js) in the last few minutes.
 async function takeHandoff() {
   if (location.hash !== "#handoff") return [];
   history.replaceState(null, "", location.pathname + location.search);
   const tool = currentTool();
   try {
-    const job = await kvGet("handoff");
-    await kvDelete("handoff");
+    const job = await kvGet(HANDOFF_KEY);
+    await kvDelete(HANDOFF_KEY);
     return job?.to === tool && Date.now() - job.at < 10 * 60 * 1000 ? job.files : [];
   } catch {
     return [];
@@ -101,5 +104,14 @@ export function onFileDrop(onFiles) {
     depth = 0;
     overlay.hidden = true;
     onFiles([...e.dataTransfer.files]);
+  });
+}
+
+// Files pasted with Ctrl+V (a copied photo or screenshot) are passed to `onFiles`.
+// Pasting text does nothing here, so text boxes on the page still work as usual.
+export function onFilePaste(onFiles) {
+  window.addEventListener("paste", (e) => {
+    const files = [...(e.clipboardData?.files ?? [])];
+    if (files.length) onFiles(files);
   });
 }

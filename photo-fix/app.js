@@ -1,5 +1,5 @@
 import { showStatus } from "../shared/js/status.js";
-import { download, onFileDrop } from "../shared/js/files.js";
+import { download, onFileDrop, onFilePaste } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { isImage } from "../shared/js/heic.js";
 import { loadPhoto, stripExtension, outputType } from "../shared/js/photo.js";
@@ -336,10 +336,7 @@ for (const type of ["pointerup", "pointerleave", "pointercancel"]) els.compareBt
 els.saveBtn.addEventListener("click", save);
 addNextTool({ saveBtn: els.saveBtn, save, kind: "image" });
 window.addEventListener("resize", () => placeHandles());
-window.addEventListener("paste", (e) => {
-  const file = e.clipboardData?.files?.[0];
-  if (file) openFile(file);
-});
+onFilePaste((files) => openFile(files[0]));
 onFileDrop((files) => openFile(files[0]));
 syncControls();
 render();

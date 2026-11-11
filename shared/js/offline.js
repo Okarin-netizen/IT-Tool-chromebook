@@ -8,11 +8,11 @@ export const RECENT_KEY = "portal-recent-v1";
 // Shared files are small, so every page keeps all of them. The first visit is not yet
 // controlled by the worker, so anything it loads has to be in the list to open offline later.
 const SHARED = [
-  "css/base.css", "css/site.css", "css/photo-tool.css",
+  "css/base.css", "css/site.css", "css/photo-tool.css", "css/kao-common.css",
   "js/offline.js", "js/status.js", "js/files.js", "js/storage.js", "js/pdf.js", "js/font-jp.js",
   "js/zip.js", "js/unzip.js", "js/ink.js", "js/history.js", "js/lazy.js", "js/page-viewer.js", "js/pdf-lib.js", "js/password.js", "js/kv.js", "js/heic.js", "js/handoff.js",
   "js/color.js", "js/canvas.js", "js/dates.js", "js/random.js", "js/clipboard.js", "js/fullscreen.js",
-  "js/sortable.js", "js/imposition.js", "js/markup.js", "js/tools.js", "js/range.js", "js/changelog.js", "js/guide.js", "js/saved.js", "js/kao-common.js", "js/site.js", "js/menus.js", "js/photo.js", "js/straighten.js", "js/exif.js", "js/palette.js",
+  "js/sortable.js", "js/imposition.js", "js/markup.js", "js/tools.js", "js/range.js", "js/changelog.js", "js/guide.js", "js/saved.js", "js/kao-common.js", "js/site.js", "js/menus.js", "js/photo.js", "js/straighten.js", "js/exif.js", "js/palette.js", "js/buttons.js", "js/load-script.js",
 ].map((f) => new URL(`shared/${f}`, ROOT).href);
 
 function rememberVisit() {

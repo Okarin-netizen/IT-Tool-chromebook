@@ -3,6 +3,7 @@ import { download } from "../shared/js/files.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { dateText } from "../shared/js/dates.js";
+import { iconButton } from "../shared/js/buttons.js";
 
 const STORAGE_KEY = "todo-tool-v1";
 const DAYS = ["月", "火", "水", "木", "金", "土"];
@@ -241,20 +242,10 @@ function taskItem(t) {
   body.className = "task-body";
   body.append(title, taskMeta(t, urgency));
 
-  const edit = iconButton("task-edit", "i-edit", "直す");
-  const del = iconButton("task-del", "i-close", "削除");
+  const edit = iconButton("i-edit", "直す", null, { className: "task-edit" });
+  const del = iconButton("i-close", "削除", null, { className: "task-del" });
   li.append(cb, body, edit, del);
   return li;
-}
-
-function iconButton(className, icon, label) {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = className;
-  btn.innerHTML = `<svg class="i" aria-hidden="true"><use href="#${icon}"/></svg>`;
-  btn.title = label;
-  btn.setAttribute("aria-label", label);
-  return btn;
 }
 
 // The task as a small form for changing its title, subject and deadline.

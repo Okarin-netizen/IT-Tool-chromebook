@@ -1,5 +1,5 @@
 import { showStatus, hideStatus } from "../shared/js/status.js";
-import { download, onFileDrop } from "../shared/js/files.js";
+import { download, onFileDrop, onFilePaste } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { isImage, readableImage } from "../shared/js/heic.js";
 import { loadPhoto, stripExtension, makeCanvas, fitWithin } from "../shared/js/photo.js";
@@ -238,10 +238,7 @@ els.fileInput.addEventListener("change", () => {
 els.clearBtn.addEventListener("click", clearAll);
 els.saveBtn.addEventListener("click", save);
 addNextTool({ saveBtn: els.saveBtn, save, kind: "image" });
-window.addEventListener("paste", (e) => {
-  const files = [...(e.clipboardData?.files ?? [])];
-  if (files.length) addFiles(files);
-});
+onFilePaste(addFiles);
 onFileDrop(addFiles);
 render();
 

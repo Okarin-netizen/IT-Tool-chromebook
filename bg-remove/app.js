@@ -1,10 +1,10 @@
 import { showStatus } from "../shared/js/status.js";
-import { download, onFileDrop } from "../shared/js/files.js";
+import { download, onFileDrop, onFilePaste } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { isImage } from "../shared/js/heic.js";
 import { loadPhoto, stripExtension, makeCanvas, fitWithin } from "../shared/js/photo.js";
 import { canvasToBlob } from "../shared/js/canvas.js";
-import { loadScript } from "../shared/js/pdf-lib.js";
+import { loadScript } from "../shared/js/load-script.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 import "../shared/js/guide.js";
@@ -342,10 +342,7 @@ els.clearEdits.addEventListener("click", clearEdits);
 els.preview.addEventListener("pointerdown", startPainting);
 els.saveBtn.addEventListener("click", save);
 addNextTool({ saveBtn: els.saveBtn, save, kind: "image" });
-window.addEventListener("paste", (e) => {
-  const file = e.clipboardData?.files?.[0];
-  if (file) openFile(file);
-});
+onFilePaste((files) => openFile(files[0]));
 onFileDrop((files) => openFile(files[0]));
 render();
 prepareAi();

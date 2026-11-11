@@ -32,4 +32,3 @@ async function run(mode, fn) {
 export const kvGet = (key) => run("readonly", (s) => s.get(key));
 export const kvSet = (key, value) => run("readwrite", (s) => s.put(value, key));
 export const kvDelete = (key) => run("readwrite", (s) => s.delete(key));
-export const kvKeys = () => run("readonly", (s) => s.getAllKeys());

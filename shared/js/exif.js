@@ -135,7 +135,7 @@ function findExif(bytes) {
 const findXmp = (bytes) => indexOfText(bytes, "<x:xmpmeta") >= 0;
 
 // Reads the tags in TAGS (and the GPS ones) from a TIFF block (the inside of an Exif block).
-export function readTiff(tiff) {
+function readTiff(tiff) {
   try {
     const view = new DataView(tiff.buffer, tiff.byteOffset, tiff.byteLength);
     const little = TEXT.decode(tiff.subarray(0, 2)) === "II";

@@ -1,5 +1,5 @@
 import { showStatus } from "../shared/js/status.js";
-import { download, onFileDrop } from "../shared/js/files.js";
+import { download, onFileDrop, onFilePaste } from "../shared/js/files.js";
 import { isImage } from "../shared/js/heic.js";
 import { loadPhoto, stripExtension, makeCanvas } from "../shared/js/photo.js";
 import { canvasToBlob } from "../shared/js/canvas.js";
@@ -292,10 +292,7 @@ for (const button of document.querySelectorAll("[data-overlap]")) {
   });
 }
 els.saveBtn.addEventListener("click", save);
-window.addEventListener("paste", (e) => {
-  const file = e.clipboardData?.files?.[0];
-  if (file) openFile(file);
-});
+onFilePaste((files) => openFile(files[0]));
 onFileDrop((files) => openFile(files[0]));
 render();
 

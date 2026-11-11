@@ -8,11 +8,12 @@ import { download, onFileDrop, safeFileName } from "../shared/js/files.js";
 import { makeCanvas, fitWithin, stripExtension } from "../shared/js/photo.js";
 import { canvasToBlob } from "../shared/js/canvas.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
-import { loadScript } from "../shared/js/pdf-lib.js";
+import { loadScript } from "../shared/js/load-script.js";
 import { makeZip } from "../shared/js/zip.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { registerOffline } from "../shared/js/offline.js";
 import "../shared/js/guide.js";
+import { iconButton } from "../shared/js/buttons.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use.
 const SETTINGS_KEY = "video-frame-settings-v1";
@@ -475,16 +476,6 @@ function shotItem(shot) {
   meta.append(label, buttons);
   li.append(thumbButton, meta);
   return li;
-}
-
-function iconButton(icon, title, onClick) {
-  const button = document.createElement("button");
-  button.className = "btn icon";
-  button.title = title;
-  button.setAttribute("aria-label", title);
-  button.innerHTML = `<svg class="i" aria-hidden="true"><use href="#${icon}"/></svg>`;
-  button.addEventListener("click", onClick);
-  return button;
 }
 
 function markNew(shot) {
