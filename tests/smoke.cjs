@@ -1467,6 +1467,55 @@ const TOOLS = {
     },
   },
 
+  // 動画から写真: steps a 10-frame clip one frame at a time, takes a photo, takes 5 more in one go
+  // and saves them as a ZIP.
+  "video-frame": {
+    async run(t) {
+      await t.setFiles("#file-input", [t.video("運動会.webm")]);
+      await t.until(() => !document.getElementById("work").hidden && document.getElementById("status").hidden, 30000);
+      const fps = await t.page.evaluate(() => __videoFrame.state.fps);
+      t.expect(Math.abs(fps - 10) < 0.5, `1秒のコマ数が違う: ${fps}`);
+      await t.page.click("#next-frame");
+      await t.page.keyboard.press("ArrowRight");
+      await t.until(() => document.getElementById("time").textContent.startsWith("0:00.20"));
+      await t.page.click("#shot-btn");
+      await t.until(() => __videoFrame.state.shots.length === 1);
+      const first = await t.page.evaluate(() => __videoFrame.state.shots[0].frame);
+      t.expect(first === 2, `1コマずつ進めた場面が違う: ${first}`);
+      // ブレの少ないコマ looks at the frames nearby and picks one of them.
+      await t.page.check("#sharp");
+      await t.page.click("#shot-btn");
+      await t.until(() => __videoFrame.state.shots.length === 2, 30000);
+      const sharp = await t.page.evaluate(() => __videoFrame.state.shots[1].frame);
+      t.expect(sharp >= 0 && sharp <= 7, `ブレの少ないコマが近くのコマでない: ${sharp}`);
+      await t.page.uncheck("#sharp");
+      await t.page.click("[data-mode='count']");
+      await t.page.fill("#count", "5");
+      await t.page.dispatchEvent("#count", "change");
+      t.expect((await t.page.textContent("#batch-info")).startsWith("5枚"), "まとめて切り出す枚数の表示が違う");
+      await t.page.click("#batch-btn");
+      await t.until(() => __videoFrame.state.shots.length === 7 && !__videoFrame.state.busy, 30000);
+      await t.shot("open");
+      await t.page.click("#save-btn");
+      const [zip] = await t.downloads(1, 30000);
+      t.expectName(zip, "運動会_写真.zip");
+      const names = fixtures.zipNames(zip.bytes);
+      t.expect(names.length === 7 && names.includes("運動会_0分00秒20.jpg") && names.includes("運動会_0分00秒00.jpg"), `ZIPの中身が違う: ${names.join(", ")}`);
+      // One photo alone, as PNG.
+      await t.page.click("[data-format='png']");
+      await t.page.locator(".shot .btn.icon[title='この写真だけ保存']").first().click();
+      const [png] = await t.downloads(1, 30000);
+      t.expectName(png, "運動会_0分00秒20.png");
+      t.expect(Buffer.from(png.bytes).subarray(1, 4).toString("latin1") === "PNG", "PNGになっていない");
+    },
+    async offline(t) {
+      await t.setFiles("#file-input", [t.video("運動会.webm")]);
+      await t.until(() => !document.getElementById("work").hidden && document.getElementById("status").hidden, 30000);
+      await t.page.click("#shot-btn");
+      await t.until(() => __videoFrame.state.shots.length === 1);
+    },
+  },
+
   // The starting point for new tools (not on the top page). Checked so it keeps working
   // かおトリ: the face models need a real photo to find a face, so the test draws a face box by
   // hand (as a user does for a missed face), saves it, and groups it with the face-recognition model.
