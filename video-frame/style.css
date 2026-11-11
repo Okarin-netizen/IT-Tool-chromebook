@@ -1,0 +1,92 @@
+/* The shared look is in ../shared/css/base.css and ../shared/css/photo-tool.css (the layout the
+   photo tools share). This file sets the tool's colors and anything only it has. */
+:root {
+  --bg: #f4f5f7;
+  --bar: #ffffff;
+  --text: #1d2228;
+  --muted: #5f6670;
+  --line: #dcdfe4;
+  --accent: #0f766e; /* the tool's color: also in icon.svg, manifest.webmanifest and theme-color */
+  --accent-dark: #0b5c55;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, #fff);
+  --accent-text: #ffffff;
+}
+
+/* Settings on the left, the video in the middle, the photos taken on the right. */
+.video-layout { grid-template-columns: 250px minmax(0, 1fr) 240px; gap: 14px; padding: 12px; }
+.video-layout .form { max-height: calc(100vh - 82px); overflow: auto; }
+.form .tabs .tab { padding: 0 8px; }
+.form input[type="number"] { width: 6em; }
+.form .field.check { align-items: flex-start; font-size: 13px; }
+.form .field.check input { margin-top: 4px; }
+
+.range-row { display: grid; grid-template-columns: 3.5em 1fr auto; align-items: center; gap: 6px; }
+.time-text { font-variant-numeric: tabular-nums; font-size: 14px; }
+
+/* ---------- the video ---------- */
+
+.player { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.screen { display: flex; justify-content: center; background: #111; border-radius: 4px; overflow: hidden; }
+.screen video { display: block; max-width: 100%; max-height: calc(100vh - 250px); min-height: 160px; }
+.seek { width: 100%; margin: 4px 0 0; accent-color: var(--accent); }
+.controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+.controls .field select {
+  min-height: 34px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  width: auto;
+}
+.step-buttons { display: flex; gap: 4px; }
+.step-buttons .btn { min-width: 52px; }
+.step-buttons .play { min-width: 64px; }
+.row.center { justify-content: center; }
+.btn.big { min-height: 44px; padding: 0 22px; font-size: 16px; }
+.info { min-height: 1.5em; font-size: 13px; }
+.info.warn { color: #b42318; text-align: left; }
+
+/* ---------- the photos taken ---------- */
+
+.shots-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100vh - 82px);
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
+.shots-head .label { white-space: nowrap; }
+.shots-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.shots { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 8px; overflow: auto; }
+.shot { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 6px; background: var(--subtle); }
+.shot.new { outline: 2px solid var(--accent); }
+.shot .thumb { display: block; width: 100%; height: auto; padding: 0; border: 0; background: #000; cursor: pointer; border-radius: 4px; }
+.shot .thumb canvas { display: block; width: 100%; height: auto; border-radius: 4px; }
+.shot .meta { display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.shot .buttons { display: flex; gap: 2px; }
+.shot .btn.icon { width: 28px; min-height: 28px; }
+.shot .btn.icon .i { width: 16px; height: 16px; }
+
+@media (prefers-color-scheme: dark) {
+  .info.warn { color: #ff9b8f; }
+}
+
+@media (max-width: 1100px) {
+  .video-layout { grid-template-columns: 250px minmax(0, 1fr); }
+  .shots-wrap { grid-column: 1 / -1; max-height: none; }
+  .shots { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .video-layout { grid-template-columns: 1fr; }
+  .video-layout .form { max-height: none; }
+  .player { order: -1; }
+}
+.player .field.check { font-size: 14px; font-weight: 400; cursor: pointer; }
+.player .field.check input { width: 18px; height: 18px; accent-color: var(--accent); }
