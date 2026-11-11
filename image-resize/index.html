@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>画像を小さく</title>
-  <meta name="description" content="写真や画像の大きさ・ファイルサイズを小さくするブラウザだけで動くツール。「200KB以下」のような指定もできます">
+  <title>画像を圧縮</title>
+  <meta name="description" content="写真やスクリーンショットのファイルを軽くするブラウザだけで動くツール。元の画像と見くらべながら画質を決められ、「200KB以下」のような指定もできます">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <meta name="theme-color" content="#0d7fa8">
@@ -19,16 +19,19 @@
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
     <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-split" viewBox="0 0 24 24"><path d="M9 7l-5 5 5 5M15 7l5 5-5 5"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   </svg>
   <header class="toolbar">
     <div class="group">
       <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
-      <span class="app-title">画像を小さく</span>
+      <span class="app-title">画像を圧縮</span>
       <label class="btn primary" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-image"/></svg>画像を追加</label>
       <input id="file-input" type="file" accept="image/*,.heic,.heif" multiple hidden>
     </div>
 
-    <div class="group" role="group" aria-label="小さくする設定">
+    <div class="group" role="group" aria-label="圧縮の設定（全部の画像）">
       <label class="field" title="画像の長いほうの辺を、この長さ（ピクセル）までにする">大きさ
         <select id="max-side">
           <option value="0">元のまま</option>
@@ -42,13 +45,14 @@
         </select>
       </label>
       <label class="field">形式
-        <select id="format">
-          <option value="image/jpeg" selected>JPG（写真向け・おすすめ）</option>
+        <select id="format" title="おまかせ: 写真はJPG、スクリーンショットや図はPNGにします">
+          <option value="auto" selected>おまかせ（おすすめ）</option>
+          <option value="image/jpeg">JPG（写真向け）</option>
           <option value="image/png">PNG（図や文字向け）</option>
           <option value="image/webp">WebP（いちばん軽い）</option>
         </select>
       </label>
-      <label class="field" title="画質を選ぶか、ファイルの大きさの上限（KB）を決める">仕上がり
+      <label class="field" title="画質を選ぶか、ファイルの大きさの上限（KB）を決める。PNGは、きれい＝色はそのまま、ふつう＝256色、軽め＝64色">仕上がり
         <select id="mode">
           <option value="0.92">きれい</option>
           <option value="0.8" selected>ふつう</option>
@@ -71,16 +75,68 @@
 
   <main id="viewer" class="viewer">
     <section id="welcome" class="welcome">
-      <h1>画像を小さく</h1>
-      <p>写真やスクリーンショットの大きさ（ピクセル）とファイルの大きさを小さくします。提出フォームの「〇KBまで」「〇MBまで」に引っかかるときに。</p>
+      <h1>画像を圧縮</h1>
+      <p>写真やスクリーンショットのファイルを軽くします。元の画像と見くらべながら、画質を落としすぎていないか確かめられます。提出フォームの「〇KBまで」「〇MBまで」に引っかかるときに。</p>
       <ol>
         <li>「画像を追加」を押すか、画像をここにドラッグします。何枚でもまとめてできます。</li>
-        <li>「大きさ」「形式」「仕上がり」を選びます（分からなければそのままで大丈夫です）。「サイズ指定」にすると、「200 KB以下」のように上限を決められます。</li>
+        <li>「大きさ」「形式」「仕上がり」を選びます（分からなければそのままで大丈夫です）。「形式」の「おまかせ」は、写真をJPG、スクリーンショットや図を色の数を減らしたPNGにします。「仕上がり」を「サイズ指定」にすると、「200 KB以下」のように上限を決められます。</li>
+        <li>右の画面のまん中の線を左右に動かすと、元の画像（左）と圧縮したあと（右）を見くらべられます。「＋」で拡大すると細かい所まで見えます。</li>
+        <li>1枚だけ変えたいときは、一覧でその画像を選んで、下の「この画像だけ」で形式や画質を変えます。</li>
         <li>仕上がりの大きさを確かめて「保存」。2枚以上はZIPにまとめて保存します。</li>
       </ol>
-      <p class="note">撮った場所などの情報（Exif）は取り除かれます。画像はこのパソコンの中だけで処理され、どこにも送信されません。</p>
+      <p class="note">撮った場所などの情報（Exif）は取り除かれます。圧縮しても元より軽くならない画像は、情報だけ消した元のファイルのまま保存します。画像はこのパソコンの中だけで処理され、どこにも送信されません。</p>
     </section>
-    <ul id="list" class="list" aria-label="画像の一覧"></ul>
+
+    <div id="workspace" class="workspace" hidden>
+      <ul id="list" class="list" aria-label="画像の一覧"></ul>
+
+      <section class="compare-area" aria-label="見くらべ">
+        <div id="compare" class="compare">
+          <div id="compare-scroll" class="compare-scroll">
+            <div id="stage" class="stage">
+              <canvas id="before-canvas" class="layer" aria-label="元の画像"></canvas>
+              <img id="after-image" class="layer" alt="圧縮したあとの画像" hidden>
+            </div>
+          </div>
+          <span id="before-tag" class="tag before-tag"></span>
+          <span id="after-tag" class="tag after-tag"></span>
+          <div id="divider" class="divider" role="slider" tabindex="0" aria-label="見くらべる線の位置（左が元の画像）" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+            <span class="knob"><svg class="i" aria-hidden="true"><use href="#i-split"/></svg></span>
+          </div>
+          <div class="zoom" role="group" aria-label="拡大">
+            <button id="zoom-out" class="btn icon" title="縮小" aria-label="縮小"><svg class="i" aria-hidden="true"><use href="#i-minus"/></svg></button>
+            <span id="zoom-label" class="zoom-label">全体</span>
+            <button id="zoom-in" class="btn icon" title="拡大" aria-label="拡大"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></button>
+          </div>
+        </div>
+
+        <div id="item-bar" class="item-bar" role="group" aria-label="この画像だけの設定">
+          <span class="bar-title">この画像だけ</span>
+          <span class="segmented" role="group" aria-label="形式">
+            <button class="seg" data-format="image/jpeg" aria-pressed="false">JPG</button>
+            <button class="seg" data-format="image/png" aria-pressed="false">PNG</button>
+            <button class="seg" data-format="image/webp" aria-pressed="false">WebP</button>
+          </span>
+          <label id="quality-field" class="field">画質
+            <input id="quality" type="range" min="1" max="100" step="1" value="80">
+            <output id="quality-value" for="quality" class="number">80</output>
+          </label>
+          <label id="colors-field" class="field" hidden>色の数
+            <select id="colors">
+              <option value="0">そのまま</option>
+              <option value="256">256色</option>
+              <option value="64">64色</option>
+              <option value="16">16色</option>
+            </select>
+          </label>
+          <span id="auto-note" class="note" hidden>サイズ指定のときは、画質は自動で決まります</span>
+          <span class="bar-buttons">
+            <button id="reset-own" class="btn small" hidden title="この画像を上の「形式」「仕上がり」にもどす">全体の設定にもどす</button>
+            <button id="apply-all" class="btn small" title="ほかの画像も、この画像と同じ形式・画質にする">全部の画像を同じに</button>
+          </span>
+        </div>
+      </section>
+    </div>
   </main>
 
   <div id="status" class="status" role="status" aria-live="polite" hidden></div>

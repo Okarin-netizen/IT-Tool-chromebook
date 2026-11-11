@@ -13,7 +13,7 @@ export const TOOLS = [
   { id: "pdf-extract", name: "PDF文字取り出し", takes: ["pdf", "image"] },
   { id: "pdf-grade", name: "PDF一括採点" },
   { id: "image-pdf", name: "画像→PDF", takes: ["image"] },
-  { id: "image-resize", name: "画像を小さく", takes: ["image"] },
+  { id: "image-resize", name: "画像を圧縮", takes: ["image"] },
   { id: "image-annotate", name: "画像に書き込み", takes: ["image"] },
   { id: "photo-fix", name: "写真を直す", takes: ["image"] },
   { id: "photo-info", name: "写真の情報を見る・消す", takes: ["image"] },

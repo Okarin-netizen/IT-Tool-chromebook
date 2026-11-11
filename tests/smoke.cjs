@@ -30,6 +30,87 @@ const only = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--sty
 
 // Each tool: `run` works online after the page has loaded, `offline` runs after an offline reload.
 // `query` is added to the page address (`?debug` freezes recorded undo steps, see shared/js/history.js).
+// 画像を圧縮: PNG with fewer colors, the 見くらべ view, one picture's own settings, and keeping an
+// original that cannot be made lighter.
+async function checkImageCompress(t) {
+  const items = () => t.page.evaluate(() => __imageResize.state.items.map((i) => ({
+    format: i.result?.format, type: i.result?.blob.type, colors: i.result?.colors, quality: i.result?.quality,
+    kept: !!i.result?.kept, size: i.result?.blob.size, original: i.file.size, own: i.own,
+  })));
+  await t.page.selectOption("#mode", "0.8");
+  await t.page.selectOption("#format", "auto");
+  // A drawing with antialiased text: おまかせ makes it a PNG of at most 256 colors.
+  await t.page.evaluate(async () => {
+    const canvas = Object.assign(document.createElement("canvas"), { width: 900, height: 600 });
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, 900, 600);
+    ctx.fillStyle = "#1d4ed8";
+    ctx.fillRect(0, 0, 900, 60);
+    ctx.fillStyle = "#222";
+    ctx.font = "24px sans-serif";
+    for (let i = 0; i < 12; i++) ctx.fillText(`${i + 1}. 提出物は金曜日までに出しましょう。`, 30, 110 + i * 40);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    await __imageResize.addFiles([new File([blob], "図.png", { type: "image/png" })]);
+  });
+  await t.until(() => __imageResize.state.items[0]?.result, 30000);
+  let [drawing] = await items();
+  t.expect(drawing.format === "image/png" && drawing.colors > 0 && drawing.colors <= 256, `図がPNGの色を減らした形にならない: ${JSON.stringify(drawing)}`);
+  t.expect(drawing.size < drawing.original, `図が軽くならない: ${drawing.size} / ${drawing.original}`);
+  const colorType = await t.page.evaluate(async () => new Uint8Array(await __imageResize.state.items[0].result.blob.arrayBuffer())[25]);
+  t.expect(colorType === 3, `PNGがパレット形式（色の種類3）でない: ${colorType}`);
+  // The page's white stays exactly white.
+  const white = await t.page.evaluate(async () => {
+    const bitmap = await createImageBitmap(__imageResize.state.items[0].result.blob);
+    const ctx = new OffscreenCanvas(bitmap.width, bitmap.height).getContext("2d");
+    ctx.drawImage(bitmap, 0, 0);
+    return [...ctx.getImageData(bitmap.width - 5, bitmap.height - 5, 1, 1).data].join(",");
+  });
+  t.expect(white === "255,255,255,255", `白い地の色が変わった: ${white}`);
+
+  // The 見くらべ view: the compressed picture is shown, the line moves with the keys, zoom works.
+  t.expect(await t.page.isVisible("#workspace") && await t.page.evaluate(() => !!document.getElementById("after-image").src), "見くらべの画面が出ない");
+  await t.page.focus("#divider");
+  await t.page.keyboard.press("ArrowLeft");
+  t.expect(await t.page.getAttribute("#divider", "aria-valuenow") === "45", "矢印キーで見くらべの線が動かない");
+  await t.page.click("#zoom-in");
+  t.expect(await t.page.textContent("#zoom-label") === "100%", "拡大できない");
+  await t.shot("compare");
+
+  // This picture only: JPG at quality 50, then back to the toolbar's settings.
+  await t.page.click("#item-bar [data-format='image/jpeg']");
+  await t.until(() => __imageResize.state.items[0].result?.format === "image/jpeg", 30000);
+  await t.page.$eval("#quality", (el) => {
+    el.value = "50";
+    el.dispatchEvent(new Event("change"));
+  });
+  await t.until(() => __imageResize.state.items[0].result?.quality === 0.5, 30000);
+  t.expect(await t.page.isVisible("#reset-own"), "「全体の設定にもどす」が出ない");
+  await t.page.click("#reset-own");
+  await t.until(() => __imageResize.state.items[0].result?.format === "image/png" && !__imageResize.state.items[0].own, 30000);
+
+  // A small, already compressed JPG is not made heavier: the original is kept.
+  await t.page.click("#clear-btn");
+  await t.page.selectOption("#max-side", "0");
+  await t.page.selectOption("#mode", "0.92");
+  await t.page.evaluate(async () => {
+    const canvas = Object.assign(document.createElement("canvas"), { width: 300, height: 200 });
+    const ctx = canvas.getContext("2d");
+    for (let i = 0; i < 300; i += 10) {
+      ctx.fillStyle = `hsl(${i}, 70%, 50%)`;
+      ctx.fillRect(i, 0, 10, 200);
+    }
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.3));
+    await __imageResize.addFiles([new File([blob], "軽い写真.jpg", { type: "image/jpeg" })]);
+  });
+  await t.until(() => __imageResize.state.items[0]?.result, 30000);
+  const [light] = await items();
+  t.expect(light.kept && light.type === "image/jpeg" && light.size <= light.original, `軽いJPGが元のままにならない: ${JSON.stringify(light)}`);
+  t.expect((await t.page.textContent(".item .badge")) === "元のまま", "「元のまま」と出ない");
+  await t.page.selectOption("#max-side", "1600");
+  await t.page.selectOption("#mode", "0.8");
+}
+
 const TOOLS = {
   "pdf-text": {
     async run(t) {
@@ -735,6 +816,7 @@ const TOOLS = {
       await t.page.waitForURL(/\/pdf-pages\/$/);
       await t.until(() => window.__pdfPages?.state.pages.length === 3, 30000);
       await t.page.goto(new URL("../image-resize/", t.page.url()).href);
+      await checkImageCompress(t);
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.png("写真1.png", 640, 480)]);
