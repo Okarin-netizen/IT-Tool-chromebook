@@ -1,0 +1,139 @@
+/* The shared look is in ../shared/css/base.css and ../shared/css/photo-tool.css (settings on the
+   left). This file sets the tool's colors and the list of files on the right. */
+:root {
+  --bg: #f4f5f7;
+  --bar: #ffffff;
+  --text: #1d2228;
+  --muted: #5f6670;
+  --line: #dcdfe4;
+  --accent: #3b6e8f; /* the tool's color: also in icon.svg, manifest.webmanifest and theme-color */
+  --accent-dark: #2e5873;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, #fff);
+  --accent-text: #ffffff;
+  --warn: #9a5b00;
+  --warn-soft: #fff4dc;
+}
+
+.summary { font-size: 14px; color: var(--muted); }
+
+/* The page fills the window; the settings and the list scroll on their own, so the list can
+   scroll while a row is dragged near its edge. */
+body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+main { flex: 1; min-height: 0; overflow: auto; }
+#work:not([hidden]) { height: 100%; }
+.layout { grid-template-columns: minmax(300px, 360px) 1fr; align-items: stretch; }
+.layout .form { overflow: auto; min-height: 0; }
+
+.example {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.form textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+.form textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.form > select { width: 100%; }
+.form select:disabled, .form input:disabled { opacity: .5; }
+.list-box { display: flex; flex-direction: column; gap: 6px; }
+.tab { padding: 0 8px; }
+
+/* ---------- the files, in numbering order ---------- */
+
+.files { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
+.dup-note {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 14px;
+}
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 2px 4px 24px 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.item {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 8px 6px 6px;
+  background: var(--surface);
+  border-radius: 8px;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+}
+.item.dragging { opacity: .4; }
+.item.drop-before { border-top-color: var(--accent); }
+.item.drop-after { border-bottom-color: var(--accent); }
+.item.duplicate .new-name { color: var(--warn); }
+body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
+
+.thumb {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--muted);
+  overflow: hidden;
+}
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thumb .i { width: 24px; height: 24px; stroke-width: 1.6; margin-bottom: 12px; }
+.thumb .kind { position: absolute; bottom: 4px; font-size: 9px; font-weight: 700; letter-spacing: .02em; }
+
+.names { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.new-name { font-weight: 600; overflow-wrap: anywhere; }
+.old-name { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.old-name .i { width: 14px; height: 14px; flex: none; transform: scaleX(-1); }
+
+.drag-ghost {
+  position: fixed;
+  left: 0; top: 0;
+  margin: -18px 0 0 -18px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.3);
+  pointer-events: none;
+  z-index: 40;
+  font-weight: 600;
+  max-width: 360px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root { --warn: #ffc56b; --warn-soft: #3d2f12; }
+}
+
+@media (max-width: 720px) {
+  body { display: block; height: auto; }
+  #work:not([hidden]) { height: auto; }
+  .layout { grid-template-columns: 1fr; }
+  .list { overflow: visible; }
+}

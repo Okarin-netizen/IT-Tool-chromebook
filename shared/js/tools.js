@@ -17,6 +17,7 @@ export const TOOLS = [
   { id: "image-annotate", name: "画像に書き込み", takes: ["image"] },
   { id: "photo-fix", name: "写真を直す", takes: ["image"] },
   { id: "photo-info", name: "写真の情報を見る・消す", takes: ["image"] },
+  { id: "file-rename", name: "ファイル名を連番に" },
   { id: "bg-remove", name: "人の背景を消す", takes: ["image"] },
   { id: "photo-collage", name: "写真を並べて1枚に", takes: ["image"] },
   { id: "poster-print", name: "大きく分けて印刷", takes: ["image"] },

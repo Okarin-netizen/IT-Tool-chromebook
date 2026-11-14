@@ -1347,6 +1347,46 @@ const TOOLS = {
     },
   },
 
+  // ファイル名を連番に: names in order, a 名簿, the same name twice, and a hand-made order.
+  "file-rename": {
+    async run(t) {
+      await t.setFiles("#file-input", [t.png("img10.png", 40, 30), t.png("img2.png", 40, 30), t.photo("スマホの写真.jpg")]);
+      await t.until(() => __fileRename.state.items.length === 3);
+      await t.page.fill("#prefix", "遠足");
+      await t.shot("open");
+      const names = () => t.page.evaluate(() => __fileRename.state.names.map((n) => n.name).join(","));
+      t.expect(await names() === "遠足_1.png,遠足_2.png,遠足_3.jpg", `名前順の連番が違う: ${await names()}`);
+      await t.page.selectOption("#digits", "3");
+      await t.page.fill("#start", "9");
+      await t.page.selectOption("#middle", "list");
+      await t.page.fill("#list-text", "青木\n井上\n上田");
+      t.expect(await names() === "遠足_009_青木.png,遠足_010_井上.png,遠足_011_上田.jpg", `名簿の名前が違う: ${await names()}`);
+      // Without numbers, the same name gets " (2)".
+      await t.page.selectOption("#middle", "none");
+      await t.page.uncheck("#numbered");
+      t.expect(await names() === "遠足.png,遠足 (2).png,遠足.jpg", `同じ名前の区別が違う: ${await names()}`);
+      t.expect(await t.page.isVisible("#dup-note"), "同じ名前の知らせが出ない");
+      await t.page.check("#numbered");
+      await t.page.click("#reverse-btn");
+      t.expect(await t.page.evaluate(() => __fileRename.settings.order) === "manual", "逆の順で「手で並べる」にならない");
+      await t.page.click("#save-btn");
+      const [zip] = await t.downloads(1);
+      t.expectName(zip, "遠足.zip");
+      const inside = fixtures.zipNames(zip.bytes).join(",");
+      t.expect(inside === "遠足_009.jpg,遠足_010.png,遠足_011.png", `ZIPの中身が違う: ${inside}`);
+      // Dragging a row puts it in a new place.
+      const first = t.page.locator(".item").nth(0);
+      const last = t.page.locator(".item").nth(2);
+      await first.dragTo(last, { targetPosition: { x: 200, y: 40 } });
+      const moved = await t.page.evaluate(() => __fileRename.state.items.map((i) => i.file.name).join(","));
+      t.expect(moved === "img10.png,img2.png,スマホの写真.jpg", `ドラッグで並べかえられない: ${moved}`);
+    },
+    async offline(t) {
+      await t.setFiles("#file-input", [t.png("a.png", 20, 20)]);
+      await t.until(() => __fileRename.state.items.length === 1);
+    },
+  },
+
   // 写真を直す: a photo of a print becomes straight, white and sharp.
   "photo-fix": {
     async run(t) {
