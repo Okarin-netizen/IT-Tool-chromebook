@@ -12,13 +12,14 @@
 //   carry(item)   the items that move together when `item` is dragged (default: just it)
 //   ghost(item, moving) the contents of the picture that follows the pointer
 //   onDrop(moving, target, after)  put `moving` just before (or after) `target`
+//   vertical      true for a list of rows (one card per line): "after" means below, not right
 
 const LONG_PRESS_MS = 350; // touch: hold this long before a card starts to drag
 const DRAG_SLOP = 8; // px the pointer may wander before a press counts as a drag (or a scroll)
 const SCROLL_EDGE = 60; // px from the top/bottom of the scroller where dragging scrolls it
 const SCROLL_STEP = 20; // most px scrolled per frame
 
-export function createSortable({ scroller, items, canStart = () => true, carry = (item) => [item], ghost, onDrop }) {
+export function createSortable({ scroller, items, canStart = () => true, carry = (item) => [item], ghost, onDrop, vertical = false }) {
   let press = null; // { item, pointerId, x, y, touch, timer } while a button/finger is down on a card
   let drag = null; // { moving, ghost, target, after, x, y, raf } once the press has become a drag
   let dragged = false; // the click that ends a drag must not count as a click on the card
@@ -110,7 +111,8 @@ export function createSortable({ scroller, items, canStart = () => true, carry =
       const dist = dy * 4 + dx;
       if (dist < bestDist) {
         bestDist = dist;
-        best = { item, after: x > r.left + r.width / 2 };
+        const after = vertical ? y > r.top + r.height / 2 : x > r.left + r.width / 2;
+        best = { item, after };
       }
     }
     return best;

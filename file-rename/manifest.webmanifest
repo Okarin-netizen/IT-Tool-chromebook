@@ -1,0 +1,44 @@
+{
+  "name": "ファイル名を連番に",
+  "short_name": "ファイル名を連番に",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f1f3f6",
+  "theme_color": "#3b6e8f",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "image/png": [
+          ".png"
+        ],
+        "image/jpeg": [
+          ".jpg",
+          ".jpeg"
+        ],
+        "image/webp": [
+          ".webp"
+        ],
+        "image/gif": [
+          ".gif"
+        ],
+        "image/heic": [
+          ".heic"
+        ],
+        "image/heif": [
+          ".heif"
+        ],
+        "application/pdf": [
+          ".pdf"
+        ]
+      }
+    }
+  ]
+}

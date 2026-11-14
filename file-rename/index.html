@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ファイル名を連番に</title>
+  <meta name="description" content="写真やPDFなどたくさんのファイルの名前を「写真_001.jpg」のような連番にそろえて、ZIPやフォルダに保存するブラウザだけで動くツール">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#3b6e8f">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="../shared/css/photo-tool.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-add" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11v6M9 14h6"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M8 4v16M4 16l4 4 4-4M16 20V4M12 8l4-4 4 4"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  </svg>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">ファイル名を連番に</span>
+      <label class="btn primary" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-add"/></svg>ファイルを追加</label>
+      <input id="file-input" type="file" multiple hidden>
+      <label class="btn" for="folder-input" title="フォルダの中のファイルをまとめて追加"><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg>フォルダごと追加</label>
+      <input id="folder-input" type="file" webkitdirectory hidden>
+      <button id="clear-btn" class="btn" disabled title="すべてのファイルを外す"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>全部消す</button>
+    </div>
+    <div class="group end">
+      <span id="summary" class="summary"></span>
+      <button id="folder-btn" class="btn" disabled hidden title="選んだフォルダに、新しい名前のファイルを書き出します"><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg>フォルダに保存</button>
+      <button id="save-btn" class="btn primary" disabled title="新しい名前のファイルを1つのZIPにまとめて保存します"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>ZIPで保存</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="welcome" class="welcome">
+      <h1>ファイル名を連番に</h1>
+      <p>写真・PDFなど、たくさんのファイルの名前を「写真_001.jpg」「写真_002.jpg」…のような決まった形にそろえます。どんな種類のファイルでもできます。</p>
+      <ol>
+        <li>「ファイルを追加」を押すか、ファイルをここにドラッグします。フォルダごとでも追加できます。</li>
+        <li>左で名前の形（前に付ける文字・番号の桁数・はじめの番号など）と並べ方を決めます。右の一覧で、変える前と後の名前を見くらべられます。順番はドラッグでも変えられます。</li>
+        <li>「ZIPで保存」で、新しい名前のファイルを1つのZIPにまとめて保存します。「フォルダに保存」が出ているときは、選んだフォルダにそのまま書き出せます。</li>
+      </ol>
+      <p class="note">元のファイルはそのまま残り、新しい名前のコピーができます。ファイルはこのパソコンの中だけで処理され、どこにも送信されません。</p>
+    </section>
+
+    <div id="work" class="layout" hidden>
+      <section class="form" aria-label="名前の付け方">
+        <span class="label">できあがりの名前の例</span>
+        <div id="example" class="example" aria-live="polite"></div>
+
+        <h2>並べ方（番号の順番）</h2>
+        <div class="tabs" role="radiogroup" aria-label="並べ方">
+          <button class="tab" role="radio" data-order="name" aria-checked="true" title="元のファイル名の順（2 は 10 より前）">名前順</button>
+          <button class="tab" role="radio" data-order="taken" aria-checked="false" title="写真を撮った日時の順。写真でないファイルは更新した日時">撮った順</button>
+          <button class="tab" role="radio" data-order="modified" aria-checked="false" title="ファイルを更新した日時の順">更新日順</button>
+          <button class="tab" role="radio" data-order="manual" aria-checked="false" title="右の一覧をドラッグして並べた順">手で並べる</button>
+        </div>
+        <div class="row">
+          <button id="reverse-btn" class="btn small" type="button"><svg class="i" aria-hidden="true"><use href="#i-swap"/></svg>逆の順にする</button>
+          <span class="note">一覧の行をドラッグしても並べかえられます</span>
+        </div>
+
+        <h2>名前の形</h2>
+        <label class="field-label" for="prefix">前に付ける文字</label>
+        <input id="prefix" type="text" placeholder="例: 遠足、3年1組" autocomplete="off">
+        <div class="row">
+          <label class="field check"><input id="numbered" type="checkbox" checked>番号を付ける</label>
+          <label class="field">位置
+            <select id="place">
+              <option value="after">前の文字のあと</option>
+              <option value="front">いちばん前</option>
+              <option value="end">いちばん後ろ</option>
+            </select>
+          </label>
+        </div>
+        <div class="row">
+          <label class="field">はじめの番号<input id="start" type="number" min="0" max="99999" value="1"></label>
+          <label class="field">桁数
+            <select id="digits">
+              <option value="0">おまかせ</option>
+              <option value="1">1（1, 2, 3）</option>
+              <option value="2">2（01, 02）</option>
+              <option value="3">3（001, 002）</option>
+              <option value="4">4（0001）</option>
+              <option value="5">5（00001）</option>
+            </select>
+          </label>
+        </div>
+        <label class="field-label" for="middle">ほかに入れるもの</label>
+        <select id="middle">
+          <option value="none">なにも付けない</option>
+          <option value="original">元の名前</option>
+          <option value="list">名簿の名前</option>
+          <option value="date">撮った日（なければ更新した日）</option>
+        </select>
+        <div id="list-box" class="list-box" hidden>
+          <label class="field-label" for="list-text">名簿（1行に1人。上から順に付けます）</label>
+          <textarea id="list-text" rows="5" placeholder="青木&#10;井上&#10;上田"></textarea>
+          <p id="list-note" class="note"></p>
+        </div>
+        <label class="field-label" for="suffix">後ろに付ける文字</label>
+        <input id="suffix" type="text" placeholder="例: 提出" autocomplete="off">
+        <div class="row">
+          <label class="field">区切り
+            <select id="separator">
+              <option value="underscore">_（下線）</option>
+              <option value="hyphen">-（ハイフン）</option>
+              <option value="space">空白</option>
+              <option value="none">区切らない</option>
+            </select>
+          </label>
+          <label class="field">拡張子
+            <select id="ext">
+              <option value="keep">そのまま</option>
+              <option value="lower">小文字に（.JPG → .jpg）</option>
+            </select>
+          </label>
+        </div>
+
+      </section>
+
+      <section class="files" aria-label="ファイルの一覧">
+        <p id="dup-note" class="dup-note" hidden></p>
+        <ol id="list" class="list"></ol>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="overwrite-dialog" class="app-dialog">
+    <h2>同じ名前のファイルがあります</h2>
+    <p id="overwrite-hint" class="hint"></p>
+    <form method="dialog" class="dialog-buttons">
+      <button class="btn" value="cancel">やめる</button>
+      <button class="btn primary" value="overwrite">上書きする</button>
+    </form>
+  </dialog>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+  <div id="drop-overlay" class="drop-overlay" hidden>ここにファイルをドロップ</div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
