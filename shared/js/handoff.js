@@ -46,12 +46,11 @@ async function sendTo(tool, save) {
 }
 
 // Adds a "次のツールで開く" menu right after `saveBtn`. `save` is the tool's own save; it must
-// return a promise that settles after download(). `kind` is what it saves: "pdf" or "image".
+// return a promise that settles after download(). `kind` is what it saves: "pdf" or "image", or a
+// function that returns one (a tool that can save either, like スクショをつなげる).
 export function addNextTool({ saveBtn, save, kind }) {
   const here = currentTool();
-  // Tools made for this kind first (画像→PDF before PDF文字取り出し for a photo).
-  const targets = TOOLS.filter((tool) => tool.takes?.includes(kind) && tool.id !== here)
-    .sort((a, b) => (a.takes[0] !== kind) - (b.takes[0] !== kind));
+  const kindNow = typeof kind === "function" ? kind : () => kind;
   const btn = menuButton();
   const menu = document.createElement("div");
   menu.className = "next-menu";
@@ -60,10 +59,19 @@ export function addNextTool({ saveBtn, save, kind }) {
   const title = document.createElement("div");
   title.className = "next-title";
   title.textContent = "保存せずに次のツールで開く";
-  menu.append(title, ...targets.map(({ id, name }) => menuItem(id, name, () => {
-    close();
-    sendTo(id, save);
-  })));
+
+  // The tools that take what would be saved now; the ones made for it first (画像→PDF before
+  // PDF文字取り出し for a photo).
+  function fill() {
+    const wanted = kindNow();
+    const targets = TOOLS.filter((tool) => tool.takes?.includes(wanted) && tool.id !== here)
+      .sort((a, b) => (a.takes[0] !== wanted) - (b.takes[0] !== wanted));
+    menu.replaceChildren(title, ...targets.map(({ id, name }) => menuItem(id, name, () => {
+      close();
+      sendTo(id, save);
+    })));
+  }
+  fill();
   const wrap = document.createElement("div");
   wrap.className = "next-wrap";
   wrap.append(btn, menu);
@@ -74,6 +82,7 @@ export function addNextTool({ saveBtn, save, kind }) {
     btn.setAttribute("aria-expanded", "false");
   }
   btn.addEventListener("click", () => {
+    if (menu.hidden) fill();
     menu.hidden = !menu.hidden;
     btn.setAttribute("aria-expanded", String(!menu.hidden));
     if (!menu.hidden) menu.querySelector(".next-item")?.focus();

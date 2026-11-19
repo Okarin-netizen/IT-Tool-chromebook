@@ -1,0 +1,141 @@
+/* The shared look is in ../shared/css/base.css and ../shared/css/photo-tool.css (the layout the
+   photo tools share). This file sets the tool's colors and anything only it has. */
+:root {
+  --bg: #f4f5f7;
+  --bar: #ffffff;
+  --text: #1d2228;
+  --muted: #5f6670;
+  --line: #dcdfe4;
+  --accent: #0b7285; /* the tool's color: also in icon.svg, manifest.webmanifest and theme-color */
+  --accent-dark: #095c6b;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, #fff);
+  --accent-text: #ffffff;
+  --missing: #c2410c;
+}
+
+.save-as select {
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.form { max-height: calc(100vh - 90px); overflow: auto; }
+.form .slider { grid-template-columns: 5.5em 1fr 3.2em; }
+.field.stack { flex-direction: column; align-items: stretch; gap: 4px; }
+.list-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
+
+/* The screenshots, with a row for each seam between two of them. */
+.shots { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.shot {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px;
+  border-radius: 6px;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  background: var(--surface);
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+}
+.shot:hover { background: var(--soft); }
+.shot.dragging { opacity: .4; }
+.shot.drop-before { border-top-color: var(--accent); }
+.shot.drop-after { border-bottom-color: var(--accent); }
+.shot canvas { width: 48px; height: 48px; border-radius: 4px; box-shadow: 0 0 0 1px var(--line); }
+.shot .name { min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+.shot .buttons { display: flex; gap: 2px; }
+.shot .btn.icon { width: 30px; min-height: 30px; }
+.shot .btn.icon .i { width: 16px; height: 16px; }
+body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
+
+.seam {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 18px;
+  padding: 2px 6px;
+  border-left: 2px dashed var(--accent);
+  color: var(--muted);
+  font-size: 13px;
+}
+.seam > .i { width: 16px; height: 16px; flex: none; color: var(--accent); }
+.seam .seam-text { flex: 1; }
+.seam .btn.small { min-height: 26px; padding: 0 8px; }
+.seam.missing { border-left-color: var(--missing); color: var(--missing); font-weight: 600; }
+.seam.missing > .i { color: var(--missing); }
+.seam.editing { background: var(--accent-soft); border-radius: 0 6px 6px 0; color: var(--text); }
+
+.drag-ghost {
+  position: fixed;
+  left: 0; top: 0;
+  margin: -18px 0 0 -18px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.3);
+  pointer-events: none;
+  z-index: 40;
+  font-size: 13px;
+  max-width: 320px;
+}
+
+/* The preview scrolls along the joined picture; with the seam editor open, both fit the screen. */
+.preview-wrap { align-items: stretch; height: calc(100vh - 90px); }
+.preview-scroll {
+  flex: 1;
+  min-height: 120px;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+.preview-scroll .preview { max-height: none; max-width: 100%; cursor: pointer; }
+.preview-scroll.across { justify-content: flex-start; }
+.preview-scroll.across .preview { max-width: none; }
+
+/* The seam editor sits above the preview. */
+.seam-editor {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
+.seam-editor .note { margin: 0; }
+.seam-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.seam-view { display: flex; justify-content: center; overflow: hidden; background: var(--soft); border-radius: 6px; }
+.seam-view canvas { display: block; max-width: 100%; max-height: min(240px, 34vh); }
+.seam-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.seam-controls .btn.small .i { width: 16px; height: 16px; margin-right: 4px; }
+.seam-controls input[type="number"] {
+  width: 5.5em;
+  min-height: 30px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root { --missing: #fb923c; }
+}
+
+@media (max-width: 760px) {
+  .preview-wrap { height: auto; }
+  .preview-scroll { max-height: 80vh; }
+}
