@@ -1435,6 +1435,65 @@ const TOOLS = {
     },
   },
 
+  // スクショをつなげる: 4 screenshots of one long page, scrolled by different amounts, with the
+  // browser's bar on top and the shelf at the bottom of each. The overlaps and the bars that
+  // repeat are found, so the joined picture is exactly as long as the page plus the two bars.
+  "screenshot-stitch": {
+    async run(t) {
+      await t.page.evaluate(async () => {
+        const width = 1366, bar = 80, shelf = 48, view = 640, total = 2200;
+        const page = Object.assign(document.createElement("canvas"), { width, height: total });
+        const ctx = page.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, width, total);
+        ctx.fillStyle = "#222";
+        ctx.font = "22px sans-serif";
+        for (let i = 0; i < 60; i++) ctx.fillText(`${i + 1}行目: スクロールして撮ったスクショ ${"あいう".repeat(i % 4)}`, 40 + (i % 3) * 10, 40 + i * 36);
+        const files = [];
+        for (const [n, top] of [0, 500, 1000, 1400].entries()) {
+          const shot = Object.assign(document.createElement("canvas"), { width, height: bar + view + shelf });
+          const c = shot.getContext("2d");
+          c.fillStyle = "#dee2e6";
+          c.fillRect(0, 0, width, bar);
+          c.fillStyle = "#333";
+          c.font = "16px sans-serif";
+          c.fillText("タブ1   タブ2   https://example.com/", 20, 45);
+          c.drawImage(page, 0, top, width, view, 0, bar, width, view);
+          c.fillStyle = "#adb5bd";
+          c.fillRect(width - 12, bar + (top / total) * view, 10, 120); // the scrollbar moves
+          c.fillStyle = "#343a40";
+          c.fillRect(0, bar + view, width, shelf);
+          const blob = await new Promise((resolve) => shot.toBlob(resolve, "image/png"));
+          files.push(new File([blob], `スクリーンショット 2026-11-19 10.30.${10 + n}.png`, { type: "image/png" }));
+        }
+        await __screenshotStitch.addFiles(files.reverse()); // put back in order by their names
+      });
+      const result = await t.page.evaluate(() => ({
+        length: __screenshotStitch.layout().length,
+        seams: [...__screenshotStitch.state.seams.values()].map((seam) => seam.auto).join(","),
+        first: __screenshotStitch.state.shots[0].name,
+      }));
+      t.expect(result.first.endsWith("10.30.10.png"), `撮った順に並ばない: ${result.first}`);
+      t.expect(result.seams === "140,140,240", `重なりが違う: ${result.seams}`);
+      t.expect(result.length === 2168, `つなげた長さが違う: ${result.length}`);
+      await t.shot("open");
+      await t.page.click(".seam .btn");
+      await t.page.click("[data-nudge='-1']");
+      const moved = await t.page.evaluate(() => __screenshotStitch.layout().length);
+      t.expect(moved === result.length - 1, `つなぎ目を手で動かせない: ${moved}`);
+      await t.page.click("#seam-auto");
+      await t.page.click("#save-btn");
+      const [png] = await t.downloads(1);
+      t.expectName(png, "スクリーンショット 2026-11-19 10.30.10_つなげた.png");
+      t.expect(png.bytes.readUInt32BE(20) === 2168, `保存した画像の高さが違う: ${png.bytes.readUInt32BE(20)}`);
+      await t.page.selectOption("#format", "pdf-a4");
+      await t.page.click("#save-btn");
+      const [pdf] = await t.downloads(1, 60000);
+      t.expectName(pdf, "スクリーンショット 2026-11-19 10.30.10_つなげた.pdf");
+      await t.expectPdfPages(pdf, 2);
+    },
+  },
+
   // 大きく分けて印刷: a picture across 3 A4 sheets, and as many rows as its shape needs.
   "poster-print": {
     async run(t) {

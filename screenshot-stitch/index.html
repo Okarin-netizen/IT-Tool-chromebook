@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>スクショをつなげる</title>
+  <meta name="description" content="何枚かのスクリーンショットをすきまなくつなげて、1枚の長い画像やPDFにするブラウザだけで動くツール。スクロールして撮ったときの重なりは自動で消します">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#0b7285">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="../shared/css/photo-tool.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-sort" viewBox="0 0 24 24"><path d="M8 4v16M4 16l4 4 4-4M14 6h7M14 12h5M14 18h3"/></symbol>
+    <symbol id="i-seam" viewBox="0 0 24 24"><path d="M3 12h3M9 12h3M15 12h3M21 12h0"/><rect x="5" y="3" width="14" height="6" rx="1"/><rect x="5" y="15" width="14" height="6" rx="1"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6.2M4 4v5h5"/></symbol>
+  </svg>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">スクショをつなげる</span>
+      <label class="btn primary" for="file-input"><svg class="i" aria-hidden="true"><use href="#i-image"/></svg>スクショを追加</label>
+      <input id="file-input" type="file" accept="image/*,.heic,.heif" multiple hidden>
+      <button id="clear-btn" class="btn" disabled title="すべてのスクショを外す"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>全部消す</button>
+    </div>
+    <div class="group end">
+      <label class="field save-as">保存の形
+        <select id="format">
+          <option value="png">PNG（文字がくっきり）</option>
+          <option value="jpg">JPG（ファイルが小さい）</option>
+          <option value="pdf-a4">PDF（A4のページに分ける）</option>
+          <option value="pdf-long">PDF（1枚の長いページ）</option>
+        </select>
+      </label>
+      <button id="save-btn" class="btn primary" disabled><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>保存</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="welcome" class="welcome">
+      <h1>スクショをつなげる</h1>
+      <p>何枚かのスクリーンショットを、すきまなくつなげて1枚の長い画像やPDFにします。長いWebページ、Googleドキュメント、チャットのやりとりなどを、スクロールしながら撮ったスクショを1つにまとめるのに。</p>
+      <ol>
+        <li>「スクショを追加」を押すか、スクショをここにドラッグします。Chromebook でスクショを撮ったあと、ここで Ctrl+V を押しても入ります。</li>
+        <li>スクショは撮った順（ファイル名の順）に並びます。左の一覧でドラッグすると順番を変えられます。</li>
+        <li>スクロールして撮ったときに重なった部分と、どのスクショにも写っている上のバーは、自動で消します。合わないつなぎ目は「直す」で手で合わせます。</li>
+        <li>「保存」で PNG・JPG・PDF にします。</li>
+      </ol>
+      <p class="note">スクショはこのパソコンの中だけで処理され、どこにも送信されません。</p>
+    </section>
+
+    <div id="work" class="layout" hidden>
+      <section class="form" aria-label="つなげ方">
+        <div class="row">
+          <span class="field-label">つなげる向き</span>
+          <div class="tabs" role="radiogroup" aria-label="つなげる向き">
+            <button class="tab" role="radio" data-direction="vertical" aria-checked="true">縦に</button>
+            <button class="tab" role="radio" data-direction="horizontal" aria-checked="false">横に</button>
+          </div>
+        </div>
+        <label class="field check" title="スクロールして撮ったスクショの、前の画像と同じところを消します"><input id="auto" type="checkbox" checked>重なりを自動で消す</label>
+        <label class="slider"><span id="trim-start-label">上を切る</span><input id="trim-start" type="range" min="0" max="300" value="0"><output></output></label>
+        <label class="slider"><span id="trim-end-label">下を切る</span><input id="trim-end" type="range" min="0" max="300" value="0"><output></output></label>
+        <p id="trim-note" class="note">ブラウザのタブや画面の下のバーなど、全部のスクショの同じところを切ります。</p>
+        <label class="field stack">大きさがちがうとき
+          <select id="fit">
+            <option value="small">小さいほうに合わせる</option>
+            <option value="large">大きいほうに合わせる</option>
+            <option value="none">そのまま（まん中にそろえる）</option>
+          </select>
+        </label>
+        <label class="slider">すきま<input id="gap" type="range" min="0" max="40" value="0"><output></output></label>
+        <div class="row">
+          <label class="field">背景の色<input id="background" type="color" value="#ffffff"></label>
+          <label class="field check" title="見本にだけ出る線で、保存する画像には入りません"><input id="seam-lines" type="checkbox" checked>つなぎ目に線</label>
+        </div>
+
+        <div class="list-head">
+          <span class="label">スクショ（<span id="count">0</span>枚）</span>
+          <button id="sort-btn" class="btn small" title="ファイル名の順（撮った順）に並べなおす"><svg class="i" aria-hidden="true"><use href="#i-sort"/></svg>撮った順に</button>
+        </div>
+        <ul id="shots" class="shots" aria-label="スクショの順番"></ul>
+      </section>
+
+      <section class="preview-wrap" aria-label="見本">
+        <div id="seam-editor" class="seam-editor" hidden>
+          <div class="seam-head">
+            <strong id="seam-title">つなぎ目</strong>
+            <button id="seam-close" class="btn small"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg>閉じる</button>
+          </div>
+          <p id="seam-help" class="note">あとの画像を動かして、つなぎ目（赤い線）の文字や線がずれないようにします。</p>
+          <div class="seam-view"><canvas id="seam-canvas" width="1" height="1"></canvas></div>
+          <div class="seam-controls">
+            <button class="btn small" data-nudge="-10"><svg class="i" aria-hidden="true"><use href="#i-up"/></svg><span>上へ 10</span></button>
+            <button class="btn small" data-nudge="-1"><svg class="i" aria-hidden="true"><use href="#i-up"/></svg><span>上へ 1</span></button>
+            <button class="btn small" data-nudge="1"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg><span>下へ 1</span></button>
+            <button class="btn small" data-nudge="10"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg><span>下へ 10</span></button>
+            <label class="field">重なり<input id="seam-overlap" type="number" min="0" step="1"></label>
+            <button id="seam-auto" class="btn small"><svg class="i" aria-hidden="true"><use href="#i-reset"/></svg>自動にもどす</button>
+          </div>
+        </div>
+        <div id="preview-scroll" class="preview-scroll">
+          <canvas id="preview" class="preview" width="1" height="1"></canvas>
+        </div>
+        <p id="info" class="info"></p>
+      </section>
+    </div>
+  </main>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+  <div id="drop-overlay" class="drop-overlay" hidden>ここにスクショをドロップ</div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

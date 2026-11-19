@@ -20,6 +20,7 @@ export const TOOLS = [
   { id: "file-rename", name: "ファイル名を連番に" },
   { id: "bg-remove", name: "人の背景を消す", takes: ["image"] },
   { id: "photo-collage", name: "写真を並べて1枚に", takes: ["image"] },
+  { id: "screenshot-stitch", name: "スクショをつなげる", takes: ["image"] },
   { id: "poster-print", name: "大きく分けて印刷", takes: ["image"] },
   { id: "gif-maker", name: "写真をつなげてGIF", takes: ["image"] },
   { id: "video-frame", name: "動画から写真" },
