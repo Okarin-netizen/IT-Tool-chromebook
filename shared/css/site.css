@@ -9,7 +9,8 @@
   --text: #111418;
   --muted: #5c5f66;
   --line: #e2e0db;
-  --line-soft: #e2e0db;
+  /* The edge of things you press (cards, buttons, the search box): dark enough to see on the gray ground */
+  --edge: #c4c0b8;
   --hover: #eceae5;
   --field: #ffffff;
   --accent: #1d3f99;
@@ -26,7 +27,7 @@
     --text: #f2f1ee;
     --muted: #a7abb3;
     --line: #33373e;
-    --line-soft: #33373e;
+    --edge: #4a4f58;
     --hover: #2a2e35;
     --field: #16181c;
     --accent: #8fb0f0;
@@ -82,7 +83,7 @@ a { color: var(--accent); }
   height: 38px;
   margin-bottom: 12px;
   padding: 0 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-radius: 4px;
   background: var(--field);
   color: var(--muted);
@@ -90,6 +91,10 @@ a { color: var(--accent); }
 .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .search svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
 .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; }
+.search input::placeholder { color: var(--muted); opacity: 1; }
+/* For keyboard users: the first Tab stop jumps over the menu to the tools */
+.skip { position: absolute; left: 8px; top: -60px; z-index: 10; padding: 8px 14px; border-radius: 4px; background: var(--text); color: var(--bg); font-size: 14px; }
+.skip:focus { top: 8px; }
 .nav { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .nav a {
   display: flex;
@@ -120,26 +125,17 @@ main { padding: 26px 32px 48px; min-width: 0; }
 .top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 6px; }
 .top h1 { margin: 0; font-size: 24px; letter-spacing: .06em; }
 .top p { margin: 0; color: var(--muted); font-size: 13px; }
-.news {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
-  margin: 10px 0 0;
-  padding: 6px 12px;
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--accent);
-  border-radius: 4px;
-  background: var(--card);
-  font-size: 13.5px;
-}
-.news a { margin-left: auto; white-space: nowrap; }
+/* One line about the newest tool; the details are in 更新履歴 */
+.news { display: flex; align-items: baseline; gap: 10px; margin: 12px 0 0; font-size: 13.5px; white-space: nowrap; }
+.news b { padding: 0 6px; border-radius: 3px; background: var(--new); color: #fff; font-size: 12px; font-weight: 700; }
+.news #news-tool { overflow: hidden; text-overflow: ellipsis; color: var(--text); font-weight: 700; }
+.news .news-log { color: var(--muted); font-size: 12.5px; }
 /* よくあるやりたいこと: one row of shortcuts, for people who think in tasks, not tool names */
 .tasks { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 12px 0 0; }
 .tasks-label { color: var(--muted); font-size: 13px; font-weight: 700; margin-right: 2px; }
 .tasks a {
   display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px;
-  border: 1px solid transparent; border-radius: 4px; background: var(--card);
+  border: 1px solid var(--edge); border-radius: 4px; background: var(--card);
   color: var(--text); font-size: 13px; text-decoration: none;
 }
 .tasks a:hover { border-color: var(--text); }
@@ -177,7 +173,7 @@ h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
   gap: 2px 12px;
   height: 100%;
   padding: 12px 40px 12px 14px;
-  border: 1px solid transparent;
+  border: 1px solid var(--edge);
   border-radius: 4px;
   background: var(--card);
   color: inherit;
@@ -198,9 +194,12 @@ h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 }
 body.searching .desc { -webkit-line-clamp: unset; }
 .new { margin-left: 6px; padding: 0 5px; border-radius: 3px; background: var(--new); color: #fff; font-size: 11px; font-weight: 400; vertical-align: 1px; }
-@media (prefers-color-scheme: dark) { .new { color: #1d2127; } }
+@media (prefers-color-scheme: dark) { .new, .news b { color: #1d2127; } }
+.new, .for { white-space: nowrap; }
 .for { margin-left: 6px; padding: 0 5px; border: 1px solid var(--line); border-radius: 3px; color: var(--muted); font-size: 11px; font-weight: 400; vertical-align: 1px; }
 .empty { margin: 24px 4px; color: var(--muted); }
+.empty p { margin: 0 0 6px; }
+.empty p:first-child { color: var(--text); font-weight: 700; }
 .hint { margin: 0; color: var(--muted); font-size: 13px; }
 /* 先生用 / 生徒用 (使う人で見る): one line on what the list is */
 .who-note { margin: 12px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--side); color: var(--muted); font-size: 13px; }
@@ -213,19 +212,23 @@ body[data-view="teacher"] .for, body[data-view="student"] .for { display: none; 
   right: 6px;
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: 0;
   border-radius: 6px;
   background: none;
   color: var(--muted);
   cursor: pointer;
-  opacity: 0;
+  opacity: .5;
 }
 .star svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
 .apps li:hover .star, .star:focus-visible, .star[aria-pressed="true"] { opacity: 1; }
-@media (hover: none) { .star { opacity: .55; } }
+/* Touch screens (Chromebook tablet mode): bigger shortcuts and stars */
+@media (pointer: coarse) {
+  .tasks a { min-height: 40px; }
+  .star { width: 44px; height: 44px; top: 2px; right: 2px; opacity: .7; }
+}
 .star:hover { background: var(--hover); color: var(--text); }
 .star:focus-visible { outline: 2px solid var(--accent); }
 .star[aria-pressed="true"] { color: #d99a00; }
@@ -235,7 +238,7 @@ body.searching .quick { display: none; }
 /* ---------- update history ---------- */
 
 .log { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-.log th, .log td { padding: 8px 4px; border-bottom: 1px solid var(--line-soft); text-align: left; vertical-align: top; }
+.log th, .log td { padding: 8px 4px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .log th { width: 10em; color: var(--muted); font-weight: 400; white-space: nowrap; }
 .log ul { margin: 0; padding-left: 1.2em; }
 .log li + li { margin-top: 3px; }

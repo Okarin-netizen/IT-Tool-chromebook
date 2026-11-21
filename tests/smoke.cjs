@@ -2167,16 +2167,16 @@ async function testPortal(browser, server) {
     t.expect(recent === "タイマー・ポモドーロ,関数電卓・グラフ", `最近使ったものが違う: ${recent}`);
     t.expect(await page.$$eval("#quick-fav li", (els) => els.length) === 1, "お気に入りが残らない");
     await t.shot("quick");
-    // 使う人で見る: 先生用 = only tools tagged 先生向け, 生徒用 = all the others.
+    // 使う人で見る: 先生用 = only tools tagged 先生用, 生徒用 = all the others.
     const shownTiles = () => page.$$eval("section.group:not([hidden]) li:not([hidden])", (lis) => lis.map((li) => li.dataset.for ?? "-"));
     await page.click("a[data-view='teacher']");
     await page.waitForFunction(() => document.body.dataset.view === "teacher");
     const teacher = await shownTiles();
-    t.expect(teacher.length > 0 && teacher.every((f) => f === "先生向け"), `先生用に先生向けでないツールが出ている: ${teacher}`);
+    t.expect(teacher.length > 0 && teacher.every((f) => f === "先生用"), `先生用に先生用でないツールが出ている: ${teacher}`);
     await page.click("a[data-view='student']");
     await page.waitForFunction(() => document.body.dataset.view === "student");
     const student = await shownTiles();
-    t.expect(student.length > 0 && !student.includes("先生向け") && student.length + teacher.length === tiles.length, `生徒用のツールが違う: ${student}`);
+    t.expect(student.length > 0 && !student.includes("先生用") && student.length + teacher.length === tiles.length, `生徒用のツールが違う: ${student}`);
     await page.fill("#q", "採点");
     t.expect((await page.$$eval("section.group li:not([hidden]) .name", (els) => els.map((e) => e.textContent))).includes("PDF一括採点"), "生徒用を見ているときに先生用のツールがさがせない");
     await page.fill("#q", "");
@@ -2186,6 +2186,14 @@ async function testPortal(browser, server) {
     t.expect((await shownTiles()).length === tiles.length, "すべてに戻ってもツールが全部出ない");
     await page.fill("#q", "PDF文字");
     t.expect(await page.isHidden("#quick-fav"), "さがしている間もお気に入りが出ている");
+    // ひらがなでもさがせる; nothing found offers the よくあるやりたいこと shortcuts.
+    for (const [word, tool] of [["はんこ", "PDFに手書き・署名"], ["さいてん", "PDF一括採点"], ["たいまー", "タイマー・ポモドーロ"]]) {
+      await page.fill("#q", word);
+      const found = await page.$$eval("section.group li:not([hidden]) .name", (els) => els.map((e) => e.textContent));
+      t.expect(found.includes(tool), `「${word}」で${tool}が見つからない: ${found}`);
+    }
+    await page.fill("#q", "あいうえおかきくけこ");
+    t.expect(await page.isVisible("#empty") && await page.isVisible("#tasks"), "見つからないときに「よくあるやりたいこと」が出ない");
     await page.fill("#q", "");
 
     // The top page (and the tool icons on it) also opens without a network.
