@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="shared/css/site.css">
 </head>
 <body>
+  <a class="skip" href="#tools">ツールの一覧へ</a>
   <aside class="side">
     <a class="logo" href="./">Chromebook<br>便利ツール</a>
     <label class="search">
@@ -58,7 +59,7 @@
       <a href="pdf-grade/">提出物を採点する</a>
       <a href="timer/">タイマーを映す</a>
     </nav>
-    <p class="news" id="news" hidden><b>更新</b><span id="news-text"></span><a href="changelog.html">更新履歴</a></p>
+    <p class="news" id="news" hidden><b>新しいツール</b><a id="news-tool" href="./"></a><a class="news-log" href="changelog.html">更新履歴</a></p>
 
     <section id="quick-fav" class="quick" aria-labelledby="g-fav" hidden>
       <h2 id="g-fav">お気に入り</h2>
@@ -71,7 +72,9 @@
     </section>
 
     <!-- 新しいツールを追加するときは、フォルダを作って、合うグループの <ul> に <li> を1つ足してください。
-         <li data-added="追加した日"> にすると、30日のあいだ「新しい」の印が付きます（docs/開発の手引き.md） -->
+         <li data-added="追加した日"> にすると、14日のあいだ「新しい」の印が付きます（新しい順に3つまで。docs/開発の手引き.md）。
+         先生だけが使うツールは data-for="先生用" -->
+    <div id="tools" tabindex="-1"></div>
     <section class="group" id="pdf" aria-labelledby="g-pdf">
       <h2 id="g-pdf">PDF</h2>
       <ul class="apps">
@@ -124,14 +127,14 @@
             <span class="desc">PDFの文字を取り出してコピーやテキスト保存ができます。スキャンしたPDFもOCRで読み取れます。</span>
           </a>
         </li>
-        <li data-keywords="番号 ページ数 ノンブル 下書き 見本 マル秘 社外秘 ヘッダー フッター" data-for="先生向け">
+        <li data-keywords="番号 ページ数 ノンブル 下書き 見本 マル秘 社外秘 ヘッダー フッター" data-for="先生用">
           <a class="app" href="pdf-stamp/" title="PDFの全ページにページ番号や「下書き」「見本」などの透かしをまとめて入れます。">
             <img src="pdf-stamp/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">ページ番号・透かし入れ</span></span>
             <span class="desc">PDFの全ページにページ番号や「下書き」「見本」などの透かしをまとめて入れます。</span>
           </a>
         </li>
-        <li data-keywords="採点 丸つけ まるつけ 添削 点数 返却 提出物 テスト 小テスト" data-for="先生向け">
+        <li data-keywords="採点 丸つけ まるつけ 添削 点数 返却 提出物 テスト 小テスト" data-for="先生用">
           <a class="app" href="pdf-grade/" title="提出された何人分ものPDFをまとめて開いて採点し、1人ずつ別々のPDFにして返却用に保存します。">
             <img src="pdf-grade/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">PDF一括採点</span></span>
@@ -200,7 +203,7 @@
             <span class="desc">写真やPDFなどのファイルの名前を「遠足_001.jpg」のような連番にまとめて変えます。</span>
           </a>
         </li>
-        <li data-added="2026-11-03" data-keywords="顔 切り抜き 証明写真 モザイク 集合写真 名札 個人情報" data-for="先生向け">
+        <li data-added="2026-11-03" data-keywords="顔 切り抜き 証明写真 モザイク 集合写真 名札 個人情報" data-for="先生用">
           <a class="app" href="kaotori/" title="集合写真から1人ずつ顔を切り抜いたり、証明写真の大きさに整えたり、顔や名札にモザイクを入れたりします。写っている人ごとに写真を分けることもできます。">
             <img src="kaotori/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">かおトリ</span></span>
@@ -227,7 +230,7 @@
             <span class="desc">写真やカメラで撮ったコマをつなげて、動くGIF（コマ撮りアニメ）を作ります。</span>
           </a>
         </li>
-        <li data-added="2026-11-03" data-keywords="顔 動画 ビデオ モザイク ぼかし 隠す 個人情報" data-for="先生向け">
+        <li data-added="2026-11-03" data-keywords="顔 動画 ビデオ モザイク ぼかし 隠す 個人情報" data-for="先生用">
           <a class="app" href="kaokakushi/" title="動画に写った顔を自動で見つけて追いかけ、モザイク・ぼかし・目線を入れたMP4を作ります。行事の動画を共有するときに。">
             <img src="kaokakushi/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">かおかくし</span></span>
@@ -240,7 +243,7 @@
     <section class="group" id="print" aria-labelledby="g-print">
       <h2 id="g-print">印刷</h2>
       <ul class="apps">
-        <li data-added="2026-10-30" data-keywords="冊子 製本 中とじ 両面 印刷 しおり パンフレット 問題冊子" data-for="先生向け">
+        <li data-added="2026-10-30" data-keywords="冊子 製本 中とじ 両面 印刷 しおり パンフレット 問題冊子" data-for="先生用">
           <a class="app" href="pdf-booklet/" title="PDFのページを、両面印刷して半分に折ると冊子になる順番に並べかえます。">
             <img src="pdf-booklet/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">冊子印刷</span></span>
@@ -267,14 +270,14 @@
     <section class="group" id="class" aria-labelledby="g-class">
       <h2 id="g-class">授業・勉強</h2>
       <ul class="apps">
-        <li data-keywords="くじ 抽選 指名 当てる ランダム 名簿 班 グループ 席替え" data-for="先生向け">
+        <li data-keywords="くじ 抽選 指名 当てる ランダム 名簿 班 グループ 席替え" data-for="先生用">
           <a class="app" href="class-picker/" title="名簿から発表する人をルーレットで選んだり、班をランダムに分けたり、席替えをしたりします。">
             <img src="class-picker/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">名前ルーレット・班分け</span></span>
             <span class="desc">名簿から発表する人をルーレットで選んだり、班をランダムに分けたり、席替えをしたりします。</span>
           </a>
         </li>
-        <li data-added="2026-10-31" data-keywords="声 うるさい 静かに 信号 サイコロ 得点 点数 スクリーン 大画面" data-for="先生向け">
+        <li data-added="2026-10-31" data-keywords="声 うるさい 静かに 信号 サイコロ 得点 点数 スクリーン 大画面" data-for="先生用">
           <a class="app" href="class-screen/" title="声の大きさメーター・信号・サイコロ・得点板を、教室のスクリーンに大きく映せます。">
             <img src="class-screen/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">授業の画面</span></span>
@@ -302,7 +305,7 @@
             <span class="desc">三角関数・対数・累乗などの計算と、y = f(x) のグラフ描画ができます。</span>
           </a>
         </li>
-        <li data-keywords="キーボード ローマ字 打つ 練習 英語" data-for="生徒向け">
+        <li data-keywords="キーボード ローマ字 打つ 練習 英語">
           <a class="app" href="typing/" title="日本語（ローマ字入力）と英語のタイピングを練習します。自分で決めたことばでも練習できます。">
             <img src="typing/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">タイピング練習</span></span>
@@ -316,7 +319,7 @@
             <span class="desc">作文やレポートの字数を数えます。原稿用紙で何枚分か、目標の字数まであと何字かも分かり、原稿用紙の形で印刷できます。</span>
           </a>
         </li>
-        <li data-keywords="時間割 課題 宿題 提出 締め切り チェック やること" data-for="生徒向け">
+        <li data-keywords="時間割 課題 宿題 提出 締め切り チェック やること">
           <a class="app" href="todo/" title="時間割と課題の締め切りをブラウザに保存して、やることを管理します。">
             <img src="todo/icon.svg" alt="" width="48" height="48">
             <span class="title"><span class="name">時間割・課題チェックリスト</span></span>
@@ -333,7 +336,10 @@
       </ul>
     </section>
 
-    <p id="empty" class="empty" hidden>「<span id="empty-q"></span>」に合うツールはありません。ことばを短くするか、<a href="#" id="show-all">すべてのツールを見る</a>から探してください。</p>
+    <div id="empty" class="empty" hidden>
+      <p>「<span id="empty-q"></span>」に合うツールはありません。</p>
+      <p>ことばを短くするか、別のことば（たとえば「まとめる」「軽くする」「写真」）でさがしてみてください。上の「よくあるやりたいこと」からも選べます。<a href="#" id="show-all">すべてのツールを見る</a></p>
+    </div>
 
     <section id="history" aria-labelledby="g-history">
       <h2 id="g-history">更新履歴</h2>
@@ -354,8 +360,8 @@
     const $ = (id) => document.getElementById(id);
     const groups = [...document.querySelectorAll("section.group")];
     const views = [...document.querySelectorAll(".side a[data-view]")];
-    // 「使う人で見る」: 先生用 = tools tagged data-for="先生向け"; 生徒用 = every other tool.
-    const forTeacher = (li) => li.dataset.for === "先生向け";
+    // 「使う人で見る」: 先生用 = tools tagged data-for="先生用"; 生徒用 = every other tool.
+    const forTeacher = (li) => li.dataset.for === "先生用";
     const WHO = { teacher: forTeacher, student: (li) => !forTeacher(li) };
     const q = $("q");
     // Shown only on すべて, and hidden while searching.
@@ -363,18 +369,26 @@
 
     // ---------- update history ----------
     const HISTORY_SHOWN = 3;
-    $("news-text").textContent = `${formatDate(CHANGELOG[0].date)}　${CHANGELOG[0].items[0]}`;
     renderChangelog($("log"), CHANGELOG.slice(0, HISTORY_SHOWN));
 
-    // "新しい" on tools added in the last 30 days (<li data-added="2026-11-03">).
-    const NEW_DAYS = 30;
-    for (const li of document.querySelectorAll("li[data-added]")) {
-      if (Date.now() - new Date(li.dataset.added).getTime() < NEW_DAYS * 864e5) {
-        li.querySelector(".title").append(Object.assign(document.createElement("span"), { className: "new", textContent: "新しい" }));
-      }
+    // "新しい" on the newest tools (at most NEW_SHOWN) added in the last NEW_DAYS days (<li data-added="2026-11-03">).
+    // The newest one also gets one line at the top of すべて; the details are in 更新履歴.
+    const NEW_DAYS = 14;
+    const NEW_SHOWN = 3;
+    const newTools = [...document.querySelectorAll("li[data-added]")]
+      .filter((li) => Date.now() - new Date(li.dataset.added).getTime() < NEW_DAYS * 864e5)
+      .sort((a, b) => b.dataset.added.localeCompare(a.dataset.added))
+      .slice(0, NEW_SHOWN);
+    for (const li of newTools) {
+      li.querySelector(".title").append(Object.assign(document.createElement("span"), { className: "new", textContent: "新しい" }));
+    }
+    if (newTools.length) {
+      const app = newTools[0].querySelector(".app");
+      $("news-tool").href = app.getAttribute("href");
+      $("news-tool").textContent = `${app.querySelector(".name").textContent}（${formatDate(newTools[0].dataset.added)}）`;
     }
 
-    // "先生向け" / "生徒向け" next to the name (<li data-for="先生向け">); untagged tools are for both.
+    // "先生用" next to the name (<li data-for="先生用">); untagged tools are for everyone.
     for (const li of document.querySelectorAll("li[data-for]")) {
       li.querySelector(".title").append(Object.assign(document.createElement("span"), { className: "for", textContent: li.dataset.for }));
     }
@@ -406,6 +420,7 @@
       $("who-note-teacher").hidden = known !== "teacher";
       $("who-note-student").hidden = known !== "student";
       for (const id of ALL_VIEW_PARTS) $(id).hidden = known !== "all";
+      $("news").hidden ||= !newTools.length;
       renderQuick();
     }
     window.addEventListener("hashchange", () => {
@@ -415,8 +430,20 @@
     });
 
     // ---------- search: by tool name and description, over every group ----------
+    // ひらがな・カタカナ・全角・半角・大文字・小文字のちがいは気にしない（「はんこ」でも「ハンコ」が見つかる）
+    const fold = (text) => text.normalize("NFKC").toLowerCase()
+      .replace(/[\u30a1-\u30f6]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
+    // Readings, so that words typed in ひらがな also find tools whose names are in kanji.
+    const READINGS = {
+      採点: "さいてん", 署名: "しょめい", 手書き: "てがき", 結合: "けつごう", 分割: "ぶんかつ", 回転: "かいてん",
+      圧縮: "あっしゅく", 文字: "もじ", 画像: "がぞう", 写真: "しゃしん", 動画: "どうが", 印刷: "いんさつ", 冊子: "さっし",
+      番号: "ばんごう", 透かし: "すかし", 名前: "なまえ", 班分け: "はんわけ", 授業: "じゅぎょう", 時間割: "じかんわり",
+      課題: "かだい", 電卓: "でんたく", 関数: "かんすう", 日付: "ひづけ", 計算: "けいさん", 方眼紙: "ほうがんし", 罫線: "けいせん",
+      顔: "かお", 背景: "はいけい", 連番: "れんばん", 提出: "ていしゅつ", 練習: "れんしゅう", 先生: "せんせい",
+    };
+    const readings = (text) => Object.entries(READINGS).filter(([kanji]) => text.includes(kanji)).map(([, kana]) => kana).join(" ");
     function search() {
-      const words = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const words = fold(q.value.trim()).split(/\s+/).filter(Boolean);
       const searching = words.length > 0;
       document.body.classList.toggle("searching", searching);
       if (!searching) { showView(); $("empty").hidden = true; return; }
@@ -424,7 +451,9 @@
       for (const sec of groups) {
         let inSection = 0;
         sec.querySelectorAll("li").forEach((li) => {
-          const text = `${li.textContent} ${li.dataset.keywords ?? ""} ${li.dataset.for ?? ""}`.toLowerCase();
+          const words0 = `${li.querySelector(".app").textContent} ${li.dataset.keywords ?? ""} ${li.dataset.for ?? ""}`;
+          li.dataset.search ??= `${fold(words0)} ${readings(words0)}`;
+          const text = li.dataset.search;
           const hit = words.every((w) => text.includes(w));
           li.hidden = !hit;
           if (hit) inSection++;
@@ -432,8 +461,11 @@
         sec.hidden = inSection === 0;
         shown += inSection;
       }
-      $("view-title").textContent = "さがした結果";
+      $("view-title").textContent = shown ? `さがした結果（${shown}こ）` : "さがした結果";
+      for (const a of views) a.removeAttribute("aria-current");
       for (const id of [...ALL_VIEW_PARTS, "fav-hint", "who-note-teacher", "who-note-student"]) $(id).hidden = true;
+      // Nothing found: offer the よくあるやりたいこと shortcuts instead of an empty page.
+      $("tasks").hidden = shown > 0;
       $("empty-q").textContent = q.value.trim();
       $("empty").hidden = shown > 0;
     }
