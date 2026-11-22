@@ -34,87 +34,74 @@
   }
   /* 向きだけを持つ最小のEXIF */
   function minimalExif(orientation) {
+    // prettier-ignore
     const body = [
-      0x45,
-      0x78,
-      0x69,
-      0x66,
-      0,
-      0,
-      0x4d,
-      0x4d,
-      0,
-      0x2a,
-      0,
-      0,
-      0,
-      8,
-      0,
-      1,
-      0x01,
-      0x12,
-      0,
-      3,
-      0,
-      0,
-      0,
-      1,
-      0,
-      orientation,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      0x45, 0x78, 0x69, 0x66, 0, 0, // "Exif\0\0"
+      0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8, // TIFF ヘッダ（ビッグエンディアン、最初の IFD は 8 バイト目）
+      0, 1, // IFD の項目は1つ
+      0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, orientation, 0, 0, // Orientation（SHORT が1つ）
+      0, 0, 0, 0, // 次の IFD はなし
     ];
     const len = body.length + 2;
-    return Uint8Array.from([0xff, 0xe1, len >> 8, len & 255, ...body]);
+    return Uint8Array.from([0xff, APP1, len >> 8, len & 255, ...body]);
   }
   /* JPEG: EXIF・XMP・IPTC・コメント・埋め込みサムネイルを消す（画質は変わらない）。
    * 写真の向きの情報だけは残す。 */
   /* 消した情報の名前（JPEG の区切りの番号 → 名前）。ないものは「APP番号」 */
   const SEGMENT_NAMES = { 0xfe: "コメント", 0xed: "IPTC" };
+  /* JPEG の区切り（マーカー）の番号 */
+  const SOI = 0xd8; // ファイルの始まり
+  const EOI = 0xd9; // ファイルの終わり
+  const SOS = 0xda; // ここから先は画像本体
+  const APP0 = 0xe0; // JFIF
+  const APP1 = 0xe1; // EXIF・XMP
+  const APP2 = 0xe2; // 色の情報（ICC プロファイル）
+  const APP14 = 0xee; // Adobe（色の並び）
+  const APP15 = 0xef;
+  const COM = 0xfe; // コメント
+  /* 長さを持たない区切り（RST0〜7 と TEM） */
+  const isStandalone = (m) => (m >= 0xd0 && m <= 0xd7) || m === 0x01;
+  /* 残す区切り: 画像を読むのに要るもの（APP 以外）と、色に関わる APP0・APP2・APP14 */
+  const keepSegment = (m) => m === APP0 || m === APP2 || m === APP14 || m < APP0 || (m > APP15 && m !== COM);
   function stripJpeg(b) {
-    if (b[0] !== 0xff || b[1] !== 0xd8) return null;
-    const out = [Uint8Array.from([0xff, 0xd8])];
+    if (b[0] !== 0xff || b[1] !== SOI) return null;
+    const out = [Uint8Array.from([0xff, SOI])];
+    const removed = [];
     let p = 2;
     let orientation = 1;
-    let insertedAt = -1;
-    let removed = [];
+    let afterApp0 = -1; // 向きの EXIF を入れる場所（JFIF の直後）
     while (p + 4 <= b.length) {
       if (b[p] !== 0xff) return null;
       const m = b[p + 1];
       if (m === 0xff) {
-        p++;
+        p++; // 詰め物
         continue;
       }
-      if (m === 0xd9) break;
-      if ((m >= 0xd0 && m <= 0xd7) || m === 0x01) {
+      if (m === EOI) break;
+      if (isStandalone(m)) {
         out.push(b.subarray(p, p + 2));
         p += 2;
         continue;
       }
+      if (m === SOS) {
+        out.push(b.subarray(p)); // 画像本体はそのまま
+        break;
+      }
       const len = u16(b, p + 2, false);
       const seg = b.subarray(p, p + 2 + len);
-      if (m === 0xda) {
-        out.push(b.subarray(p));
-        p = b.length;
-        break;
-      } // 画像本体はそのまま
-      const keep = m === 0xe0 || m === 0xe2 || m === 0xee || m < 0xe0 || (m > 0xef && m !== 0xfe);
-      if (m === 0xe1) {
+      if (keepSegment(m)) {
+        out.push(seg);
+        if (m === APP0) afterApp0 = out.length;
+      } else if (m === APP1) {
         const o = exifOrientation(seg.subarray(4));
         if (o !== 1) orientation = o;
         removed.push(String.fromCharCode(seg[4], seg[5], seg[6], seg[7]) === "Exif" ? "EXIF" : "XMP");
-      } else if (!keep) removed.push(SEGMENT_NAMES[m] ?? "APP" + (m - 0xe0));
-      if (keep) {
-        out.push(seg);
-        if (m === 0xe0) insertedAt = out.length;
+      } else {
+        removed.push(SEGMENT_NAMES[m] ?? "APP" + (m - APP0));
       }
       p += 2 + len;
     }
-    if (orientation !== 1) out.splice(insertedAt > 0 ? insertedAt : 1, 0, minimalExif(orientation));
+    if (orientation !== 1) out.splice(afterApp0 > 0 ? afterApp0 : 1, 0, minimalExif(orientation));
     return { parts: out, removed, orientation };
   }
   /* PNG: 文字情報・EXIF・日時のチャンクを消す */
@@ -148,11 +135,11 @@
   }
   /* テスト・確認用: JPEG の中に EXIF（撮影場所を含みうる）があるか */
   function hasJpegExif(b) {
-    if (b[0] !== 0xff || b[1] !== 0xd8) return false;
+    if (b[0] !== 0xff || b[1] !== SOI) return false;
     let p = 2;
     while (p + 4 <= b.length && b[p] === 0xff) {
       const m = b[p + 1];
-      if (m === 0xda || m === 0xd9) break;
+      if (m === SOS || m === EOI) break;
       const len = u16(b, p + 2, false);
       if (m === 0xe1 && String.fromCharCode(b[p + 4], b[p + 5], b[p + 6], b[p + 7]) === "Exif" && len > 40)
         return true;
@@ -165,24 +152,23 @@
   /* encodeAt(q) は画質 q（0〜1）で Blob を返す関数 */
   async function fitToKB(encodeAt, maxKB, startQ = 0.95, minQ = 0.15) {
     const limit = maxKB * 1024;
-    let best = await encodeAt(startQ);
-    if (!maxKB || best.size <= limit) return { blob: best, q: startQ, over: false };
+    const first = await encodeAt(startQ);
+    if (!maxKB || first.size <= limit) return { blob: first, q: startQ, over: false };
+    const low = await encodeAt(minQ);
+    if (low.size > limit) return { blob: low, q: minQ, over: true };
+    // Halves the gap between the lowest quality that fits and the highest that does not.
     let lo = minQ;
     let hi = startQ;
-    let okBlob = null;
-    let okQ = 0;
-    const low = await encodeAt(lo);
-    if (low.size > limit) return { blob: low, q: lo, over: true };
-    okBlob = low;
-    okQ = lo;
+    let okBlob = low;
+    let okQ = minQ;
     for (let i = 0; i < 8; i++) {
-      const mq = (lo + hi) / 2;
-      const b = await encodeAt(mq);
-      if (b.size <= limit) {
-        okBlob = b;
-        okQ = mq;
-        lo = mq;
-      } else hi = mq;
+      const mid = (lo + hi) / 2;
+      const blob = await encodeAt(mid);
+      if (blob.size <= limit) {
+        okBlob = blob;
+        okQ = mid;
+        lo = mid;
+      } else hi = mid;
     }
     return { blob: okBlob, q: okQ, over: false };
   }

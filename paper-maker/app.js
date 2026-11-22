@@ -9,6 +9,7 @@ import { hexToRgb } from "../shared/js/color.js";
 import { pixelRatio } from "../shared/js/canvas.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { KINDS, buildSheet } from "./sheets.js";
+import { OFFLINE } from "../shared/js/vendor.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use.
 const SETTINGS_KEY = "paper-maker-v1";
@@ -238,10 +239,8 @@ registerOffline([
   "sheets.js",
   "icon.svg",
   "manifest.webmanifest",
-  "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
-  "../shared/vendor/fontkit-1.1.1/fontkit.umd.min.js",
-  "../shared/vendor/harfbuzz-1.6.3/harfbuzz-subset.wasm",
-  "../shared/vendor/noto-sans-jp/NotoSansJP-Regular.ttf",
+  ...OFFLINE.pdfLib,
+  ...OFFLINE.fontJp,
 ]);
 
 // Hook for automated tests.

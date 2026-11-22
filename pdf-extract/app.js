@@ -10,8 +10,7 @@ import { copyText } from "../shared/js/clipboard.js";
 import { isImage, readableImage } from "../shared/js/heic.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import "../shared/js/guide.js";
-
-const asset = (path) => new URL(path, location.href).href;
+import { LIB, OFFLINE, vendorUrl } from "../shared/js/vendor.js";
 
 const PREVIEW_PX = 280; // width of a page preview, in CSS pixels
 const OCR_PX = 3000; // longest side of the page image given to OCR (about 260 dpi for A4)
@@ -446,7 +445,7 @@ async function renderPreview(view) {
 
 /* ---------- OCR ---------- */
 
-const loadTesseract = () => loadScript("tesseract-7.0.0/tesseract.min.js", "Tesseract");
+const loadTesseract = () => loadScript(`${LIB.tesseract}/tesseract.min.js`, "Tesseract");
 
 let ocr = null; // { worker, lang }
 let ocrProgress = () => {};
@@ -455,10 +454,10 @@ async function getOcrWorker(lang) {
   const Tesseract = await loadTesseract();
   if (!ocr) {
     const worker = await Tesseract.createWorker(lang, 1, {
-      workerPath: asset("../shared/vendor/tesseract-7.0.0/worker.min.js"),
+      workerPath: vendorUrl(`${LIB.tesseract}/worker.min.js`),
       // Every Chrome on a Chromebook supports WebAssembly SIMD, so only this core is bundled.
-      corePath: asset("../shared/vendor/tesseract-7.0.0/tesseract-core-simd-lstm.wasm.js"),
-      langPath: asset("../shared/vendor/tesseract-7.0.0/lang"),
+      corePath: vendorUrl(`${LIB.tesseract}/tesseract-core-simd-lstm.wasm.js`),
+      langPath: vendorUrl(`${LIB.tesseract}/lang`),
       workerBlobURL: false,
       logger: (m) => ocrProgress(m),
       errorHandler: (err) => console.error(err),
@@ -683,8 +682,8 @@ registerOffline([
   "app.js",
   "icon.svg",
   "manifest.webmanifest",
-  "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs",
-  "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
+  ...OFFLINE.pdfjs,
+  ...OFFLINE.pdfLib,
 ]);
 
 updateUi();

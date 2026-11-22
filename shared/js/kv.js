@@ -6,12 +6,16 @@ const STORE = "kv";
 let opening = null;
 
 function db() {
-  opening ??= new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+  if (!opening) {
+    opening = new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    // A store that could not be opened (site data blocked for a moment) is tried again next time.
+    opening.catch(() => (opening = null));
+  }
   return opening;
 }
 

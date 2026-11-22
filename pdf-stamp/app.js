@@ -13,6 +13,7 @@ import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
 import { dateText } from "../shared/js/dates.js";
 import { parseRange } from "../shared/js/range.js";
 import "../shared/js/guide.js";
+import { OFFLINE } from "../shared/js/vendor.js";
 
 const FONT_FAMILY = "PdfStampJP";
 const PREVIEW_PX = 440; // preview page width, in CSS pixels (big enough to read a page number)
@@ -599,6 +600,7 @@ async function setWatermarkImage(file) {
     const img = new Image();
     img.src = URL.createObjectURL(blob);
     await img.decode();
+    if (state.wmImage) URL.revokeObjectURL(state.wmImage.img.src);
     state.wmImage = { name: file.name, bytes: new Uint8Array(await blob.arrayBuffer()), img };
     els.wmImageName.textContent = file.name;
     els.wmOn.checked = true;
@@ -676,12 +678,9 @@ registerOffline([
   "app.js",
   "icon.svg",
   "manifest.webmanifest",
-  "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
-  "../shared/vendor/fontkit-1.1.1/fontkit.umd.min.js",
-  "../shared/vendor/harfbuzz-1.6.3/harfbuzz-subset.wasm",
-  "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs",
-  "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
-  "../shared/vendor/noto-sans-jp/NotoSansJP-Regular.ttf",
+  ...OFFLINE.pdfLib,
+  ...OFFLINE.fontJp,
+  ...OFFLINE.pdfjs,
 ]);
 
 // Hook for automated tests.

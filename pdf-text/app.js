@@ -10,6 +10,7 @@ import { hexToRgb } from "../shared/js/color.js";
 import { canvasToBlob } from "../shared/js/canvas.js";
 import { History } from "../shared/js/history.js";
 import "../shared/js/guide.js";
+import { OFFLINE } from "../shared/js/vendor.js";
 
 const FONT_FAMILY = "PdfTextJP";
 const LINE_HEIGHT = 1.25; // must match .tbox line-height in style.css
@@ -902,12 +903,9 @@ registerOffline([
   "app.js",
   "icon.svg",
   "manifest.webmanifest",
-  "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
-  "../shared/vendor/fontkit-1.1.1/fontkit.umd.min.js",
-  "../shared/vendor/harfbuzz-1.6.3/harfbuzz-subset.wasm",
-  "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs",
-  "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
-  "../shared/vendor/noto-sans-jp/NotoSansJP-Regular.ttf",
+  ...OFFLINE.pdfLib,
+  ...OFFLINE.fontJp,
+  ...OFFLINE.pdfjs,
 ]);
 
 // Hook for automated tests.

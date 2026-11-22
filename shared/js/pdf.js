@@ -1,10 +1,13 @@
 // pdf.js set up for this site: worker, character maps and fonts from shared/vendor.
+// An import has to name its file in full: keep this folder the same as LIB.pdfjs in vendor.js
+// (tests/vendor-check.mjs checks it).
 import * as pdfjsLib from "../vendor/pdfjs-4.10.38/pdf.min.mjs";
 import { loadPdfLib } from "./pdf-lib.js";
 import { askPassword } from "./password.js";
 import { canvasToBlob, grayscale } from "./canvas.js";
+import { LIB, vendorUrl } from "./vendor.js";
 
-const PDFJS = new URL("../vendor/pdfjs-4.10.38/", import.meta.url).href;
+const PDFJS = vendorUrl(`${LIB.pdfjs}/`);
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.mjs";
 
 export { pdfjsLib };

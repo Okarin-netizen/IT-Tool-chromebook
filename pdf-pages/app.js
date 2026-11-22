@@ -13,6 +13,7 @@ import { pixelRatio } from "../shared/js/canvas.js";
 import { parseRange } from "../shared/js/range.js";
 import { createMenus } from "../shared/js/menus.js";
 import "../shared/js/guide.js";
+import { OFFLINE } from "../shared/js/vendor.js";
 
 const THUMB_SIZES = { small: 110, medium: 150, large: 220 }; // longest side of a thumbnail, in CSS pixels
 const HISTORY_LIMIT = 50;
@@ -830,9 +831,8 @@ registerOffline([
   "app.js",
   "icon.svg",
   "manifest.webmanifest",
-  "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
-  "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs",
-  "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
+  ...OFFLINE.pdfLib,
+  ...OFFLINE.pdfjs,
 ]);
 
 setThumbSize(loadText("pdf-pages-thumb") || "medium");

@@ -1,24 +1,37 @@
 // Japanese font for writing text into PDFs. pdf-lib's built-in subsetting drops glyphs from
 // Noto Sans JP, so the font is cut down to the characters used with HarfBuzz (wasm) and then
 // embedded with `subset: false`.
-const FONT_URL = new URL("../vendor/noto-sans-jp/NotoSansJP-Regular.ttf", import.meta.url).href;
-const SUBSET_WASM_URL = new URL("../vendor/harfbuzz-1.6.3/harfbuzz-subset.wasm", import.meta.url).href;
+import { LIB, vendorUrl } from "./vendor.js";
 
+const FONT_URL = vendorUrl(`${LIB.notoSansJp}/NotoSansJP-Regular.ttf`);
+const SUBSET_WASM_URL = vendorUrl(`${LIB.harfbuzz}/harfbuzz-subset.wasm`);
+
+async function fetchBytes(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("フォントを読み込めませんでした");
+  return res.arrayBuffer();
+}
+
+// Each is downloaded once. A failed download (no network yet) is tried again next time,
+// instead of failing until the page is reloaded.
 let fontBytesPromise = null;
 function loadFontBytes() {
-  fontBytesPromise ??= fetch(FONT_URL).then((r) => {
-    if (!r.ok) throw new Error("フォントを読み込めませんでした");
-    return r.arrayBuffer();
+  fontBytesPromise ??= fetchBytes(FONT_URL).catch((err) => {
+    fontBytesPromise = null;
+    throw err;
   });
   return fontBytesPromise;
 }
 
 let subsetterPromise = null;
 function loadSubsetter() {
-  subsetterPromise ??= fetch(SUBSET_WASM_URL)
-    .then((r) => r.arrayBuffer())
+  subsetterPromise ??= fetchBytes(SUBSET_WASM_URL)
     .then((buf) => WebAssembly.instantiate(buf))
-    .then(({ instance }) => instance.exports);
+    .then(({ instance }) => instance.exports)
+    .catch((err) => {
+      subsetterPromise = null;
+      throw err;
+    });
   return subsetterPromise;
 }
 

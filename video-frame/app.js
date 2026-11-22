@@ -14,10 +14,11 @@ import { addNextTool } from "../shared/js/handoff.js";
 import { registerOffline } from "../shared/js/offline.js";
 import "../shared/js/guide.js";
 import { iconButton } from "../shared/js/buttons.js";
+import { LIB, OFFLINE } from "../shared/js/vendor.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use.
 const SETTINGS_KEY = "video-frame-settings-v1";
-const MEDIABUNNY = "mediabunny-1.65.0/mediabunny.min.js";
+const MEDIABUNNY = `${LIB.mediabunny}/mediabunny.min.js`;
 const DEFAULT_FPS = 30; // frames per second, when the video does not say
 const MAX_FPS = 240;
 const MAX_SHOTS = 300; // photos kept at once
@@ -725,7 +726,7 @@ renderShots();
 // Keeps this tool working without a network once it has been opened.
 registerOffline([
   "./", "index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest",
-  `../shared/vendor/${MEDIABUNNY}`,
+  ...OFFLINE.mediabunny,
 ]);
 
 // Hook for automated tests.
