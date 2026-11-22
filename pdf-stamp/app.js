@@ -1,4 +1,4 @@
-import { openPdf, isPasswordCancelled, rasterizePdf } from "../shared/js/pdf.js";
+import { openPdf, isPasswordCancelled, rasterizePdf, closePdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
@@ -374,7 +374,7 @@ async function openFiles(list) {
 
 function resetDocument() {
   previews.clear();
-  for (const file of state.files) file.pdf.destroy();
+  for (const file of state.files) closePdf(file.pdf);
   state.files = [];
   state.pages = [];
   els.pages.replaceChildren();

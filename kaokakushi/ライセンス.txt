@@ -36,6 +36,6 @@ SOFTWARE.
 使用しているオープンソースソフトウェア
 ------------------------------------------------
 Chromebook便利ツールの shared/vendor/ に同梱しています。ライセンスの全文は各フォルダにあります。
-・MediaPipe Tasks Vision 1.2.0 と顔検出モデル BlazeFace（Apache License 2.0）: shared/vendor/mediapipe-tasks-vision-1.2.0/, shared/vendor/mediapipe-face-models/
-・Mediabunny 1.65.0（Mozilla Public License 2.0、改変なし）: shared/vendor/mediabunny-1.65.0/
-※ shared/vendor/mediapipe-tasks-vision-1.2.0/vision.js は、利用状況を送信する処理を無効にするよう1か所変更しています（Apache License 2.0 第4条に基づく変更の表示）。
+・MediaPipe Tasks Vision 1.2.3 と顔検出モデル BlazeFace（Apache License 2.0）: shared/vendor/mediapipe-tasks-vision-1.2.3/, shared/vendor/mediapipe-face-models/
+・Mediabunny 1.66.2（Mozilla Public License 2.0、改変なし）: shared/vendor/mediabunny-1.66.2/
+※ shared/vendor/mediapipe-tasks-vision-1.2.3/vision.js は、利用状況を送信する処理を無効にするよう1か所変更しています（Apache License 2.0 第4条に基づく変更の表示）。

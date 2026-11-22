@@ -1,7 +1,7 @@
 // pdf.js set up for this site: worker, character maps and fonts from shared/vendor.
 // An import has to name its file in full: keep this folder the same as LIB.pdfjs in vendor.js
 // (tests/vendor-check.mjs checks it).
-import * as pdfjsLib from "../vendor/pdfjs-4.10.38/pdf.min.mjs";
+import * as pdfjsLib from "../vendor/pdfjs-6.5.438/pdf.min.mjs";
 import { loadPdfLib } from "./pdf-lib.js";
 import { askPassword } from "./password.js";
 import { canvasToBlob, grayscale } from "./canvas.js";
@@ -26,6 +26,9 @@ export function openPdf(data, { name } = {}) {
     cMapUrl: PDFJS + "cmaps/",
     cMapPacked: true,
     standardFontDataUrl: PDFJS + "standard_fonts/",
+    wasmUrl: PDFJS + "wasm/",
+    iccUrl: PDFJS + "iccs/",
+    enableScripting: false,
   });
   let tried = null;
   let cancelled = false;
@@ -57,6 +60,12 @@ export function openPdf(data, { name } = {}) {
     },
   );
   return { promise, destroy: () => task.destroy() };
+}
+
+// Closes a PDF opened with openPdf and frees its memory in the worker. (pdf.js 5 removed the
+// document's own destroy(); the loading task closes it.)
+export function closePdf(pdf) {
+  return pdf?.loadingTask.destroy();
 }
 
 export const isPasswordCancelled = (err) => err?.name === "PasswordException";
