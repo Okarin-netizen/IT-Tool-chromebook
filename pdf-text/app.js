@@ -1,4 +1,4 @@
-import { pdfjsLib, openPdf, openPdfError, rasterizePdf } from "../shared/js/pdf.js";
+import { pdfjsLib, openPdf, openPdfError, rasterizePdf, closePdf } from "../shared/js/pdf.js";
 import { createPageViewer, clampScale } from "../shared/js/page-viewer.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, download, onFileDrop } from "../shared/js/files.js";
@@ -124,7 +124,7 @@ async function openFile(file) {
 
 function resetDocument() {
   viewer.clear();
-  state.pdf?.destroy();
+  closePdf(state.pdf);
   state.pages = [];
   state.hasForm = false;
   // Photos taken out are kept for undo until another PDF is opened.
@@ -207,8 +207,11 @@ async function renderFormLayer(view, page) {
   view.el.append(div);
   view.formLayer = div;
   const viewport = page.getViewport({ scale: state.scale }).clone({ dontFlip: true });
+  // pdf.js 5 and later take linkService and annotationStorage here, not in render().
   const layer = new pdfjsLib.AnnotationLayer({
     div, page, viewport,
+    linkService,
+    annotationStorage: state.pdf.annotationStorage,
     accessibilityManager: null, annotationCanvasMap: null, annotationEditorUIManager: null, structTreeLayer: null,
   });
   await layer.render({
@@ -216,13 +219,15 @@ async function renderFormLayer(view, page) {
     div,
     annotations,
     page,
-    linkService,
     renderForms: true,
-    annotationStorage: state.pdf.annotationStorage,
     imageResourcesPath: "",
     enableScripting: false,
     hasJSActions: false,
   });
+  // pdf.js sizes the layer with CSS round(), which older Chrome does not know; the fields are
+  // placed in % of the layer, so it is given its size in pixels.
+  div.style.width = `${viewport.width}px`;
+  div.style.height = `${viewport.height}px`;
   div.addEventListener("input", () => (state.dirty = true));
   div.addEventListener("change", () => (state.dirty = true));
 }

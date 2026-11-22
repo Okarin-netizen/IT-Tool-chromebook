@@ -1,4 +1,4 @@
-import { openPdf, openPdfError, rasterizePdf, renderPage } from "../shared/js/pdf.js";
+import { openPdf, openPdfError, rasterizePdf, renderPage, closePdf } from "../shared/js/pdf.js";
 import { createPageViewer, clampScale } from "../shared/js/page-viewer.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, download, onFileDrop } from "../shared/js/files.js";
@@ -165,7 +165,7 @@ async function openFile(file) {
 
 function resetDocument() {
   viewer.clear();
-  state.pdf?.destroy();
+  closePdf(state.pdf);
   state.pages = [];
   state.items = [];
   history.reset();

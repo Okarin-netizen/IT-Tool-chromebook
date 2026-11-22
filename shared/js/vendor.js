@@ -3,29 +3,36 @@
 // places that cannot read this file (the <script> tags of kaotori/ and kaokakushi/, the import
 // at the top of pdf.js) are checked against it by `node tests/vendor-check.mjs`.
 export const LIB = {
-  pdfjs: "pdfjs-4.10.38",
+  pdfjs: "pdfjs-6.5.438",
   pdfLib: "pdf-lib-1.17.1",
   fontkit: "fontkit-1.1.1",
-  harfbuzz: "harfbuzz-1.6.3",
+  harfbuzz: "harfbuzz-1.6.4",
   notoSansJp: "noto-sans-jp",
-  heicTo: "heic-to-1.6.6",
+  heicTo: "heic-to-1.6.7",
   tesseract: "tesseract-7.0.0",
   qrcode: "qrcode-generator-2.0.4",
-  mediapipe: "mediapipe-tasks-vision-1.2.0",
+  mediapipe: "mediapipe-tasks-vision-1.2.3",
   mediapipeModels: "mediapipe-face-models",
   faceApi: "face-api-1.7.15",
   jszip: "jszip-3.10.2",
-  mediabunny: "mediabunny-1.65.0",
+  mediabunny: "mediabunny-1.66.2",
 };
 
-// "pdfjs-4.10.38/pdf.min.mjs" → its full address.
+// "pdfjs-6.5.438/pdf.min.mjs" → its full address.
 export const vendorUrl = (path) => new URL(`../vendor/${path}`, import.meta.url).href;
 
 // The files each library needs, for the tools' registerOffline([...]) lists. A tool that loads a
 // library only when it is used (pdf-lib when saving) still lists it, so that it works offline
 // even if it was never used while online.
 export const OFFLINE = {
-  pdfjs: [`${LIB.pdfjs}/pdf.min.mjs`, `${LIB.pdfjs}/pdf.worker.min.mjs`].map(vendorUrl),
+  // pdf.js and the decoders it uses for scanned pages (JPEG 2000, JBIG2) and colors (ICC).
+  pdfjs: [
+    `${LIB.pdfjs}/pdf.min.mjs`,
+    `${LIB.pdfjs}/pdf.worker.min.mjs`,
+    `${LIB.pdfjs}/wasm/openjpeg.wasm`,
+    `${LIB.pdfjs}/wasm/jbig2.wasm`,
+    `${LIB.pdfjs}/wasm/qcms_bg.wasm`,
+  ].map(vendorUrl),
   pdfLib: [`${LIB.pdfLib}/pdf-lib.min.js`].map(vendorUrl),
   // Japanese text in PDFs (font-jp.js): fontkit, the font, and HarfBuzz to cut the font down.
   fontJp: [

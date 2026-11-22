@@ -1,4 +1,4 @@
-import { openPdf, openPdfError, renderPage } from "../shared/js/pdf.js";
+import { openPdf, openPdfError, renderPage, closePdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { createLazyRenderer, freeCanvas } from "../shared/js/lazy.js";
@@ -328,7 +328,7 @@ function closeCurrent() {
   previews.clear();
   state.pages = [];
   els.pages.replaceChildren();
-  state.pdf?.destroy();
+  closePdf(state.pdf);
   state.pdf = null;
   state.bytes = null;
 }

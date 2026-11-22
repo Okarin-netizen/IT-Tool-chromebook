@@ -1,4 +1,4 @@
-import { openPdf, openPdfError, renderPage } from "../shared/js/pdf.js";
+import { openPdf, openPdfError, renderPage, closePdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
@@ -55,7 +55,7 @@ async function openFile(file) {
     return;
   }
 
-  closePdf();
+  closeDocument();
   state.pdf = pdf;
   state.name = file.name || "document.pdf";
   for (let index = 0; index < pdf.numPages; index++) {
@@ -69,12 +69,12 @@ async function openFile(file) {
   showStatus(`${pdf.numPages}ページのPDFを開きました`);
 }
 
-function closePdf() {
+function closeDocument() {
   thumbs.clear();
   els.grid.replaceChildren();
   state.pages = [];
   state.lastClicked = null;
-  state.pdf?.destroy();
+  closePdf(state.pdf);
   state.pdf = null;
 }
 

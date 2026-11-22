@@ -1,4 +1,4 @@
-import { openPdf, openPdfError, rasterizePdf, renderPage } from "../shared/js/pdf.js";
+import { openPdf, openPdfError, rasterizePdf, renderPage, closePdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
@@ -254,7 +254,7 @@ async function openFiles(list) {
     const { width, height } = (await pdf.getPage(num)).getViewport({ scale: 1 });
     pages.push({ width, height });
   }
-  state.file?.pdf.destroy();
+  closePdf(state.file?.pdf);
   state.file = { name: file.name || "document.pdf", bytes, pdf };
   state.pages = pages;
   state.order = pages.map((_, i) => i);

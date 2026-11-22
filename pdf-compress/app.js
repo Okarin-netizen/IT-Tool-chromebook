@@ -1,4 +1,4 @@
-import { pdfjsLib, openPdf, openPdfError, rasterizePdf } from "../shared/js/pdf.js";
+import { pdfjsLib, openPdf, openPdfError, rasterizePdf, closePdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, formatSize, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
@@ -72,7 +72,7 @@ async function openFile(file) {
     const pdf = await openPdf(bytes.slice(), { name: file.name }).promise;
     // pdf-lib can't decrypt, so a protected PDF can only be shrunk by rendering its pages.
     const probe = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
-    await state.file?.pdf.destroy();
+    await closePdf(state.file?.pdf);
     clearResult();
     state.file = { name: file.name || "document.pdf", bytes, pdf, encrypted: probe.isEncrypted };
   } catch (err) {
@@ -198,7 +198,7 @@ async function showResult(out, { method, target, gray }) {
 }
 
 function clearResult() {
-  state.result?.pdf.destroy();
+  closePdf(state.result?.pdf);
   state.result = null;
   els.result.hidden = true;
 }

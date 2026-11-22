@@ -9,18 +9,29 @@
 
 | フォルダ | ライブラリ | 用途 | 使っているツール | ライセンス |
 | --- | --- | --- | --- | --- |
-| `pdfjs-4.10.38/` | [pdf.js](https://github.com/mozilla/pdf.js) 4.10.38 | PDFの表示・文字の取り出し | PDF文字入れ、PDF結合・分割・回転、PDFに手書き・署名、PDF一括採点、PDF圧縮、PDF→画像、ページ番号・透かし入れ、PDF文字取り出し | Apache-2.0 |
+| `pdfjs-6.5.438/` | [pdf.js](https://github.com/mozilla/pdf.js) 6.5.438（`legacy` 版。少し古い Chrome でも動くもの。`wasm/` は画像の読み取り用、`iccs/` は色の変換用） | PDFの表示・文字の取り出し | PDF文字入れ、PDF結合・分割・回転、PDFに手書き・署名、PDF一括採点、PDF圧縮、PDF→画像、ページ番号・透かし入れ、PDF文字取り出し | Apache-2.0 |
 | `pdf-lib-1.17.1/` | [pdf-lib](https://github.com/Hopding/pdf-lib) 1.17.1 | PDFの作成・書き込み | PDF文字入れ、PDF結合・分割・回転、PDFに手書き・署名、PDF一括採点、PDF圧縮、ページ番号・透かし入れ、画像→PDF、大きく分けて印刷 | MIT |
 | `fontkit-1.1.1/` | [@pdf-lib/fontkit](https://github.com/Hopding/fontkit) 1.1.1 | フォントの読み込み | PDF文字入れ、ページ番号・透かし入れ | MIT |
-| `harfbuzz-1.6.3/` | [harfbuzzjs](https://github.com/harfbuzz/harfbuzzjs) 1.6.3 | 使う文字だけにフォントを縮小 | PDF文字入れ、ページ番号・透かし入れ | MIT |
+| `harfbuzz-1.6.4/` | [harfbuzzjs](https://github.com/harfbuzz/harfbuzzjs) 1.6.4 | 使う文字だけにフォントを縮小 | PDF文字入れ、ページ番号・透かし入れ | MIT |
 | `noto-sans-jp/` | [Noto Sans JP](https://fonts.google.com/noto/specimen/Noto+Sans+JP) | 日本語フォント | PDF文字入れ、ページ番号・透かし入れ | SIL OFL 1.1 |
 | `tesseract-7.0.0/` | [tesseract.js](https://github.com/naptha/tesseract.js) 7.0.0 / tesseract.js-core 7.0.0（SIMD版のみ）、[tessdata_best](https://github.com/tesseract-ocr/tessdata_best)（`@tesseract.js-data` 1.0.0 の jpn / jpn_vert / eng、best_int） | OCR | PDF文字取り出し | Apache-2.0 |
-| `heic-to-1.6.6/` | [heic-to](https://github.com/hoppergee/heic-to) 1.6.6（libheif を WebAssembly にしたもの。CSP 版） | iPhoneの写真（HEIC）をJPEGに変換。HEICを開いたときだけ読み込みます | 画像→PDF、画像を圧縮、画像に書き込み、かおトリ、写真のツール（写真の情報・写真を直す・並べて1枚に・大きく分けて印刷・人の背景を消す・GIF） | LGPL-3.0（libheif） |
+| `heic-to-1.6.7/` | [heic-to](https://github.com/hoppergee/heic-to) 1.6.7（libheif を WebAssembly にしたもの。CSP 版） | iPhoneの写真（HEIC）をJPEGに変換。HEICを開いたときだけ読み込みます | 画像→PDF、画像を圧縮、画像に書き込み、かおトリ、写真のツール（写真の情報・写真を直す・並べて1枚に・大きく分けて印刷・人の背景を消す・GIF） | LGPL-3.0（libheif） |
 | `qrcode-generator-2.0.4/` | [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 2.0.4（ESM版 `qrcode.mjs`） | QRコードの作成 | QRコード作成 | MIT |
-| `mediapipe-tasks-vision-1.2.0/` | [MediaPipe Tasks Vision](https://github.com/google-ai-edge/mediapipe)（`@mediapipe/tasks-vision` 1.2.0）。`vision.js` は本体（利用状況を送る処理を1か所無効にしたもの）、`wasm.js` は WebAssembly を base64 にして JavaScript に入れたもの | 顔の検出・顔の向き・人物の切り抜き | かおトリ、かおかくし、人の背景を消す | Apache-2.0 |
+| `mediapipe-tasks-vision-1.2.3/` | [MediaPipe Tasks Vision](https://github.com/google-ai-edge/mediapipe)（`@mediapipe/tasks-vision` 1.2.3）。`vision.js` は本体（利用状況を送る処理を1か所無効にしたもの）、`wasm.js` は WebAssembly を base64 にして JavaScript に入れたもの | 顔の検出・顔の向き・人物の切り抜き | かおトリ、かおかくし、人の背景を消す | Apache-2.0 |
 | `mediapipe-face-models/` | MediaPipe のモデル（base64）: BlazeFace（full range）の顔検出 `face-detector.js`、Face Landmarker `face-landmarker.js`、Selfie Segmenter `selfie-segmenter.js` | 同上 | 顔検出はかおトリ・かおかくし、Face Landmarker はかおトリ、Selfie Segmenter はかおトリ・人の背景を消す | Apache-2.0 |
 | `face-api-1.7.15/` | [@vladmandic/face-api](https://github.com/vladmandic/face-api) 1.7.15（TensorFlow.js 入り）と顔認識モデル（`face-recognition-model.js`、base64） | 写真を写っている人ごとに分ける。使うときだけ読み込みます | かおトリ | MIT |
 | `jszip-3.10.2/` | [JSZip](https://github.com/Stuk/jszip) 3.10.2 | ZIPの作成 | かおトリ | MIT（MIT と GPLv3 のどちらかを選べる。MIT を選択） |
-| `mediabunny-1.65.0/` | [Mediabunny](https://github.com/Vanilagy/mediabunny) 1.65.0（改変なし） | 動画の読み込みと書き出し | かおかくし | MPL-2.0 |
+| `mediabunny-1.66.2/` | [Mediabunny](https://github.com/Vanilagy/mediabunny) 1.66.2（改変なし） | 動画の読み込みと書き出し | かおかくし | MPL-2.0 |
 
 ライセンスの全文は各フォルダの `LICENSE`・`LICENSE.md`・`OFL.txt` などにあります。
+
+## MediaPipe（`mediapipe-tasks-vision-*`）の作り方
+
+npm の `@mediapipe/tasks-vision` から、次のように作ります（1.2.0 と同じ手順で 1.2.3 を作りました）。
+
+1. `vision.js`: `npx esbuild@0.25.9 package/vision_bundle.mjs --bundle --format=iife --global-name=MPVision --minify` の結果の `async send(e,t,r){` の直後に、利用状況の送信を止める `/* かおトリ: 利用状況の送信を無効化（オフライン運用のため） */if(1)return;` を入れる
+2. `wasm.js`: 1行目にライセンスの注記、2行目に `window.KAO_WASM_LOADER=` と `package/wasm/vision_wasm_internal.js` の中身を JSON の文字列にしたもの、3行目に `window.KAO_WASM_B64="…";`（`vision_wasm_internal.wasm` を base64 にしたもの）
+
+## pdf.js（`pdfjs-*`）の入れ方
+
+npm の `pdfjs-dist` の `legacy/build/` の `pdf.min.mjs` と `pdf.worker.min.mjs`（少し古い Chrome でも動く版）、`cmaps/`・`standard_fonts/`・`iccs/`、`wasm/` のうち `openjpeg`・`jbig2`・`qcms` のファイルとライセンスを入れます（`quickjs` は PDF の中のスクリプトを動かすためのもので、使わないので入れません）。

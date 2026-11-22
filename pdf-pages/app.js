@@ -1,4 +1,4 @@
-import { openPdf, openPdfError, renderPage, addPageImage } from "../shared/js/pdf.js";
+import { openPdf, openPdfError, renderPage, addPageImage, closePdf } from "../shared/js/pdf.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
@@ -316,7 +316,7 @@ function removePages(views) {
 
 function clearAll() {
   removePages(state.pages.slice());
-  for (const file of state.files) file.pdf.destroy();
+  for (const file of state.files) closePdf(file.pdf);
   state.files = [];
   blankFiles.clear();
   history.reset();
