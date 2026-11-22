@@ -15,6 +15,7 @@ import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
 import { dateText } from "../shared/js/dates.js";
 import "../shared/js/guide.js";
+import { OFFLINE } from "../shared/js/vendor.js";
 
 const SIGN_PT = 0.4; // signature pad units → PDF points when first placed
 const MAX_SIGNS = 5;
@@ -639,9 +640,8 @@ registerOffline([
   "app.js",
   "icon.svg",
   "manifest.webmanifest",
-  "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
-  "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs",
-  "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
+  ...OFFLINE.pdfLib,
+  ...OFFLINE.pdfjs,
 ]);
 
 state.sealName = loadJson(STORE.name, "");

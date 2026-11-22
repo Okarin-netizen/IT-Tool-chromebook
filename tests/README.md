@@ -17,6 +17,12 @@ node tests/smoke.cjs --ocr            # PDF文字取り出しの OCR も確か�
 node tests/smoke.cjs --headed         # ブラウザの画面を表示して動かす
 ```
 
+同梱ライブラリ（`shared/vendor/`）の版とオフライン用の一覧が `shared/js/vendor.js` と合っているかは、ブラウザなしで確かめられます。
+
+```sh
+node tests/vendor-check.mjs
+```
+
 電卓の計算（`calc/expr.js`）とグラフの交点・頂点（`calc/points.js`）は、ブラウザなしで確かめられます。
 
 ```sh

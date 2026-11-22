@@ -26,9 +26,10 @@
     if (rec.ready) return;
     if (!rec.loading)
       rec.loading = (async () => {
+        // Plain paths so that this also works when opened as a file (file://), where a module
+        // cannot be imported. Keep them the same as LIB.faceApi in shared/js/vendor.js.
         if (!window.faceapi) await loadScript("../shared/vendor/face-api-1.7.15/face-api.js");
-        if (!window.KAO_REC_MODEL)
-          await loadScript("../shared/vendor/face-api-1.7.15/face-recognition-model.js");
+        if (!window.KAO_REC_MODEL) await loadScript("../shared/vendor/face-api-1.7.15/face-recognition-model.js");
         const tf = faceapi.tf;
         try {
           await tf.setBackend("webgl");

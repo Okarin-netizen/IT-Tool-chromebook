@@ -1,6 +1,7 @@
 /*! かおかくし v1.0.1 | (c) 2026 技術 岡田 | MIT License */
 /* かおかくし — 動画に写った顔へ自動でモザイク・ぼかし・目線を入れる
  * すべての処理はブラウザ内で行い、動画を外部へ送信しない。 */
+/* global MPVision -- shared/vendor/mediapipe-tasks-vision の vision.js が用意する */
 (() => {
   "use strict";
 
@@ -539,7 +540,7 @@
   const vctx = view.getContext("2d");
   const video = $("video");
   let playing = false;
-  let rafId = 0;
+  let playRun = 0; // only the newest drawing loop keeps going (play, pause, play quickly)
   function previewSize() {
     const { w, h } = state.info;
     const s = Math.min(1, 1280 / Math.max(w, h));
@@ -584,7 +585,6 @@
   function curTime() {
     return state.sinkPreview ? state.sinkTime || 0 : video.currentTime;
   }
-  let lastSrcReady = false;
   async function seekTo(t) {
     if (!state.info) return;
     t = Math.max(0, Math.min(state.info.duration, t));
@@ -703,17 +703,19 @@
     playing = false;
     setPlayLabel(false);
   });
-  function loop() {
-    if (!playing) return;
+  function loop(run = ++playRun) {
+    if (!playing || run !== playRun) return;
     if (video.requestVideoFrameCallback) {
       video.requestVideoFrameCallback((now, meta) => {
+        if (run !== playRun) return;
         drawFrame(video, meta.mediaTime);
-        loop();
+        loop(run);
       });
     } else {
-      rafId = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (run !== playRun) return;
         drawFrame(video, video.currentTime);
-        loop();
+        loop(run);
       });
     }
   }
@@ -1058,7 +1060,6 @@
       prev.width = Math.round(ow * Math.min(1, 480 / ow));
       prev.height = Math.round((oh * prev.width) / ow);
       let lastUI = 0;
-      let frameNo = 0;
       const videoOpts = {
         codec,
         quality,
@@ -1076,7 +1077,6 @@
           }
           sample.drawWithFit(ctx, { fit: "fill" });
           applyEffects(ctx, W, H, sample.timestamp, S);
-          frameNo++;
           const now = performance.now();
           if (now - lastUI > 250) {
             lastUI = now;
@@ -1373,8 +1373,8 @@ document.getElementById("safeLink").addEventListener("click", (e) => {
 
 // Keeps the tool working without a network once it has been opened (the site-wide service
 // worker, see shared/js/offline.js). Libraries are listed in full: some load only when needed.
-import("../shared/js/offline.js")
-  .then(({ registerOffline }) =>
+Promise.all([import("../shared/js/offline.js"), import("../shared/js/vendor.js")])
+  .then(([{ registerOffline }, { OFFLINE }]) =>
     registerOffline([
       "./",
       "index.html",
@@ -1382,10 +1382,9 @@ import("../shared/js/offline.js")
       "app.js",
       "icon.svg",
       "manifest.webmanifest",
-      "../shared/vendor/mediabunny-1.65.0/mediabunny.min.js",
-      "../shared/vendor/mediapipe-tasks-vision-1.2.0/vision.js",
-      "../shared/vendor/mediapipe-tasks-vision-1.2.0/wasm.js",
-      "../shared/vendor/mediapipe-face-models/face-detector.js",
+      ...OFFLINE.mediabunny,
+      ...OFFLINE.mediapipe,
+      ...OFFLINE.faceDetector,
     ]),
   )
   .catch(() => {

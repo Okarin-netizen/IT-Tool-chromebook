@@ -9,6 +9,7 @@ import { registerOffline } from "../shared/js/offline.js";
 import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
 import { copyImage } from "../shared/js/clipboard.js";
 import "../shared/js/guide.js";
+import { OFFLINE } from "../shared/js/vendor.js";
 
 const THUMB_PX = 150; // longest side of a thumbnail, in CSS pixels
 const MAX_PIXELS = 25_000_000; // keep huge pages from exhausting memory
@@ -296,8 +297,7 @@ registerOffline([
   "app.js",
   "icon.svg",
   "manifest.webmanifest",
-  "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs",
-  "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
+  ...OFFLINE.pdfjs,
 ]);
 
 updateUi();

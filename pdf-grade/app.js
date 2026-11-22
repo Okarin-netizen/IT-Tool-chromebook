@@ -17,6 +17,7 @@ import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { pixelRatio } from "../shared/js/canvas.js";
 import { dateText } from "../shared/js/dates.js";
 import "../shared/js/guide.js";
+import { OFFLINE } from "../shared/js/vendor.js";
 
 // Tools kept in the 「その他」 menu, so the toolbar fits in two rows on an 11.6-inch screen.
 const MORE_TOOLS = ["marker", "text"];
@@ -1318,9 +1319,8 @@ registerOffline([
   "app.js",
   "icon.svg",
   "manifest.webmanifest",
-  "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
-  "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs",
-  "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
+  ...OFFLINE.pdfLib,
+  ...OFFLINE.pdfjs,
 ]);
 
 if (window.matchMedia("(max-width: 760px)").matches) toggleFiles(false);

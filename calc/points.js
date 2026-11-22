@@ -100,7 +100,7 @@ function extremaOf(f, x0, x1, scaleY) {
     const up = yb - ya;
     const down = yc - yb;
     const flat = 1e-12 * scaleY;
-    let sign = 0;
+    let sign;
     if (up > flat && down <= 0) sign = 1;
     else if (up < -flat && down >= 0) sign = -1;
     else continue;

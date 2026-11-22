@@ -10,6 +10,7 @@ import { createSortable } from "../shared/js/sortable.js";
 import { iconButton } from "../shared/js/buttons.js";
 import { registerOffline } from "../shared/js/offline.js";
 import "../shared/js/guide.js";
+import { OFFLINE } from "../shared/js/vendor.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use.
 const SETTINGS_KEY = "screenshot-stitch-settings-v1";
@@ -882,7 +883,7 @@ syncControls();
 render();
 
 // Keeps this tool working without a network once it has been opened.
-registerOffline(["./", "index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest"]);
+registerOffline(["./", "index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest", ...OFFLINE.pdfLib]);
 
 // Hook for automated tests.
 window.__screenshotStitch = { state, settings, addFiles, save, layout, update };

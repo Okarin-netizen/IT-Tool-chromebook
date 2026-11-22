@@ -7,7 +7,9 @@ import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { canvasToBlob } from "../shared/js/canvas.js";
 import { copyImage, copyText } from "../shared/js/clipboard.js";
+// Keep this folder the same as LIB.qrcode in vendor.js (tests/vendor-check.mjs checks it).
 import qrcode from "../shared/vendor/qrcode-generator-2.0.4/qrcode.mjs";
+import { OFFLINE } from "../shared/js/vendor.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use. Add a new key instead.
 const SETTINGS_KEY = "qr-maker-settings-v1"; // { text, caption, ecc, size }
@@ -354,8 +356,8 @@ registerOffline([
   "app.js",
   "icon.svg",
   "manifest.webmanifest",
-  "../shared/vendor/qrcode-generator-2.0.4/qrcode.mjs",
-  "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
+  ...OFFLINE.qrcode,
+  ...OFFLINE.pdfLib,
 ]);
 
 update();

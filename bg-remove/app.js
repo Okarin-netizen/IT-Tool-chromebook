@@ -8,6 +8,7 @@ import { loadScript } from "../shared/js/load-script.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 import "../shared/js/guide.js";
+import { LIB, OFFLINE } from "../shared/js/vendor.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use.
 const SETTINGS_KEY = "bg-remove-settings-v1";
@@ -15,9 +16,9 @@ const WORK_PX = 2048; // the photo is worked on at most this big (long side)
 const JPEG_QUALITY = 0.92;
 // MediaPipe and its person-finding model, the same files かおトリ uses (shared/vendor).
 const LIBRARIES = [
-  ["mediapipe-tasks-vision-1.2.0/vision.js", "MPVision"],
-  ["mediapipe-tasks-vision-1.2.0/wasm.js", "KAO_WASM_B64"],
-  ["mediapipe-face-models/selfie-segmenter.js", "KAO_MODEL_SEGMENTER"],
+  [`${LIB.mediapipe}/vision.js`, "MPVision"],
+  [`${LIB.mediapipe}/wasm.js`, "KAO_WASM_B64"],
+  [`${LIB.mediapipeModels}/selfie-segmenter.js`, "KAO_MODEL_SEGMENTER"],
 ];
 
 const $ = (id) => document.getElementById(id);
@@ -355,9 +356,8 @@ registerOffline([
   "app.js",
   "icon.svg",
   "manifest.webmanifest",
-  "../shared/vendor/mediapipe-tasks-vision-1.2.0/vision.js",
-  "../shared/vendor/mediapipe-tasks-vision-1.2.0/wasm.js",
-  "../shared/vendor/mediapipe-face-models/selfie-segmenter.js",
+  ...OFFLINE.mediapipe,
+  ...OFFLINE.selfieSegmenter,
 ]);
 
 // Hook for automated tests.

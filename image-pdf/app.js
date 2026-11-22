@@ -10,6 +10,7 @@ import { createSortable } from "../shared/js/sortable.js";
 import { detectCorners, scanLook, warp } from "../shared/js/straighten.js";
 import "../shared/js/guide.js";
 import { iconButton } from "../shared/js/buttons.js";
+import { OFFLINE } from "../shared/js/vendor.js";
 
 const MAX_IMAGE_PX = 2400; // longest side kept per photo; enough to read handwriting, keeps PDFs small
 const JPEG_QUALITY = 0.88;
@@ -604,7 +605,7 @@ registerOffline([
   "app.js",
   "icon.svg",
   "manifest.webmanifest",
-  "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
+  ...OFFLINE.pdfLib,
 ]);
 
 render();

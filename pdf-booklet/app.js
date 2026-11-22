@@ -11,6 +11,7 @@ import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { hexToRgb } from "../shared/js/color.js";
 import { pixelRatio } from "../shared/js/canvas.js";
 import "../shared/js/guide.js";
+import { OFFLINE } from "../shared/js/vendor.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use: users would lose
 // their settings. Add a new key instead.
@@ -758,9 +759,8 @@ registerOffline([
   "app.js",
   "icon.svg",
   "manifest.webmanifest",
-  "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js",
-  "../shared/vendor/pdfjs-4.10.38/pdf.min.mjs",
-  "../shared/vendor/pdfjs-4.10.38/pdf.worker.min.mjs",
+  ...OFFLINE.pdfLib,
+  ...OFFLINE.pdfjs,
 ]);
 
 // Hook for automated tests.

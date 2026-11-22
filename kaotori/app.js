@@ -1,6 +1,7 @@
 /*! かおトリ v1.6.1 | (c) 2026 技術 岡田 | MIT License */
 /* かおトリ — 集合写真の顔切り抜き・証明写真トリミング
  * すべての処理はブラウザ内で行い、画像を外部へ送信しない。 */
+/* global MPVision -- shared/vendor/mediapipe-tasks-vision の vision.js が用意する */
 (() => {
   "use strict";
 
@@ -1062,7 +1063,6 @@
     ctx.drawImage(r.canvas, 0, 0);
     if ($("adjGuide").checked) {
       const f = r.f;
-      const T = r.T;
       ctx.lineWidth = 1.5;
       ctx.strokeStyle = "rgba(239,68,68,.9)";
       ctx.setLineDash([6, 4]);
@@ -1434,6 +1434,8 @@
       busy.show("印刷用の台紙を作っています…", 0);
       const { pages, L } = await renderLayouts();
       const area = $("printArea");
+      // The pictures of the last print are full pages; free them before making new ones.
+      for (const old of area.querySelectorAll("img")) URL.revokeObjectURL(old.src);
       area.textContent = "";
       let st = document.getElementById("pageStyle");
       if (!st) {
@@ -1916,8 +1918,8 @@ document.getElementById("safeLink").addEventListener("click", (e) => {
 
 // Keeps the tool working without a network once it has been opened (the site-wide service
 // worker, see shared/js/offline.js). Libraries are listed in full: some load only when needed.
-import("../shared/js/offline.js")
-  .then(({ registerOffline }) =>
+Promise.all([import("../shared/js/offline.js"), import("../shared/js/vendor.js")])
+  .then(([{ registerOffline }, { OFFLINE }]) =>
     registerOffline([
       "./",
       "index.html",
@@ -1927,16 +1929,14 @@ import("../shared/js/offline.js")
       "people.js",
       "icon.svg",
       "manifest.webmanifest",
-      "../shared/vendor/jszip-3.10.2/jszip.min.js",
-      "../shared/vendor/mediapipe-tasks-vision-1.2.0/vision.js",
-      "../shared/vendor/mediapipe-tasks-vision-1.2.0/wasm.js",
-      "../shared/vendor/mediapipe-face-models/face-detector.js",
-      "../shared/vendor/mediapipe-face-models/face-landmarker.js",
-      "../shared/vendor/mediapipe-face-models/selfie-segmenter.js",
-      "../shared/vendor/face-api-1.7.15/face-api.js",
-      "../shared/vendor/face-api-1.7.15/face-recognition-model.js",
+      ...OFFLINE.jszip,
+      ...OFFLINE.mediapipe,
+      ...OFFLINE.faceDetector,
+      ...OFFLINE.faceLandmarker,
+      ...OFFLINE.selfieSegmenter,
+      ...OFFLINE.faceApi,
       "../shared/js/heic.js",
-      "../shared/vendor/heic-to-1.6.6/heic-to.min.js",
+      ...OFFLINE.heic,
     ]),
   )
   .catch(() => {

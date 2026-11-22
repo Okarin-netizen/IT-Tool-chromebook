@@ -7,6 +7,7 @@ import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 import "../shared/js/guide.js";
+import { OFFLINE } from "../shared/js/vendor.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use.
 const SETTINGS_KEY = "poster-print-settings-v1";
@@ -297,7 +298,7 @@ onFileDrop((files) => openFile(files[0]));
 render();
 
 // Keeps this tool working without a network once it has been opened.
-registerOffline(["./", "index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest", "../shared/vendor/pdf-lib-1.17.1/pdf-lib.min.js"]);
+registerOffline(["./", "index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest", ...OFFLINE.pdfLib]);
 
 // Hook for automated tests.
 window.__posterPrint = { state, settings, openFile, save, plan };
