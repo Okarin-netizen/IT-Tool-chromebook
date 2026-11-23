@@ -6,6 +6,7 @@ import { copyText } from "../shared/js/clipboard.js";
 import { toggleFullscreen } from "../shared/js/fullscreen.js";
 import { dateText } from "../shared/js/dates.js";
 import { arrangeSeats, splitGroups, seatProblems, parseNames, parsePairs, unknownNames } from "./seats.js";
+import "../shared/js/guide.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use: users would lose
 // their class lists. Add a new key instead.

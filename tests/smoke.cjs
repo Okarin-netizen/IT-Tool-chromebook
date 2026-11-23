@@ -2216,6 +2216,19 @@ async function testPortal(browser, server) {
     t.expect(key(tiles) === key(listed), `shared/js/tools.js とトップページのツールが合わない: ${key(listed)} / ${key(tiles)}`);
     await t.shot("start");
 
+    // 説明書 (manual/): one manual for every tool on the portal, each with its screen picture,
+    // and every tool's 「使い方」 leads there.
+    const manual = await page.evaluate(async () => (await import("./manual/data.js")).MANUAL.map((tool) => [tool.id, tool.name]));
+    t.expect(key(manual) === key(listed), `manual/data.js とトップページのツールが合わない: ${key(manual)} / ${key(listed)}`);
+    for (const [id] of manual) t.expect(fs.existsSync(path.join(__dirname, "..", "manual", "shots", `${id}.webp`)), `説明書の画面の写真がない: manual/shots/${id}.webp`);
+    await page.goto(`${server.url}manual/#field-layout`);
+    await page.waitForFunction(() => document.getElementById("m-name").textContent.startsWith("校庭の配置図"));
+    t.expect(await page.$eval("#m-shot", (img) => img.complete && img.naturalWidth > 0), "説明書の画面の写真が出ない");
+    t.expect(await page.isHidden("#list"), "説明書を開いても一覧が出たまま");
+    await page.goto(`${server.url}calc/`);
+    t.expect(/manual\/#calc$/.test(await page.getAttribute(".guide-btn", "href")), "道具に説明書へのリンク（使い方）がない");
+    await page.goto(server.url);
+
     // A star puts a tool in "お気に入り"; tools opened lately show in "最近使ったもの".
     await page.hover("section:not(.quick) a[href='pdf-text/']");
     await page.click("section:not(.quick) a[href='pdf-text/'] ~ .star");

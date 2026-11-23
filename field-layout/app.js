@@ -15,6 +15,7 @@ import { PARTS, MARKS, LINE_DEFAULTS, TEXT_SIZES, NUMBER_SIZE } from "./parts.js
 import { newDoc, figureMarkup, drawItem, DEFS, BASE_INDEX, halfSize, turnedHalfSize, isStraight } from "./drawing.js";
 import { renderPanel } from "./panel.js";
 import { figurePng, figuresPdf } from "./save.js";
+import "../shared/js/guide.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use.
 const DOC_KEY = "field-layout-doc-v1";

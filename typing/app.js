@@ -3,6 +3,7 @@ import { registerOffline } from "../shared/js/offline.js";
 import { shuffle } from "../shared/js/random.js";
 import { createMatcher, normalizeKana, guide } from "./romaji.js";
 import { keyOf, addRound, weakKeys, weightWords, drawKeyboard } from "./keys.js";
+import "../shared/js/guide.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use. Add a new key instead.
 const SETTINGS_KEY = "typing-settings-v1"; // { lang, duration, source }

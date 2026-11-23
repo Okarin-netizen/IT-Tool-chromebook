@@ -10,6 +10,7 @@ import { copyImage, copyText } from "../shared/js/clipboard.js";
 // Keep this folder the same as LIB.qrcode in vendor.js (tests/vendor-check.mjs checks it).
 import qrcode from "../shared/vendor/qrcode-generator-2.0.4/qrcode.mjs";
 import { OFFLINE } from "../shared/js/vendor.js";
+import "../shared/js/guide.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use. Add a new key instead.
 const SETTINGS_KEY = "qr-maker-settings-v1"; // { text, caption, ecc, size }

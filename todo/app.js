@@ -4,6 +4,7 @@ import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { dateText } from "../shared/js/dates.js";
 import { iconButton } from "../shared/js/buttons.js";
+import "../shared/js/guide.js";
 
 const STORAGE_KEY = "todo-tool-v1";
 const DAYS = ["月", "火", "水", "木", "金", "土"];

@@ -10,6 +10,7 @@ import { pixelRatio } from "../shared/js/canvas.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { KINDS, buildSheet } from "./sheets.js";
 import { OFFLINE } from "../shared/js/vendor.js";
+import "../shared/js/guide.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use.
 const SETTINGS_KEY = "paper-maker-v1";

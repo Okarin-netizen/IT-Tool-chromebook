@@ -3,6 +3,7 @@ import { findPoints } from "./points.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { pixelRatio } from "../shared/js/canvas.js";
+import "../shared/js/guide.js";
 
 const STORE_KEY = "calc-tool-v1";
 const MAX_HISTORY = 50;
