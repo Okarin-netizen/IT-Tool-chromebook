@@ -63,6 +63,37 @@
       </ul>
       <p>AIを使うツールは、はじめて開くときに数MBから十数MBを読み込むので、1回目だけ少し待ちます。ほかのツール（タイマー、電卓、QRコードなど）は軽いので、どの端末でも使えます。</p>
 
+      <h2 id="data">この端末に残るもの</h2>
+      <p>ファイルは外に送りませんが、続きから使えるように、次のものはこのブラウザの中（この端末とこのアカウント）に残ります。ほかの人の端末やインターネットには残りません。</p>
+      <table class="data-table">
+        <thead><tr><th>ツール</th><th>残るもの</th><th>消し方</th></tr></thead>
+        <tbody>
+          <tr><td>PDF一括採点</td><td><strong>生徒のPDFと採点の書き込み</strong>（閉じても続きから始めるため）、点数の満点、よく使うコメント</td><td>全員分を「返却用にまとめて保存」したら、下のボタンで消す</td></tr>
+          <tr><td>名前ルーレット・班分け</td><td><strong>名簿（生徒の名前）</strong>、班・席の結果</td><td>名簿を消す、または下のボタン</td></tr>
+          <tr><td>PDFに手書き・署名</td><td>印鑑の名前、手書きの署名</td><td>下のボタン</td></tr>
+          <tr><td>時間割・課題チェックリスト</td><td>時間割、課題</td><td>完了した課題を消す、または下のボタン</td></tr>
+          <tr><td>タイピング練習</td><td>自分で入れたことば、いちばんよい記録、苦手なキー</td><td>下のボタン</td></tr>
+          <tr><td>日付の計算・授業の画面・関数電卓 など</td><td>行事の日付、式、設定</td><td>下のボタン</td></tr>
+          <tr><td>トップページ</td><td>お気に入り、最近使ったツール</td><td>下のボタン</td></tr>
+        </tbody>
+      </table>
+      <p>写真・動画・顔の特徴（かおトリ・かおかくし・人の背景を消す など）は残しません。ページを閉じると消えます。</p>
+      <div class="erase">
+        <button type="button" id="erase-btn">このサイトのデータを全部消す</button>
+        <output id="erase-state" aria-live="polite"></output>
+      </div>
+      <p>端末を返すときや、ほかの人に渡すときは、このボタンで消してください。オフラインで使うためのページの写しは残るので、消したあともそのまま使えます。</p>
+
+      <h2 id="notes">使うときの注意</h2>
+      <ul>
+        <li><strong>中学校の先生と生徒</strong>が学校で使うことを考えて作っています。「先生用」のツール（採点・名簿・行事の写真など）は、生徒の情報を扱います</li>
+        <li><strong>成績・名簿・顔の写った写真</strong>を保存する場所や配り方は、学校の決まりに従ってください。このサイトは保存先を決めません</li>
+        <li><strong>顔を見つける機能（AI）は、見落とすことがあります。</strong>かおトリ・かおかくしで顔を隠したときは、保存する前に最後まで目で確かめてください。横を向いた顔、小さい顔、手や物で一部が隠れた顔は見落としやすくなります</li>
+        <li>カメラを使うツール（画像→PDF・QRコード作成・授業の画面・写真をつなげてGIF）は、映した映像を外に送らず、保存もしません</li>
+        <li>アクセスの記録や広告のしくみは入れていません。公開に使っている GitHub Pages が、ふつうのWebサイトと同じくアクセスの記録を取ることはあります</li>
+        <li>このサイトのプログラムは、作成者がAI（Claude）を使って作り、動きを確かめています</li>
+      </ul>
+
       <h2>作成者</h2>
       <dl class="facts">
         <dt>作成者</dt><dd>技術 岡田</dd>
@@ -103,7 +134,25 @@ SOFTWARE.</pre>
 
   <script type="module">
     import { setUpSitePage } from "./shared/js/site.js";
+    import { countSiteData, clearSiteData } from "./shared/js/site-data.js";
     setUpSitePage();
+
+    const eraseBtn = document.getElementById("erase-btn");
+    const eraseState = document.getElementById("erase-state");
+    async function showEraseState() {
+      const count = await countSiteData();
+      eraseState.textContent = count ? `いま ${count} 件残っています` : "このブラウザには何も残っていません";
+    }
+    eraseBtn.addEventListener("click", async () => {
+      const ok = confirm("このサイトの名簿・採点の続き・署名・課題・設定などを、このブラウザから全部消します。元に戻せません。消しますか？");
+      if (!ok) return;
+      eraseBtn.disabled = true;
+      await clearSiteData();
+      eraseBtn.disabled = false;
+      await showEraseState();
+      eraseState.textContent = `消しました。${eraseState.textContent}`;
+    });
+    showEraseState();
   </script>
 </body>
 </html>
