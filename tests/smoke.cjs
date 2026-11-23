@@ -1323,6 +1323,66 @@ const TOOLS = {
     },
   },
 
+  // 校庭の配置図: tents on 全体の配置, a row of cones and an arrow on an event's figure, saved
+  // as PNG, PDF and a つづき file that opens again.
+  "field-layout": {
+    async run(t) {
+      const board = t.page.locator("#board");
+      const box = await board.boundingBox();
+      const at = (x, y) => [(x / 110) * box.width, (y / 70) * box.height];
+      const click = async (x, y) => t.page.mouse.click(box.x + at(x, y)[0], box.y + at(x, y)[1]);
+      await t.page.click("[data-tool='tent']");
+      await click(40, 8);
+      await t.page.fill("#label-input", "本部");
+      await t.page.locator("#label-input").dispatchEvent("change");
+      await t.page.click("#add-figure-btn");
+      await t.page.fill("#figure-name", "障害物走");
+      await t.page.locator("#figure-name").dispatchEvent("change");
+      await t.page.click("[data-tool='cone']");
+      await click(40, 30);
+      await t.page.fill("input[aria-label='数']", "4");
+      await t.page.locator("input[aria-label='数']").dispatchEvent("change");
+      await t.page.click("button:has-text('並べる')");
+      await t.until(() => __fieldLayout.state.doc.figures[1].items.filter((item) => item.type === "cone").length === 4);
+      const xs = await t.page.evaluate(() => __fieldLayout.state.doc.figures[1].items.map((item) => item.x).join());
+      t.expect(xs === "40,43,46,49", `コーンの並びが違う: ${xs}`);
+      await t.page.click("[data-tool='arrow']");
+      await t.drag(board, [at(40, 40), at(70, 40)]);
+      const arrow = await t.page.evaluate(() => __fieldLayout.state.doc.figures[1].items.at(-1));
+      t.expect(arrow.type === "line" && arrow.x2 === 70, `矢印が引けない: ${JSON.stringify(arrow)}`);
+      t.expect(await t.page.locator("#board [data-base]").count() === 1, "全体の配置のテントが重ならない");
+      await t.page.keyboard.press("Escape");
+      await t.shot("figure");
+      await t.page.click("#save-btn");
+      await t.page.click("#save-png-btn");
+      const [png] = await t.downloads(1);
+      t.expectName(png, "障害物走.png");
+      t.expect(png.bytes.readUInt32BE(16) === 2400, "画像の幅が違う");
+      await t.page.click("#save-btn");
+      await t.page.click("#save-all-btn");
+      const [pdf] = await t.downloads(1);
+      t.expectName(pdf, "校庭の配置図.pdf");
+      await t.expectPdfPages(pdf, 2);
+      await t.page.click("#more-btn");
+      await t.page.click("#save-data-btn");
+      const [data] = await t.downloads(1);
+      t.expectName(data, /^校庭の配置図_\d{4}-\d{2}-\d{2}\.json$/);
+      await t.page.click("#more-btn");
+      await t.page.click("#new-doc-btn");
+      await t.until(() => __fieldLayout.state.doc.figures.length === 1);
+      await t.setFiles("#open-input", { name: "つづき.json", mimeType: "application/json", buffer: data.bytes });
+      await t.until(() => __fieldLayout.state.doc.figures.length === 2);
+      await t.page.click("#undo-btn");
+      await t.until(() => __fieldLayout.state.doc.figures.length === 1);
+      await t.page.click("#redo-btn");
+      await t.page.reload();
+      await t.until(() => __fieldLayout.state.doc.figures[1]?.name === "障害物走");
+      await t.page.click("#bw-btn");
+      await t.until(() => __fieldLayout.state.doc.bw && document.querySelector("#board g[filter]"));
+      await t.shot("bw");
+    },
+  },
+
   // 写真の情報を見る・消す: shows the place a phone photo was taken and saves it without.
   "photo-info": {
     async run(t) {

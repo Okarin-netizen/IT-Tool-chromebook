@@ -36,4 +36,5 @@ export const TOOLS = [
   { id: "char-count", name: "文字数カウンター" },
   { id: "date-calc", name: "日付の計算" },
   { id: "paper-maker", name: "方眼紙・罫線プリント" },
+  { id: "field-layout", name: "校庭の配置図" },
 ];
