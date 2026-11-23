@@ -1,0 +1,109 @@
+/* 説明書 (manual/): the list of tools and one tool's manual. Loaded after shared/css/site.css.
+   --tool is the tool's own color, set by manual.js. */
+
+:root { --tool: var(--accent); }
+
+/* ---------- list ---------- */
+.m-group h2 { margin-top: 22px; }
+.m-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.m-list a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: inherit;
+  font-size: 14.5px;
+  text-decoration: none;
+}
+.m-list a:hover { background: var(--hover); }
+.m-list a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.m-list img { flex: none; width: 32px; height: 32px; }
+
+/* ---------- one manual ---------- */
+.crumb { display: flex; gap: 8px; margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+.crumb a { color: inherit; }
+.m-head { display: flex; align-items: center; gap: 14px; }
+.m-head img { flex: none; width: 56px; height: 56px; }
+.m-head h1 { margin: 0; font-size: 26px; letter-spacing: .04em; outline: 0; }
+.m-head .tag {
+  margin-left: 10px; padding: 1px 7px; border: 1px solid var(--edge); border-radius: 3px;
+  color: var(--muted); font-size: 12.5px; font-weight: 400; letter-spacing: 0; vertical-align: 4px;
+}
+.m-lead { margin: 4px 0 0; color: var(--muted); font-size: 14.5px; line-height: 1.6; }
+.m-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 4px; }
+.m-btn {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px;
+  border: 1px solid var(--edge); border-radius: 8px; background: var(--card);
+  color: var(--text); font: inherit; font-size: 14.5px; text-decoration: none; cursor: pointer;
+}
+.m-btn:hover { border-color: var(--text); }
+.m-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.m-btn.primary { border-color: var(--tool); background: var(--tool); color: #fff; font-weight: 700; }
+
+.m-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: 0 28px; align-items: start; }
+.m-cols.half { grid-template-columns: 1fr 1fr; }
+/* Narrow windows: one column */
+@media (max-width: 1000px) { .m-cols, .m-cols.half { grid-template-columns: minmax(0, 1fr); } }
+
+.m-when { margin: 0; padding-left: 1.3em; font-size: 14.5px; line-height: 1.8; }
+.m-steps { margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.m-steps li {
+  display: grid; grid-template-columns: 30px 1fr; gap: 1px 12px; margin: 0 0 12px;
+  counter-increment: step; font-size: 14.5px; line-height: 1.6;
+}
+.m-steps li::before {
+  content: counter(step); grid-row: span 2; display: grid; place-items: center;
+  width: 30px; height: 30px; border-radius: 50%; background: var(--tool); color: #fff; font-weight: 700;
+}
+.m-steps b { font-size: 15px; }
+.m-shot { margin: 0; }
+.m-shot img { display: block; width: 100%; height: auto; border: 1px solid var(--edge); border-radius: 4px; }
+
+.m-keys { width: 100%; border-collapse: collapse; background: var(--card); font-size: 14px; }
+.m-keys th, .m-keys td { padding: 7px 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; line-height: 1.5; }
+.m-keys th { width: 200px; font-weight: 700; }
+
+.m-qa { margin: 0; font-size: 14.5px; line-height: 1.6; }
+.m-qa dt { margin-top: 10px; font-weight: 700; }
+.m-qa dt:first-child { margin-top: 0; }
+.m-qa dt::before { content: "Q. "; color: var(--tool); }
+.m-qa dd { margin: 2px 0 0 1.5em; }
+.m-note { margin: 24px 0 0; color: var(--muted); font-size: 13px; }
+/* Only on paper: where to find the tool */
+.m-url { display: none; }
+
+/* ---------- printing: one tool on one A4 sheet ---------- */
+@media print {
+  @page { size: A4; margin: 11mm 12mm; }
+  :root { --bg: #fff; --card: #fff; --text: #111; --muted: #444; --line: #bbb; --edge: #999; color-scheme: light; }
+  body { display: block; background: #fff; font-size: 9.5pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .side, .crumb, .m-acts, #list { display: none !important; }
+  main { padding: 0; }
+  h2 { margin: 4.5mm 0 2mm; font-size: 10.5pt; }
+  .m-head { padding-bottom: 3mm; border-bottom: 2.5pt solid var(--tool); }
+  .m-head img { width: 13mm; height: 13mm; }
+  .m-head h1 { font-size: 17pt; }
+  .m-lead { font-size: 9.5pt; }
+  .m-cols { grid-template-columns: minmax(0, 1fr) 82mm; gap: 0 6mm; }
+  .m-cols.half { grid-template-columns: 1fr 1fr; }
+  .m-when, .m-steps li, .m-qa { font-size: 9.5pt; line-height: 1.55; }
+  .m-steps li { margin-bottom: 2mm; grid-template-columns: 6mm 1fr; gap: 0 2.5mm; }
+  .m-steps li::before { width: 6mm; height: 6mm; font-size: 9pt; }
+  .m-steps b { font-size: 10pt; }
+  .m-keys { font-size: 9pt; }
+  .m-keys th, .m-keys td { padding: 1.2mm 2.5mm; }
+  .m-keys th { width: 45mm; }
+  .m-qa dt { margin-top: 1.5mm; }
+  .m-note { margin-top: 4mm; font-size: 8.5pt; }
+  .m-url { display: block; margin: 1mm 0 0; color: var(--muted); font-size: 8.5pt; }
+  h2, .m-steps li, .m-keys tr, .m-qa dd { break-inside: avoid; }
+}

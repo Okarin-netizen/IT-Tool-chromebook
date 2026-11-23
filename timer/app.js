@@ -2,6 +2,7 @@ import { showStatus } from "../shared/js/status.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { toggleFullscreen } from "../shared/js/fullscreen.js";
+import "../shared/js/guide.js";
 
 const $ = (id) => document.getElementById(id);
 

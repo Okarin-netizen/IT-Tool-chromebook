@@ -3,7 +3,10 @@
 import { registerOffline } from "./offline.js";
 import { LAST_UPDATED, formatDate } from "./changelog.js";
 
-const SITE_PAGES = ["./", "index.html", "changelog.html", "about.html"];
+// 説明書 is kept too, so it opens offline once the top page has been opened (its screen pictures
+// are kept when manual/ itself is opened).
+const SITE_PAGES = ["./", "index.html", "changelog.html", "about.html",
+  "manual/", "manual/index.html", "manual/manual.css", "manual/manual.js", "manual/data.js"];
 
 // Call once at the end of each site page. `more` are extra files the page needs offline.
 export function setUpSitePage(more = []) {

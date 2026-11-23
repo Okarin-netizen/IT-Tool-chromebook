@@ -2,7 +2,16 @@
 // "pick a file" area, and the app bar gets a 「使い方」 button that shows the same instructions
 // again after a file is open (the welcome card is hidden from then on). The open button is the
 // colored one only until a file is open.
-// Imported for its side effect by every tool that has a #welcome card and a #file-input.
+// Tools with no #welcome card or #file-input get a 「使い方」 link to their page in 説明書 instead.
+// The dialog also links to that page (manual/, with a picture of the screen, printable on A4).
+// Imported for its side effect by every tool.
+
+const ROOT = new URL("../../", import.meta.url);
+// This tool's 説明書: manual/#<tool folder>
+function manualUrl() {
+  const tool = location.pathname.slice(ROOT.pathname.length).split("/")[0];
+  return new URL(`manual/#${tool}`, ROOT).href;
+}
 
 // What the file input takes, in words, from its accept list.
 function fileWord(input) {
@@ -38,7 +47,7 @@ function buildDialog(welcome) {
   const close = document.createElement("form");
   close.method = "dialog";
   close.className = "dialog-buttons";
-  close.innerHTML = `<button class="btn primary" value="close">閉じる</button>`;
+  close.innerHTML = `<a class="guide-more" href="${manualUrl()}" target="_blank" rel="noopener">くわしい説明書を開く（印刷もできます）</a><button class="btn primary" value="close">閉じる</button>`;
   dialog.append(body, close);
   dialog.addEventListener("click", (e) => {
     if (e.target === dialog) dialog.close(); // a click on the dimmed backdrop
@@ -73,10 +82,28 @@ function followWelcome(welcome, input) {
   sync();
 }
 
+// For tools without a welcome card: the same button opens 説明書 in a new tab, so the work on
+// this page stays as it is.
+function addManualLink() {
+  const title = document.querySelector(".toolbar .app-title");
+  if (!title) return;
+  const link = document.createElement("a");
+  link.className = "btn guide-btn";
+  link.href = manualUrl();
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.title = "このツールの説明書を開く（新しいタブ）";
+  link.textContent = "？ 使い方";
+  title.after(link);
+}
+
 function setup() {
   const welcome = document.getElementById("welcome");
   const input = document.getElementById("file-input");
-  if (!welcome || !input) return;
+  if (!welcome || !input) {
+    addManualLink();
+    return;
+  }
   addPickZone(welcome, input);
   addGuideButton(welcome);
   followWelcome(welcome, input);

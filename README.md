@@ -68,7 +68,7 @@ PDFや画像を使うツールは、Chromeのアドレスバーの「インス�
 
 ## 作成者・ライセンス
 
-作成者: 技術 岡田。MITライセンスです（[LICENSE](LICENSE)）。「© 2026 技術 岡田」の表示とライセンス文を残せば、配布・改変は自由です。同梱ライブラリのライセンスは [`shared/vendor/README.md`](shared/vendor/README.md) にあります。更新履歴はサイトの「更新履歴」（[`changelog.html`](changelog.html)）で見られます。
+作成者: 技術 岡田。MITライセンスです（[LICENSE](LICENSE)）。「© 2026 技術 岡田」の表示とライセンス文を残せば、配布・改変は自由です。同梱ライブラリのライセンスは [`shared/vendor/README.md`](shared/vendor/README.md) にあります。更新履歴はサイトの「更新履歴」（[`changelog.html`](changelog.html)）で見られます。各ツールの使い方はサイトの「説明書」（[`manual/`](manual/)）にあり、ツールごとにA4 1枚で印刷できます。
 
 ## 作る人へ
 

@@ -115,7 +115,11 @@ a { color: var(--accent); }
 .sep { height: 1px; margin: 10px 4px; background: var(--line); }
 .nav-label { margin: 0 8px 4px; color: var(--muted); font-size: 12px; font-weight: 700; }
 /* 11.6-inch Chromebook (about 650px tall inside the browser): keep the whole menu on screen */
-@media (max-height: 720px) { .nav a { min-height: 32px; } }
+@media (max-height: 720px) {
+  .nav a { min-height: 32px; }
+  .sep { margin: 6px 4px; }
+  .meta { padding-top: 4px; line-height: 1.55; }
+}
 .meta { margin: auto 0 0; padding: 16px 8px 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
 .meta a { color: inherit; }
 

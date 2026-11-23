@@ -5,6 +5,7 @@ import { loadJson, saveJson } from "../shared/js/storage.js";
 import { dateText } from "../shared/js/dates.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { holidayName } from "./holidays.js";
+import "../shared/js/guide.js";
 
 // Never change a key (or the shape of what is saved) once the tool is in use.
 const EVENTS_KEY = "date-calc-events-v1";

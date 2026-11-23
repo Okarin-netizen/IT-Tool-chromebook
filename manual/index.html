@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>説明書 - Chromebook便利ツール</title>
+  <meta name="author" content="技術 岡田">
+  <link rel="icon" href="../pdf-text/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#f2f1ee">
+  <link rel="stylesheet" href="../shared/css/site.css">
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body>
+  <aside class="side">
+    <a class="logo" href="../">Chromebook<br>便利ツール</a>
+    <nav aria-label="ツールのグループ">
+      <ul class="nav">
+        <li><a href="../">すべてのツール</a></li>
+        <li><a href="../#fav">お気に入り</a></li>
+        <li><a href="../#pdf">PDF</a></li>
+        <li><a href="../#photo">写真・画像</a></li>
+        <li><a href="../#video">動画・GIF</a></li>
+        <li><a href="../#print">印刷</a></li>
+        <li><a href="../#class">授業・勉強</a></li>
+      </ul>
+      <div class="sep"></div>
+      <p class="nav-label" id="who-label">使う人で見る</p>
+      <ul class="nav" aria-labelledby="who-label">
+        <li><a href="../#teacher">先生用</a></li>
+        <li><a href="../#student">生徒用</a></li>
+      </ul>
+    </nav>
+    <div class="sep"></div>
+    <ul class="nav">
+      <li><a class="page" href="./" aria-current="page">説明書</a></li>
+      <li><a class="page" href="../changelog.html">更新履歴</a></li>
+      <li><a class="page" href="../about.html">このサイトについて</a></li>
+    </ul>
+    <p class="meta">作成者　技術 岡田<br><a href="../about.html#license">MIT License</a><br>最終更新　<span class="updated"></span></p>
+  </aside>
+
+  <main>
+    <!-- 一覧（#なし） -->
+    <section id="list">
+      <div class="top">
+        <h1>説明書</h1>
+        <p>ツールの名前を押すと、使い方の説明が出ます。どのツールの説明書も A4 1枚で印刷できます。</p>
+      </div>
+      <div id="groups"></div>
+    </section>
+
+    <!-- 1つのツールの説明書（#ツールのフォルダ名） -->
+    <article id="manual" hidden>
+      <p class="crumb"><a href="./">説明書</a><span aria-hidden="true">＞</span><span id="m-group"></span></p>
+      <header class="m-head">
+        <img id="m-icon" src="" alt="" width="56" height="56">
+        <div>
+          <h1 id="m-name" tabindex="-1"></h1>
+          <p id="m-lead" class="m-lead"></p>
+        </div>
+      </header>
+      <div class="m-acts">
+        <a id="m-open" class="m-btn primary" href="">このツールを開く</a>
+        <button id="m-print" class="m-btn" type="button">印刷する（A4 1枚）</button>
+      </div>
+      <div class="m-cols">
+        <div>
+          <h2>こんなときに</h2>
+          <ul id="m-when" class="m-when"></ul>
+          <h2>使い方の流れ</h2>
+          <ol id="m-steps" class="m-steps"></ol>
+        </div>
+        <figure class="m-shot">
+          <h2>画面</h2>
+          <img id="m-shot" src="" alt="" width="1366" height="768">
+        </figure>
+      </div>
+      <h2>ボタンの早見表</h2>
+      <table class="m-keys"><tbody id="m-buttons"></tbody></table>
+      <div class="m-cols half">
+        <div>
+          <h2>こまったときは</h2>
+          <dl id="m-qa" class="m-qa"></dl>
+        </div>
+        <div>
+          <h2>べんりな使い方</h2>
+          <ul id="m-tips" class="m-when"></ul>
+        </div>
+      </div>
+      <p id="m-note" class="m-note"></p>
+      <p class="m-url">このツールのURL：<span id="m-url"></span></p>
+    </article>
+  </main>
+
+  <script type="module" src="manual.js"></script>
+</body>
+</html>
