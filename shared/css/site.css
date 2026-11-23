@@ -251,6 +251,26 @@ body.searching .quick { display: none; }
 .facts { display: grid; grid-template-columns: 8em 1fr; gap: 8px 12px; margin: 0; }
 .facts dt { color: var(--muted); }
 .facts dd { margin: 0; }
+.data-table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 13.5px; }
+.data-table th, .data-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.data-table th { color: var(--muted); font-weight: 600; }
+.data-table td:first-child { white-space: nowrap; }
+.erase { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 12px 0; }
+.erase button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.erase button:hover:not(:disabled) { background: var(--hover); }
+.erase button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.erase button:disabled { opacity: .45; cursor: default; }
+.erase output { color: var(--muted); }
 .license {
   margin: 0;
   padding: 14px 16px;

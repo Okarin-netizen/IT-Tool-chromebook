@@ -2196,6 +2196,25 @@ async function testPortal(browser, server) {
     t.expect(await page.isVisible("#empty") && await page.isVisible("#tasks"), "見つからないときに「よくあるやりたいこと」が出ない");
     await page.fill("#q", "");
 
+    // このサイトについて「全部消す」: this site's keys and IndexedDB go, other sites' keys stay.
+    await page.goto(`${server.url}about.html`);
+    await page.evaluate(async () => {
+      localStorage.setItem("other-site-key", "keep");
+      localStorage.setItem("pdf-sign-name", JSON.stringify("岡田"));
+      await (await import("./shared/js/kv.js")).kvSet("pdf-grade:session", { files: [] });
+    });
+    await page.reload();
+    await page.waitForFunction(() => /件残っています/.test(document.getElementById("erase-state").textContent));
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.click("#erase-btn");
+    await page.waitForFunction(() => /消しました/.test(document.getElementById("erase-state").textContent));
+    const left = await page.evaluate(async () => ({
+      keys: Object.keys(localStorage).sort().join(),
+      kv: await (await import("./shared/js/kv.js")).kvCount(),
+    }));
+    t.expect(left.keys === "other-site-key" && left.kv === 0, `「全部消す」のあとに残っている: ${left.keys} / ${left.kv}`);
+    await page.goto(server.url);
+
     // The top page (and the tool icons on it) also opens without a network.
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload();

@@ -36,3 +36,6 @@ async function run(mode, fn) {
 export const kvGet = (key) => run("readonly", (s) => s.get(key));
 export const kvSet = (key, value) => run("readwrite", (s) => s.put(value, key));
 export const kvDelete = (key) => run("readwrite", (s) => s.delete(key));
+export const kvCount = () => run("readonly", (s) => s.count());
+// Erases everything kept here (このサイトについて「全部消す」).
+export const kvClear = () => run("readwrite", (s) => s.clear());
