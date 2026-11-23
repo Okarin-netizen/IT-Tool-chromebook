@@ -1377,7 +1377,8 @@ const TOOLS = {
       await t.page.click("#redo-btn");
       await t.page.reload();
       await t.until(() => __fieldLayout.state.doc.figures[1]?.name === "障害物走");
-      await t.page.check("text=白黒印刷向けにする");
+      await t.page.click("#bw-btn");
+      await t.until(() => __fieldLayout.state.doc.bw && document.querySelector("#board g[filter]"));
       await t.shot("bw");
     },
   },

@@ -235,6 +235,7 @@ function syncToolbar() {
   $("undo-btn").disabled = !history.canUndo;
   $("redo-btn").disabled = !history.canRedo;
   $("snap-btn").setAttribute("aria-pressed", String(settings.snap));
+  $("bw-btn").setAttribute("aria-pressed", String(state.doc.bw));
   $("zoom-text").textContent = `${Math.round(state.zoom * 100)}%`;
   for (const tile of document.querySelectorAll("[data-tool]")) tile.setAttribute("aria-pressed", String(tile.dataset.tool === state.tool));
 }
@@ -851,6 +852,11 @@ $("snap-btn").addEventListener("click", () => {
   saveJson(SETTINGS_KEY, settings);
   render();
   syncToolbar();
+});
+$("bw-btn").addEventListener("click", () => {
+  state.doc.bw = !state.doc.bw;
+  commit();
+  showStatus(state.doc.bw ? "白黒印刷向けにしました。保存する図も白黒になります" : "色ありにもどしました");
 });
 $("more-btn").addEventListener("click", () => menus.toggle($("more-menu")));
 $("save-btn").addEventListener("click", () => menus.toggle($("save-menu")));

@@ -25,7 +25,9 @@ const TRACK_LINE = 0.14; // m
 const BW_LINE = "#8a9099"; // white lines become this gray in black-and-white mode
 const TEXT_INK = "#333333";
 const TITLE_SIZE = 3; // m
-const FONT = "system-ui, 'Noto Sans JP', 'Noto Sans CJK JP', sans-serif";
+// Japanese fonts first, and lang="ja" on the SVG: otherwise a computer with Chinese fonts may draw
+// the kanji in their Chinese shapes, above all in the saved image.
+const FONT = "'Noto Sans JP', 'Noto Sans CJK JP', 'Hiragino Sans', 'Yu Gothic UI', 'Yu Gothic', Meiryo, system-ui, sans-serif";
 const HIT_WIDTH = 1.6; // m, how close to a line a press still picks it
 
 export const BASE_INDEX = 0; // figures[0] is 全体の配置, shown under every other figure
@@ -312,7 +314,7 @@ export const DEFS = '<defs><filter id="bw"><feColorMatrix type="saturate" values
 // The figure as a standalone SVG file, `pixels` wide.
 export function figureSvg(doc, index, pixels) {
   const height = Math.round((pixels * doc.height) / doc.width);
-  const open = `<svg xmlns="http://www.w3.org/2000/svg" width="${pixels}" height="${height}" viewBox="0 0 ${fmt(doc.width)} ${fmt(doc.height)}">`;
+  const open = `<svg xmlns="http://www.w3.org/2000/svg" xml:lang="ja" lang="ja" width="${pixels}" height="${height}" viewBox="0 0 ${fmt(doc.width)} ${fmt(doc.height)}">`;
   return `${open}${DEFS}${figureMarkup(doc, index)}</svg>`;
 }
 

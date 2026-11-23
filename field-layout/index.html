@@ -17,6 +17,7 @@
     <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
     <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></symbol>
     <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/></symbol>
+    <symbol id="i-bw" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/></symbol>
     <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
     <symbol id="i-open" viewBox="0 0 24 24"><path d="M4 19V6a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v2"/><path d="M4 19l3-8h14l-3 8z"/></symbol>
     <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/></symbol>
@@ -37,6 +38,7 @@
       <button id="undo-btn" class="btn" title="元に戻す (Ctrl+Z)" disabled><svg class="i" aria-hidden="true"><use href="#i-undo"/></svg>元に戻す</button>
       <button id="redo-btn" class="btn" title="やり直し (Ctrl+Y)" disabled><svg class="i" aria-hidden="true"><use href="#i-redo"/></svg>やり直し</button>
       <button id="snap-btn" class="btn tool" aria-pressed="true" title="置いたものを1mのます目にそろえる。5mごとに薄い線が出ます（印刷には出ません）"><svg class="i" aria-hidden="true"><use href="#i-grid"/></svg>ます目にそろえる</button>
+      <button id="bw-btn" class="btn tool" aria-pressed="false" title="色を使わず、白黒で印刷してもよく分かる図にする（保存する図も白黒になります）"><svg class="i" aria-hidden="true"><use href="#i-bw"/></svg>白黒印刷</button>
     </div>
     <div class="group end">
       <div class="menu-wrap">
@@ -69,7 +71,7 @@
 
     <section class="stage" aria-label="校庭">
       <div id="board-wrap" class="board-wrap">
-        <svg id="board" class="board" role="img" aria-label="校庭の配置図"></svg>
+        <svg id="board" class="board" lang="ja" role="img" aria-label="校庭の配置図"></svg>
       </div>
       <div class="pages">
         <div id="tabs" class="tabs" role="tablist" aria-label="図（種目ごと）"></div>
