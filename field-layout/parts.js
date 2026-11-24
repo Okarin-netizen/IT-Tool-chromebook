@@ -238,6 +238,17 @@ export function drawStairs({ w, h, color }) {
     `<path d="${lines}" stroke="${INK}" stroke-width="0.04"/>`;
 }
 
+// A (red) carpet for the way in (入場の通路): the carpet with a gold edge along both long sides.
+function drawCarpet({ w, h, color }) {
+  const edge = Math.min(w, h) * 0.07;
+  const long = w >= h;
+  const lines = long
+    ? `M${fmt(-w / 2)} ${fmt(-h / 2 + edge * 1.5)}H${fmt(w / 2)}M${fmt(-w / 2)} ${fmt(h / 2 - edge * 1.5)}H${fmt(w / 2)}`
+    : `M${fmt(-w / 2 + edge * 1.5)} ${fmt(-h / 2)}V${fmt(h / 2)}M${fmt(w / 2 - edge * 1.5)} ${fmt(-h / 2)}V${fmt(h / 2)}`;
+  return rect(-w / 2, -h / 2, w, h, `fill="${color}" stroke="rgba(0,0,0,.35)" stroke-width="${fmt(edge * 0.5)}"`) +
+    `<path d="${lines}" stroke="#f5c84c" stroke-width="${fmt(edge)}"/>`;
+}
+
 // labelAt: where the item's name goes. "center" for things big enough to write on.
 // stretch: the width and height can be changed separately (else the shape keeps its proportions).
 // outlined: drawn with a dark outline, so it still shows when white on white paper.
@@ -266,6 +277,7 @@ export const PARTS = {
   podium: { name: "演台", group: "式・集会", place: "gym", real: true, w: 1.5, h: 0.7, color: "#b5835a", labelAt: "below", stretch: true, outlined: true, draw: drawBox },
   flowers: { name: "花", group: "式・集会", place: "gym", real: true, w: 1, h: 1, color: "#f06595", labelAt: "below", draw: drawFlowers },
   piano: { name: "ピアノ", group: "式・集会", place: "gym", real: true, w: 1.6, h: 2, color: "#333333", labelAt: "below", draw: drawPiano },
+  carpet: { name: "じゅうたん", group: "式・集会", place: "gym", real: true, w: 1.8, h: 15, tile: { w: 0.8, h: 2.4 }, color: "#c92a2a", labelAt: "below", stretch: true, draw: drawCarpet },
   stairs: { name: "階段", group: "式・集会", place: "gym", real: true, w: 1.8, h: 1.2, color: STAIR_COLOR, labelAt: "below", stretch: true, draw: drawStairs },
   door: { name: "出入口", group: "式・集会", place: "gym", real: true, w: 1.8, h: 1.2, color: "#333333", labelAt: "below", stretch: true, draw: drawDoor },
   vault: { name: "跳び箱", group: "体育", place: "gym", real: true, w: 1.6, h: 0.9, color: "#b5835a", labelAt: "below", draw: drawVault },

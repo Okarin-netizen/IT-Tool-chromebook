@@ -75,7 +75,7 @@ body {
 }
 .palette h3::before, .panel h3::before { content: ""; width: 8px; height: 8px; background: var(--accent); flex: none; }
 
-.parts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.parts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
 .tile {
   display: flex;
   flex-direction: column;
