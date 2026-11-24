@@ -1380,6 +1380,23 @@ const TOOLS = {
       await t.page.click("#bw-btn");
       await t.until(() => __fieldLayout.state.doc.bw && document.querySelector("#board g[filter]"));
       await t.shot("bw");
+      // 体育館: other parts, a row of chairs counted, the stage and courts drawn.
+      await t.page.click("#bw-btn");
+      await t.page.click("button[role=radio]:has-text('体育館')");
+      await t.until(() => __fieldLayout.state.doc.place === "gym" && document.querySelector("[data-tool='chairs']") && !document.querySelector("[data-tool='tent']"));
+      await t.page.click("[data-tool='chairs']");
+      const gym = await board.boundingBox();
+      await t.page.mouse.click(gym.x + gym.width / 2, gym.y + gym.height * 0.6);
+      await t.page.fill("input[aria-label='横に並ぶいすの数']", "12");
+      await t.page.locator("input[aria-label='横に並ぶいすの数']").dispatchEvent("change");
+      await t.until(() => document.getElementById("chair-total")?.textContent.includes("全部で 60きゃく"));
+      t.expect(await t.page.locator("#board text:has-text('ステージ')").count() === 1, "体育館にステージが出ない");
+      await t.page.keyboard.press("Escape");
+      await t.shot("gym");
+      await t.page.click("#save-btn");
+      await t.page.click("#save-all-btn");
+      const [gymPdf] = await t.downloads(1);
+      t.expectName(gymPdf, "体育館の配置図.pdf");
     },
   },
 
@@ -2222,7 +2239,7 @@ async function testPortal(browser, server) {
     t.expect(key(manual) === key(listed), `manual/data.js とトップページのツールが合わない: ${key(manual)} / ${key(listed)}`);
     for (const [id] of manual) t.expect(fs.existsSync(path.join(__dirname, "..", "manual", "shots", `${id}.webp`)), `説明書の画面の写真がない: manual/shots/${id}.webp`);
     await page.goto(`${server.url}manual/#field-layout`);
-    await page.waitForFunction(() => document.getElementById("m-name").textContent.startsWith("校庭の配置図"));
+    await page.waitForFunction(() => document.getElementById("m-name").textContent.startsWith("校庭・体育館の配置図"));
     t.expect(await page.$eval("#m-shot", (img) => img.complete && img.naturalWidth > 0), "説明書の画面の写真が出ない");
     t.expect(await page.isHidden("#list"), "説明書を開いても一覧が出たまま");
     await page.goto(`${server.url}calc/`);

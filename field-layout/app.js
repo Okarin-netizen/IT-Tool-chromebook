@@ -1,5 +1,5 @@
-// 校庭の配置図: put cones, arrows, tents and words on a school yard and save the figure as an
-// image or PDF for a handout (運動会 and other events). One file can hold several figures: the
+// 校庭・体育館の配置図: put cones, arrows, tents, chairs and words on a school yard or in a gym
+// and save the figure as an image or PDF for a handout (運動会, 卒業式 and other events). One file can hold several figures: the
 // first, 全体の配置, holds what every figure shares (tents, gates, seats); the others are one per
 // event and show it underneath. Positions and sizes are in meters (drawing.js, parts.js).
 import { showStatus } from "../shared/js/status.js";
@@ -11,8 +11,8 @@ import { copyImage } from "../shared/js/clipboard.js";
 import { dateText } from "../shared/js/dates.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { OFFLINE } from "../shared/js/vendor.js";
-import { PARTS, MARKS, LINE_DEFAULTS, TEXT_SIZES, NUMBER_SIZE } from "./parts.js";
-import { newDoc, figureMarkup, drawItem, DEFS, BASE_INDEX, halfSize, turnedHalfSize, isStraight } from "./drawing.js";
+import { PARTS, MARKS, LINE_DEFAULTS, TEXT_SIZES, NUMBER_SIZE, GROUP_ORDER, CHAIR_STEP, fitsPlace } from "./parts.js";
+import { newDoc, figureMarkup, drawItem, DEFS, BASE_INDEX, halfSize, turnedHalfSize, isStraight, inkScale, placeName } from "./drawing.js";
 import { renderPanel } from "./panel.js";
 import { figurePng, figuresPdf } from "./save.js";
 import "../shared/js/guide.js";
@@ -22,7 +22,7 @@ const DOC_KEY = "field-layout-doc-v1";
 const SETTINGS_KEY = "field-layout-settings-v1";
 const FILE_APP = "field-layout"; // written in つづき files, to know them again
 
-const SNAP_STEP = 1; // m
+const SNAP_STEP = 1; // m on the yard; in the gym this and the other lengths below are halved (inkScale)
 const SIZE_SNAP = 0.5; // m, sizes of stretchable parts while snapping
 const ANGLE_STEP = 15; // degrees the rotate handle snaps to (Alt for free turning)
 const NUDGE = 0.5; // m per arrow key (5 m with Shift)
@@ -74,7 +74,8 @@ const items = () => figure().items;
 const findItem = (id) => items().find((item) => item.id === id);
 const selectedItems = () => state.selection.map(findItem).filter(Boolean);
 const newId = () => Math.random().toString(36).slice(2, 10);
-const snap = (value, step = SNAP_STEP) => (settings.snap ? Math.round(value / step) * step : Math.round(value * 100) / 100);
+const ink = () => inkScale(state.doc);
+const snap = (value, step = SNAP_STEP * ink()) => (settings.snap ? Math.round(value / step) * step : Math.round(value * 100) / 100);
 
 function persist() {
   saveJson(DOC_KEY, state.doc);
@@ -121,12 +122,14 @@ function nextNumber() {
 
 function newPart(type, point) {
   const part = PARTS[type];
-  return { id: newId(), type, x: point.x, y: point.y, rot: 0, w: part.w, h: part.h, color: part.color, label: "" };
+  const k = part.real ? 1 : ink();
+  return { id: newId(), type, x: point.x, y: point.y, rot: 0, w: part.w * k, h: part.h * k, color: part.color, label: "" };
 }
 
 function newMark(type, point) {
-  if (type === "text") return { id: newId(), type, x: point.x, y: point.y, rot: 0, text: "文字", size: TEXT_SIZES.normal, color: "#333333" };
-  return { id: newId(), type: "number", x: point.x, y: point.y, w: NUMBER_SIZE, h: NUMBER_SIZE, n: nextNumber(), color: "#333333" };
+  if (type === "text") return { id: newId(), type, x: point.x, y: point.y, rot: 0, text: "文字", size: TEXT_SIZES.normal * ink(), color: "#333333" };
+  const size = NUMBER_SIZE * ink();
+  return { id: newId(), type: "number", x: point.x, y: point.y, w: size, h: size, n: nextNumber(), color: "#333333" };
 }
 
 function newLine(kind, point) {
@@ -242,6 +245,10 @@ function syncToolbar() {
 }
 
 function renderAll() {
+  if (state.paletteFor !== state.doc.place) {
+    buildPalette();
+    if (state.tool !== "select" && !fitsPlace(PARTS[state.tool] ?? MARKS[state.tool], state.doc.place)) state.tool = "select";
+  }
   render();
   renderTabs();
   renderPanel($("panel"), api);
@@ -254,7 +261,7 @@ function renderAll() {
 function tileIcon(type) {
   const sample = { x: 0, y: 0, rot: 0 };
   let item;
-  if (PARTS[type]) item = { ...newPart(type, sample), w: PARTS[type].w, h: PARTS[type].h };
+  if (PARTS[type]) item = { ...newPart(type, sample), ...(PARTS[type].tile ?? { w: PARTS[type].w, h: PARTS[type].h }) };
   else if (MARKS[type].line) item = { ...newLine(MARKS[type].line, sample), x1: -1.7, y1: 1.2, x2: 1.7, y2: -1.2, label: " " };
   else item = { ...newMark(type, sample), n: 1, text: "文", size: 3 };
   if (item.type === "line") {
@@ -266,12 +273,15 @@ function tileIcon(type) {
   return `<svg viewBox="${-half} ${-half} ${half * 2} ${half * 2}" aria-hidden="true">${drawItem(item, null, false)}</svg>`;
 }
 
+// The parts offered depend on the place: chairs and courts in the gym, tents and gates on the yard.
 function buildPalette() {
-  const groups = new Map();
+  const { place } = state.doc;
+  state.paletteFor = place;
+  const groups = new Map(GROUP_ORDER.map((name) => [name, []]));
   for (const [type, part] of [...Object.entries(PARTS), ...Object.entries(MARKS)]) {
-    if (!groups.has(part.group)) groups.set(part.group, []);
-    groups.get(part.group).push([type, part]);
+    if (fitsPlace(part, place)) groups.get(part.group).push([type, part]);
   }
+  for (const [name, parts] of groups) if (!parts.length) groups.delete(name);
   const sections = [];
   for (const [name, parts] of groups) {
     const heading = document.createElement("h3");
@@ -390,9 +400,13 @@ function dragResize(drag, point) {
   const grow = Math.max(Math.abs(local.x) / hw, Math.abs(local.y) / hh);
   if (item.type === "text") {
     item.size = Math.max(0.6, Math.round(before.size * grow * 10) / 10);
+  } else if (item.type === "chairs") {
+    // Whole chairs only, so the size always matches the count.
+    item.w = Math.max(1, Math.round((Math.abs(local.x) * 2) / CHAIR_STEP.x)) * CHAIR_STEP.x;
+    item.h = Math.max(1, Math.round((Math.abs(local.y) * 2) / CHAIR_STEP.y)) * CHAIR_STEP.y;
   } else if (PARTS[item.type]?.stretch) {
-    item.w = Math.max(MIN_SIZE, snap(Math.abs(local.x) * 2, SIZE_SNAP));
-    item.h = Math.max(MIN_SIZE, snap(Math.abs(local.y) * 2, SIZE_SNAP));
+    item.w = Math.max(MIN_SIZE, snap(Math.abs(local.x) * 2, SIZE_SNAP * ink()));
+    item.h = Math.max(MIN_SIZE, snap(Math.abs(local.y) * 2, SIZE_SNAP * ink()));
   } else {
     item.w = Math.max(MIN_SIZE, before.w * grow);
     item.h = Math.max(MIN_SIZE, before.h * grow);
@@ -436,8 +450,8 @@ function dragCreate(drag, point) {
 
 function finishCreate(drag) {
   const { item } = drag;
-  if (Math.hypot(item.x2 - item.x1, item.y2 - item.y1) < SHORT_LINE) {
-    item.x2 = item.x1 + DEFAULT_LINE;
+  if (Math.hypot(item.x2 - item.x1, item.y2 - item.y1) < SHORT_LINE * ink()) {
+    item.x2 = item.x1 + DEFAULT_LINE * ink();
     item.y2 = item.y1;
     setBend(item, drag.curved);
   }
@@ -515,7 +529,7 @@ function editSelected(change) {
 }
 
 function duplicate() {
-  const copies = selectedItems().map((item) => copyOf(item, PASTE_OFFSET, PASTE_OFFSET));
+  const copies = selectedItems().map((item) => copyOf(item, PASTE_OFFSET * ink(), PASTE_OFFSET * ink()));
   items().push(...copies);
   state.selection = copies.map((item) => item.id);
   commit();
@@ -539,7 +553,7 @@ function copy() {
 function paste() {
   const { clipboard } = state;
   if (!clipboard) return;
-  const offset = clipboard.figure === state.figure ? PASTE_OFFSET : 0;
+  const offset = clipboard.figure === state.figure ? PASTE_OFFSET * ink() : 0;
   const copies = clipboard.items.map((item) => copyOf(item, offset, offset));
   if (offset) clipboard.items = structuredClone(copies);
   items().push(...copies);
@@ -666,7 +680,7 @@ function startOver() {
 
 /* ---------- saving ---------- */
 
-const figureFileName = (index, extension) => safeFileName(`${state.doc.figures[index].name || "校庭の配置図"}.${extension}`);
+const figureFileName = (index, extension) => safeFileName(`${state.doc.figures[index].name || placeName(state.doc)}.${extension}`);
 
 function deselectForSaving() {
   menus.close();
@@ -696,7 +710,7 @@ async function savePdf(all) {
   try {
     const indices = all ? state.doc.figures.map((_, i) => i) : [state.figure];
     const bytes = await figuresPdf(state.doc, indices);
-    const name = all ? safeFileName("校庭の配置図.pdf") : figureFileName(state.figure, "pdf");
+    const name = all ? safeFileName(`${placeName(state.doc)}.pdf`) : figureFileName(state.figure, "pdf");
     download(new Blob([bytes], { type: "application/pdf" }), name);
     showStatus("PDFを保存しました");
   } catch (err) {
@@ -708,7 +722,7 @@ async function savePdf(all) {
 function saveData() {
   menus.close();
   const data = JSON.stringify({ app: FILE_APP, version: 1, doc: state.doc }, null, 1);
-  download(new Blob([data], { type: "application/json" }), `校庭の配置図_${dateText(new Date(), "-")}.json`);
+  download(new Blob([data], { type: "application/json" }), `${placeName(state.doc)}_${dateText(new Date(), "-")}.json`);
 }
 
 async function openData(file) {
@@ -787,6 +801,9 @@ const api = {
   get figureIndex() {
     return state.figure;
   },
+  get ink() {
+    return ink();
+  },
   get canPaste() {
     return Boolean(state.clipboard);
   },
@@ -816,6 +833,7 @@ const api = {
     history.record();
     syncToolbar();
   },
+  status: (text) => showStatus(text),
   rotateBy,
   straighten,
   duplicate,
@@ -832,7 +850,6 @@ const api = {
 
 /* ---------- events ---------- */
 
-buildPalette();
 document.querySelector(".palette").addEventListener("pointerdown", onTileDown);
 board.addEventListener("pointerdown", onBoardDown);
 board.addEventListener("pointermove", onBoardMove);

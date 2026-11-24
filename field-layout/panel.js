@@ -1,7 +1,7 @@
-// The settings column on the right. It shows the yard and the figure when nothing is chosen,
+// The settings column on the right. It shows the place and the figure when nothing is chosen,
 // or what can be changed on the chosen items. `api` (from app.js) does the changing.
-import { COLORS, PARTS, MARKS, TEXT_SIZES, NUMBER_SIZE } from "./parts.js";
-import { FIELDS, GROUNDS, NORTH_ANGLES, BASE_INDEX, isStraight, lineLength, lengthText } from "./drawing.js";
+import { COLORS, PARTS, MARKS, TEXT_SIZES, NUMBER_SIZE, CHAIR_STEP, chairCount, fitsPlace } from "./parts.js";
+import { FIELDS, GROUNDS, PLACES, STAGES, NORTH_ANGLES, BASE_INDEX, setPlace, isStraight, lineLength, lengthText } from "./drawing.js";
 
 const SIZE_STEPS = { small: 0.7, normal: 1, large: 1.5 };
 const SIZE_WORDS = { small: "小", normal: "中", large: "大" };
@@ -87,22 +87,37 @@ function figureSection(api) {
   return section;
 }
 
-function yardSection(api) {
+function placeSection(api) {
   const { doc } = api;
-  const shape = el("select", { "aria-label": "校庭の形", onchange: (e) => api.change(() => (doc.field = e.target.value)) },
-    Object.entries(FIELDS).map(([key, { name }]) => new Option(name, key, false, key === doc.field)));
+  const gym = doc.place === "gym";
+  const where = PLACES[doc.place].name;
+  const places = Object.fromEntries(Object.entries(PLACES).map(([key, { name }]) => [key, name]));
+  const pickPlace = (key) => {
+    if (key === doc.place) return;
+    api.change(() => setPlace(doc, key));
+    api.status(`${PLACES[key].name}にしました。置いてあるものはそのままです（「元に戻す」で戻せます）`);
+  };
+  const shape = el("select", { "aria-label": gym ? "床の線" : "校庭の形", onchange: (e) => api.change(() => (doc.field = e.target.value)) },
+    Object.entries(FIELDS).filter(([, field]) => fitsPlace(field, doc.place)).map(([key, { name }]) => new Option(name, key, false, key === doc.field)));
+  const min = gym ? 10 : 20;
   const size = el("span", { className: "unit" }, [
-    numberBox(doc.width, { min: 20, max: 300, step: 1, unit: "", label: "校庭の横（m）" }, (value) => api.change(() => (doc.width = value))),
+    numberBox(doc.width, { min, max: 300, step: 1, unit: "", label: `${where}の横（m）` }, (value) => api.change(() => (doc.width = value))),
     "×",
-    numberBox(doc.height, { min: 20, max: 300, step: 1, unit: "m", label: "校庭の縦（m）" }, (value) => api.change(() => (doc.height = value))),
+    numberBox(doc.height, { min, max: 300, step: 1, unit: "m", label: `${where}の縦（m）` }, (value) => api.change(() => (doc.height = value))),
   ]);
-  const grounds = Object.fromEntries(Object.entries(GROUNDS).map(([key, { name }]) => [key, name]));
-  return [
-    heading("校庭"),
-    row("形", shape),
+  const grounds = Object.fromEntries(Object.entries(GROUNDS).filter(([, ground]) => fitsPlace(ground, doc.place)).map(([key, { name }]) => [key, name]));
+  const rows = [
+    heading("場所"),
+    Object.assign(segmented("場所", places, doc.place, pickPlace), { className: "seg wide" }),
+    row(gym ? "床の線" : "形", shape),
     row("大きさ", size),
-    row("地面", segmented("地面の色", grounds, doc.ground, (key) => api.change(() => (doc.ground = key)))),
+    row(gym ? "床" : "地面", segmented(gym ? "床の色" : "地面の色", grounds, doc.ground, (key) => api.change(() => (doc.ground = key)))),
   ];
+  if (gym) {
+    const stage = segmented("ステージの場所", STAGES, doc.stage, (key) => api.change(() => (doc.stage = key)));
+    rows.push(el("div", { className: "row stack" }, ["ステージの場所", Object.assign(stage, { className: "seg wide" })]));
+  }
+  return rows;
 }
 
 function extrasSection(api) {
@@ -113,15 +128,16 @@ function extrasSection(api) {
     heading("図に入れるもの"),
     checkbox("図の名前（左上）", doc.showTitle, (on) => api.change(() => (doc.showTitle = on))),
     el("div", { className: "row" }, [checkbox("北の印", doc.north.show, (on) => api.change(() => (doc.north.show = on))), angle]),
-    checkbox("縮尺（10mの物差し）", doc.scaleBar, (on) => api.change(() => (doc.scaleBar = on))),
+    checkbox("縮尺（物差し）", doc.scaleBar, (on) => api.change(() => (doc.scaleBar = on))),
     heading("印刷"),
     checkbox("白黒印刷向けにする", doc.bw, (on) => api.change(() => (doc.bw = on))),
   ];
 }
 
-function hint() {
+function hint(api) {
+  const where = PLACES[api.doc.place].name;
   return el("div", { className: "hint" }, [
-    el("p", {}, ["左の部品を押してから、校庭の置きたい所を押します（部品を校庭まで引っぱっても置けます）。矢印は、始めの所から終わりの所まで引っぱります。"]),
+    el("p", {}, [`左の部品を押してから、${where}の置きたい所を押します（部品を${where}まで引っぱっても置けます）。矢印は、始めの所から終わりの所まで引っぱります。`]),
     el("p", {}, ["置いたものは押して選び、引っぱって動かします。Shift を押しながら押すと、いくつも選べます。何もない所を引っぱっても囲んで選べます。"]),
   ]);
 }
@@ -134,10 +150,12 @@ function colorRow(value, api) {
 
 function sizeRow(item, api) {
   if (item.type === "text") {
-    const key = Object.keys(TEXT_SIZES).find((name) => Math.abs(TEXT_SIZES[name] - item.size) < 0.01);
-    return row("大きさ", segmented("文字の大きさ", SIZE_WORDS, key, (name) => api.edit((target) => (target.size = TEXT_SIZES[name]))));
+    const key = Object.keys(TEXT_SIZES).find((name) => Math.abs(TEXT_SIZES[name] * api.ink - item.size) < 0.01);
+    return row("大きさ", segmented("文字の大きさ", SIZE_WORDS, key, (name) => api.edit((target) => (target.size = TEXT_SIZES[name] * api.ink))));
   }
-  const base = item.type === "number" ? { w: NUMBER_SIZE, h: NUMBER_SIZE } : PARTS[item.type];
+  const k = PARTS[item.type]?.real ? 1 : api.ink;
+  const base = item.type === "number" ? { w: NUMBER_SIZE * k, h: NUMBER_SIZE * k } : { w: PARTS[item.type].w * k, h: PARTS[item.type].h * k };
+  if (item.type === "chairs") return chairRows(item, api);
   if (PARTS[item.type]?.stretch) {
     return row("大きさ", el("span", { className: "unit" }, [
       numberBox(round(item.w), { min: 0.3, max: 200, step: 0.5, unit: "", label: "横（m）" }, (value) => api.edit((target) => (target.w = value))),
@@ -153,6 +171,21 @@ function sizeRow(item, api) {
 }
 
 const round = (value) => Math.round(value * 10) / 10;
+
+// いすの列: the number of chairs across and the number of rows, and how many that makes.
+function chairRows(item, api) {
+  const { columns, rows } = chairCount(item);
+  return el("div", { className: "row stack" }, [
+    "いすの数",
+    el("span", { className: "unit" }, [
+      numberBox(columns, { min: 1, max: 60, step: 1, unit: "", label: "横に並ぶいすの数" }, (value) => api.edit((target) => (target.w = Math.round(value) * CHAIR_STEP.x))),
+      "こ ×",
+      numberBox(rows, { min: 1, max: 60, step: 1, unit: "", label: "列の数" }, (value) => api.edit((target) => (target.h = Math.round(value) * CHAIR_STEP.y))),
+      "列",
+    ]),
+    el("span", { className: "value", id: "chair-total" }, [`全部で ${columns * rows}きゃく`]),
+  ]);
+}
 
 function turnRow(api, item) {
   return row("向き", el("span", { className: "unit" }, [
@@ -219,7 +252,7 @@ export function renderPanel(container, api) {
   const items = api.selectedItems();
   let content;
   if (items.length === 0) {
-    content = [...figureSection(api), ...yardSection(api), ...extrasSection(api), hint()];
+    content = [...figureSection(api), ...placeSection(api), ...extrasSection(api), hint(api)];
   } else if (items.length === 1) {
     const [item] = items;
     content = [...itemSection(item, api), actionButtons(api, false)];

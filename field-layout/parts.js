@@ -79,9 +79,9 @@ function drawPerson({ w, color }) {
 
 // A group of people (a class lined up, a team): dots spread over the whole area.
 const CROWD_STEP = 1.5; // m between people
-function drawCrowd({ w, h, color }) {
-  const columns = Math.max(1, Math.round(w / CROWD_STEP));
-  const rows = Math.max(1, Math.round(h / CROWD_STEP));
+function drawCrowd({ w, h, color, k = 1 }) {
+  const columns = Math.max(1, Math.round(w / (CROWD_STEP * k)));
+  const rows = Math.max(1, Math.round(h / (CROWD_STEP * k)));
   const stepX = w / columns;
   const stepY = h / rows;
   const r = Math.min(stepX, stepY) * 0.33;
@@ -131,9 +131,110 @@ function drawSpeaker({ w, h, color }) {
     `<path d="M${fmt(s * 0.68)} ${fmt(-s * 0.72)}a${fmt(s)} ${fmt(s)} 0 0 1 0 ${fmt(s * 1.44)}" ${wave}/>`;
 }
 
+/* ---------- 体育館の部品: drawn at their real size ---------- */
+
+// A folding chair from above, facing up (toward a stage at the top): the seat, and the back below it.
+function chairShape(x, y, w, h, color) {
+  const line = `stroke="${INK}" stroke-width="${fmt(Math.min(w, h) * 0.08)}"`;
+  return rect(x - w / 2, y - h / 2, w, h * 0.78, `fill="${color}" ${line}`) +
+    rect(x - w / 2, y + h / 2 - h * 0.18, w, h * 0.18, `fill="${INK}"`);
+}
+
+function drawChair({ w, h, color }) {
+  return chairShape(0, 0, w, h, color);
+}
+
+// Rows of chairs (入学式・卒業式・集会): how many fit is worked out from the size, so the count
+// changes when the area is stretched. CHAIR_STEP is one chair with the gap beside and behind it.
+export const CHAIR_STEP = { x: 0.6, y: 0.9 }; // m
+export function chairCount(item) {
+  return { columns: Math.max(1, Math.round(item.w / CHAIR_STEP.x)), rows: Math.max(1, Math.round(item.h / CHAIR_STEP.y)) };
+}
+
+function drawChairRows(item) {
+  const { columns, rows } = chairCount(item);
+  const stepX = item.w / columns;
+  const stepY = item.h / rows;
+  const w = stepX * 0.75;
+  const h = Math.min(stepY * 0.62, w * 1.15);
+  const chairs = [];
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      chairs.push(chairShape(-item.w / 2 + stepX * (column + 0.5), -item.h / 2 + stepY * (row + 0.5), w, h, item.color));
+    }
+  }
+  return chairs.join("");
+}
+
+function drawFlowers({ w, color }) {
+  const r = w / 2;
+  const petals = [0, 72, 144, 216, 288].map((angle) => {
+    const a = (angle * Math.PI) / 180;
+    return `<circle cx="${fmt(Math.cos(a) * r * 0.5)}" cy="${fmt(Math.sin(a) * r * 0.5)}" r="${fmt(r * 0.42)}"/>`;
+  }).join("");
+  return `<circle r="${fmt(r)}" fill="#8ce99a" stroke="${INK}" stroke-width="${fmt(r * 0.06)}"/>` +
+    `<g fill="${color}" stroke="rgba(0,0,0,.3)" stroke-width="${fmt(r * 0.04)}">${petals}</g><circle r="${fmt(r * 0.2)}" fill="#ffd43b"/>`;
+}
+
+// A grand piano from above: the curved body and the keyboard along the bottom.
+function drawPiano({ w, h, color }) {
+  const x0 = -w / 2;
+  const y0 = -h / 2;
+  const keys = h * 0.14;
+  const body = `M${fmt(x0)} ${fmt(y0 + h - keys)}V${fmt(y0 + h * 0.12)}Q${fmt(x0)} ${fmt(y0)} ${fmt(x0 + w * 0.3)} ${fmt(y0)}` +
+    `Q${fmt(x0 + w * 0.55)} ${fmt(y0)} ${fmt(x0 + w * 0.6)} ${fmt(y0 + h * 0.3)}Q${fmt(x0 + w * 0.68)} ${fmt(y0 + h * 0.55)} ${fmt(x0 + w)} ${fmt(y0 + h * 0.62)}V${fmt(y0 + h - keys)}Z`;
+  return `<path d="${body}" fill="${color}" stroke="${INK}" stroke-width="${fmt(OUTLINE * 0.5)}"/>` +
+    rect(x0, y0 + h - keys, w, keys, `fill="#fff" stroke="${INK}" stroke-width="${fmt(OUTLINE * 0.4)}"`);
+}
+
+// A door in a wall: the opening and the way the door swings.
+function drawDoor({ w, h, color }) {
+  const wall = h * 0.22;
+  const line = `stroke="${color}" stroke-width="${fmt(wall * 0.35)}" fill="none"`;
+  return rect(-w / 2 - wall * 1.5, -h / 2, wall * 1.5, wall, `fill="${color}"`) +
+    rect(w / 2, -h / 2, wall * 1.5, wall, `fill="${color}"`) +
+    `<path d="M${fmt(-w / 2)} ${fmt(-h / 2 + wall)}V${fmt(h / 2)}A${fmt(h - wall)} ${fmt(h - wall)} 0 0 0 ${fmt(-w / 2 + h - wall)} ${fmt(-h / 2 + wall)}" ${line} stroke-dasharray="${fmt(wall * 0.6)} ${fmt(wall * 0.4)}"/>`;
+}
+
+// A vaulting box from above: rounded, with the leather top and the wooden steps.
+function drawVault({ w, h, color }) {
+  const line = `stroke="${INK}" stroke-width="${fmt(OUTLINE * 0.5)}"`;
+  return `<rect x="${fmt(-w / 2)}" y="${fmt(-h / 2)}" width="${fmt(w)}" height="${fmt(h)}" rx="${fmt(h * 0.3)}" fill="${color}" ${line}/>` +
+    `<rect x="${fmt(-w / 2 + w * 0.08)}" y="${fmt(-h / 2 + h * 0.15)}" width="${fmt(w * 0.84)}" height="${fmt(h * 0.7)}" rx="${fmt(h * 0.25)}" fill="#fff" ${line}/>`;
+}
+
+// A basketball goal from above: the board, the ring in front of it and the stand behind.
+function drawGoal({ w, h, color }) {
+  const line = `stroke="${INK}" stroke-width="${fmt(OUTLINE * 0.6)}"`;
+  const ring = h * 0.2;
+  return rect(-w * 0.12, h * 0.05, w * 0.24, h * 0.45, `fill="#adb5bd" ${line}`) +
+    rect(-w / 2, -h * 0.02, w, h * 0.1, `fill="#fff" ${line}`) +
+    `<circle cy="${fmt(-h * 0.02 - ring)}" r="${fmt(ring)}" fill="none" stroke="${color}" stroke-width="${fmt(ring * 0.25)}"/>`;
+}
+
+// A net between two posts (バレー・バドミントン): stretch it to the width of the court.
+function drawNet({ w, h, color }) {
+  const r = h / 2;
+  return `<path d="M${fmt(-w / 2 + r)} 0H${fmt(w / 2 - r)}" stroke="${color}" stroke-width="${fmt(r * 0.5)}" stroke-dasharray="${fmt(r * 0.6)} ${fmt(r * 0.3)}"/>` +
+    `<circle cx="${fmt(-w / 2 + r)}" r="${fmt(r)}" fill="${INK}"/><circle cx="${fmt(w / 2 - r)}" r="${fmt(r)}" fill="${INK}"/>`;
+}
+
+// A table tennis table: white edges, the middle line and the net across.
+function drawTable({ w, h, color }) {
+  const line = `stroke="#fff" stroke-width="${fmt(h * 0.03)}" fill="none"`;
+  return rect(-w / 2, -h / 2, w, h, `fill="${color}" stroke="${INK}" stroke-width="${fmt(h * 0.03)}"`) +
+    rect(-w / 2 + h * 0.03, -h / 2 + h * 0.03, w - h * 0.06, h * 0.94, line) +
+    `<path d="M${fmt(-w / 2)} 0H${fmt(w / 2)}" ${line}/>` +
+    `<path d="M0 ${fmt(-h / 2 - h * 0.08)}V${fmt(h / 2 + h * 0.08)}" stroke="${INK}" stroke-width="${fmt(h * 0.06)}"/>`;
+}
+
 // labelAt: where the item's name goes. "center" for things big enough to write on.
 // stretch: the width and height can be changed separately (else the shape keeps its proportions).
 // outlined: drawn with a dark outline, so it still shows when white on white paper.
+// place: "yard" or "gym" when the part is only offered there (else on both).
+// tile: the size drawn on its button, when the real size would be too long or too busy there.
+// real: drawn at its real size. Other parts are drawn larger than life so they show on a whole
+// school yard, and in a gym (much smaller) they start at half that size (see inkScale).
 export const PARTS = {
   cone: { name: "コーン", group: "目印", w: 2.4, h: 2.4, color: "#f08c00", labelAt: "below", draw: drawCone },
   marker: { name: "マーカー", group: "目印", w: 2.2, h: 1.2, color: "#f08c00", labelAt: "below", draw: drawMarker },
@@ -144,13 +245,27 @@ export const PARTS = {
   person: { name: "人", group: "人", w: 2, h: 2, color: "#e03131", labelAt: "below", draw: drawPerson },
   crowd: { name: "列・集団", group: "人", w: 6, h: 4.5, color: "#1c7ed6", labelAt: "below", stretch: true, draw: drawCrowd },
   area: { name: "席・範囲", group: "人", w: 16, h: 6, color: "#e03131", labelAt: "center", stretch: true, draw: drawArea },
-  tent: { name: "テント", group: "設備", w: 5.4, h: 3.6, color: "#ffffff", labelAt: "center", stretch: true, outlined: true, draw: drawTent },
-  gate: { name: "門", group: "設備", w: 5, h: 0.9, color: "#333333", labelAt: "below", stretch: true, draw: drawGate },
-  stand: { name: "朝礼台", group: "設備", w: 3.6, h: 1.8, color: "#adb5bd", labelAt: "center", stretch: true, outlined: true, draw: drawBox },
+  tent: { name: "テント", group: "設備", place: "yard", w: 5.4, h: 3.6, color: "#ffffff", labelAt: "center", stretch: true, outlined: true, draw: drawTent },
+  gate: { name: "門", group: "設備", place: "yard", w: 5, h: 0.9, color: "#333333", labelAt: "below", stretch: true, draw: drawGate },
+  stand: { name: "朝礼台", group: "設備", place: "yard", w: 3.6, h: 1.8, color: "#adb5bd", labelAt: "center", stretch: true, outlined: true, draw: drawBox },
   desk: { name: "机", group: "設備", w: 2.4, h: 1, color: "#ffffff", labelAt: "below", stretch: true, outlined: true, draw: drawBox },
   board: { name: "得点板", group: "設備", w: 3.2, h: 2.2, color: "#ffffff", labelAt: "below", outlined: true, draw: drawBoard },
   speaker: { name: "放送", group: "設備", w: 2.6, h: 2.6, color: "#333333", labelAt: "below", draw: drawSpeaker },
+  chairs: { name: "いすの列", group: "式・集会", place: "gym", real: true, w: 6, h: 4.5, tile: { w: 1.8, h: 1.8 }, color: "#868e96", labelAt: "below", stretch: true, draw: drawChairRows },
+  chair: { name: "いす", group: "式・集会", place: "gym", real: true, w: 0.45, h: 0.5, color: "#868e96", labelAt: "below", draw: drawChair },
+  podium: { name: "演台", group: "式・集会", place: "gym", real: true, w: 1.5, h: 0.7, color: "#b5835a", labelAt: "below", stretch: true, outlined: true, draw: drawBox },
+  flowers: { name: "花", group: "式・集会", place: "gym", real: true, w: 1, h: 1, color: "#f06595", labelAt: "below", draw: drawFlowers },
+  piano: { name: "ピアノ", group: "式・集会", place: "gym", real: true, w: 1.6, h: 2, color: "#333333", labelAt: "below", draw: drawPiano },
+  door: { name: "出入口", group: "式・集会", place: "gym", real: true, w: 1.8, h: 1.2, color: "#333333", labelAt: "below", stretch: true, draw: drawDoor },
+  vault: { name: "跳び箱", group: "体育", place: "gym", real: true, w: 1.6, h: 0.9, color: "#b5835a", labelAt: "below", draw: drawVault },
+  beam: { name: "平均台", group: "体育", place: "gym", real: true, w: 5, h: 0.3, tile: { w: 2, h: 0.3 }, color: "#b5835a", labelAt: "below", stretch: true, outlined: true, draw: drawBox },
+  goal: { name: "ゴール", group: "体育", place: "gym", real: true, w: 1.8, h: 2, color: "#e03131", labelAt: "below", draw: drawGoal },
+  net: { name: "ネット", group: "体育", place: "gym", real: true, w: 10, h: 0.4, tile: { w: 2.4, h: 0.4 }, color: "#333333", labelAt: "below", stretch: true, draw: drawNet },
+  pingpong: { name: "卓球台", group: "体育", place: "gym", real: true, w: 2.74, h: 1.525, color: "#1c7ed6", labelAt: "below", draw: drawTable },
 };
+
+export const GROUP_ORDER = ["式・集会", "体育", "目印", "人", "設備", "線・文字"];
+export const fitsPlace = (part, place) => !part.place || part.place === place;
 
 // The lines and words. They are not boxes, so drawing.js draws them itself.
 export const MARKS = {

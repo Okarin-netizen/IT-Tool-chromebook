@@ -1,6 +1,6 @@
 {
-  "name": "校庭の配置図",
-  "short_name": "校庭の配置図",
+  "name": "校庭・体育館の配置図",
+  "short_name": "配置図",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f1f3f6",
