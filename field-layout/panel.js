@@ -97,7 +97,9 @@ function placeSection(api) {
     api.change(() => setPlace(doc, key));
     api.status(`${PLACES[key].name}にしました。置いてあるものはそのままです（「元に戻す」で戻せます）`);
   };
-  const shape = el("select", { "aria-label": gym ? "床の線" : "校庭の形", onchange: (e) => api.change(() => (doc.field = e.target.value)) },
+  // Under a sheet the court lines do not show.
+  const covered = Boolean(GROUNDS[doc.ground].sheet);
+  const shape = el("select", { "aria-label": gym ? "床の線" : "校庭の形", disabled: covered, title: covered ? "シートを敷くと線は見えません" : "", onchange: (e) => api.change(() => (doc.field = e.target.value)) },
     Object.entries(FIELDS).filter(([, field]) => fitsPlace(field, doc.place)).map(([key, { name }]) => new Option(name, key, false, key === doc.field)));
   const min = gym ? 10 : 20;
   const size = el("span", { className: "unit" }, [
@@ -111,7 +113,9 @@ function placeSection(api) {
     Object.assign(segmented("場所", places, doc.place, pickPlace), { className: "seg wide" }),
     row(gym ? "床の線" : "形", shape),
     row("大きさ", size),
-    row(gym ? "床" : "地面", segmented(gym ? "床の色" : "地面の色", grounds, doc.ground, (key) => api.change(() => (doc.ground = key)))),
+    gym
+      ? el("div", { className: "row stack" }, ["床", Object.assign(segmented("床の色", grounds, doc.ground, (key) => api.change(() => (doc.ground = key))), { className: "seg wide" })])
+      : row("地面", segmented("地面の色", grounds, doc.ground, (key) => api.change(() => (doc.ground = key)))),
   ];
   if (gym) {
     const stage = segmented("ステージの場所", STAGES, doc.stage, (key) => api.change(() => (doc.stage = key)));

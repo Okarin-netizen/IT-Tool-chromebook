@@ -1395,6 +1395,9 @@ const TOOLS = {
       await t.page.click("[aria-label='ステージの形'] button:has-text('前が丸い')");
       await t.page.click("[aria-label='階段'] button:has-text('まん中')");
       await t.until(() => __fieldLayout.state.doc.stageShape === "round" && __fieldLayout.state.doc.stairs === "center");
+      t.expect(!(await t.page.isChecked("text=北の印 >> input")), "体育館なのに北の印が出ている");
+      await t.page.click("[aria-label='床の色'] button:has-text('緑シート')");
+      await t.until(() => __fieldLayout.state.doc.ground === "sheetGreen" && document.querySelector("select[aria-label='床の線']").disabled);
       await t.shot("gym");
       await t.page.click("#save-btn");
       await t.page.click("#save-all-btn");

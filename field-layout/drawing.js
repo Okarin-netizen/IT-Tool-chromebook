@@ -32,6 +32,9 @@ export const GROUNDS = {
   grass: { name: "芝", place: "yard", color: "#cfe3b0" },
   wood: { name: "木", place: "gym", color: "#efdbb2" },
   white: { name: "白", color: "#ffffff" },
+  // 床に敷いたシート (式や集会のとき). The court lines are under it, so they are not drawn.
+  sheetGreen: { name: "緑シート", place: "gym", color: "#a9d3a6", sheet: true },
+  sheetBlue: { name: "青シート", place: "gym", color: "#a9c8e6", sheet: true },
 };
 
 export const STAGES = { top: "上", bottom: "下", left: "左", right: "右", none: "なし" };
@@ -81,6 +84,8 @@ export function newDoc() {
 export function setPlace(doc, place) {
   const { field, width, height, ground } = PLACES[place];
   Object.assign(doc, { place, field, width, height, ground });
+  // A gym plan seldom needs the north arrow; the yard starts with it. It can be turned on again.
+  doc.north = { ...doc.north, show: place === "yard" };
 }
 
 const fmt = (n) => String(Math.round(n * 1000) / 1000);
@@ -442,6 +447,18 @@ function courtLegend(doc, field, bw) {
   return `<g font-family="${FONT}">${markup}</g>`;
 }
 
+// The sheet covers the floor (not the stage), laid in strips SHEET_WIDTH wide along the gym.
+const SHEET_WIDTH = 1.8; // m
+function drawSheet(doc, color) {
+  const floor = floorRect(doc);
+  const lengthwise = floor.w >= floor.h; // strips run the long way
+  let seams = "";
+  if (lengthwise) for (let y = floor.y + SHEET_WIDTH; y < floor.y + floor.h - 0.2; y += SHEET_WIDTH) seams += `M${fmt(floor.x)} ${fmt(y)}h${fmt(floor.w)}`;
+  else for (let x = floor.x + SHEET_WIDTH; x < floor.x + floor.w - 0.2; x += SHEET_WIDTH) seams += `M${fmt(x)} ${fmt(floor.y)}v${fmt(floor.h)}`;
+  return `<rect x="${fmt(floor.x)}" y="${fmt(floor.y)}" width="${fmt(floor.w)}" height="${fmt(floor.h)}" fill="${color}"/>` +
+    `<path d="${seams}" stroke="#000" stroke-opacity=".13" stroke-width="0.05"/>`;
+}
+
 /* ---------- the ground ---------- */
 
 function drawField(doc, bw) {
@@ -450,7 +467,10 @@ function drawField(doc, bw) {
   const field = FIELDS[doc.field];
   let markup = `<rect width="${fmt(doc.width)}" height="${fmt(doc.height)}" fill="${ground}" stroke="#8a8f98" stroke-width="0.25"/>`;
   if (doc.place === "gym") {
-    markup = `<rect width="${fmt(doc.width)}" height="${fmt(doc.height)}" fill="${ground}" stroke="#495057" stroke-width="0.3"/>`;
+    const sheet = GROUNDS[doc.ground].sheet;
+    markup = `<rect width="${fmt(doc.width)}" height="${fmt(doc.height)}" fill="${sheet ? GROUNDS.wood.color : ground}" stroke="#495057" stroke-width="0.3"/>`;
+    const walls = `<rect width="${fmt(doc.width)}" height="${fmt(doc.height)}" fill="none" stroke="#495057" stroke-width="0.3"/>`;
+    if (sheet) return markup + drawSheet(doc, bw ? "#f1f3f5" : ground) + walls + drawStage(doc, bw);
     return markup + drawCourts(doc, field, bw) + drawStage(doc, bw);
   }
   if (field.radius) markup += drawTrack(doc, field, ink);
