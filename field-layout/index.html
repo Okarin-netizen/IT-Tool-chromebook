@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>校庭の配置図</title>
-  <meta name="description" content="運動会や行事の説明書に載せる校庭の配置図を、コーン・矢印・テントなどを置いて作るブラウザだけで動くツール">
+  <title>校庭・体育館の配置図</title>
+  <meta name="description" content="運動会・入学式・卒業式など行事の説明書に載せる校庭や体育館の配置図を、コーン・いす・ステージ・矢印などを置いて作るブラウザだけで動くツール">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <meta name="theme-color" content="#3d7d2b">
@@ -34,7 +34,7 @@
   <header class="toolbar">
     <div class="group">
       <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
-      <span class="app-title">校庭の配置図</span>
+      <span class="app-title">校庭・体育館の配置図</span>
       <button id="undo-btn" class="btn" title="元に戻す (Ctrl+Z)" disabled><svg class="i" aria-hidden="true"><use href="#i-undo"/></svg>元に戻す</button>
       <button id="redo-btn" class="btn" title="やり直し (Ctrl+Y)" disabled><svg class="i" aria-hidden="true"><use href="#i-redo"/></svg>やり直し</button>
       <button id="snap-btn" class="btn tool" aria-pressed="true" title="置いたものを1mのます目にそろえる。5mごとに薄い線が出ます（印刷には出ません）"><svg class="i" aria-hidden="true"><use href="#i-grid"/></svg>ます目にそろえる</button>
@@ -69,9 +69,9 @@
       <div id="palette"></div>
     </aside>
 
-    <section class="stage" aria-label="校庭">
+    <section class="stage" aria-label="配置図">
       <div id="board-wrap" class="board-wrap">
-        <svg id="board" class="board" lang="ja" role="img" aria-label="校庭の配置図"></svg>
+        <svg id="board" class="board" lang="ja" role="img" aria-label="配置図"></svg>
       </div>
       <div class="pages">
         <div id="tabs" class="tabs" role="tablist" aria-label="図（種目ごと）"></div>

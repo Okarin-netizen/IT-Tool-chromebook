@@ -199,6 +199,7 @@ body {
   white-space: nowrap;
 }
 .seg button:last-child { border-right: 0; }
+.seg.wide button { flex: 1; }
 .seg button[aria-checked="true"] { background: var(--accent-soft); color: var(--accent-dark); font-weight: 600; }
 
 .swatches { display: flex; flex-wrap: wrap; gap: 4px; }

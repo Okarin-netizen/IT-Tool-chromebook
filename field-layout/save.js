@@ -1,5 +1,5 @@
 // Turning figures into files: a PNG to paste into a handout, or an A4 PDF with one figure per page.
-import { figureSvg } from "./drawing.js";
+import { figureSvg, placeName } from "./drawing.js";
 import { canvasToBlob } from "../shared/js/canvas.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 
@@ -37,7 +37,7 @@ export async function figurePng(doc, index, pixels = IMAGE_WIDTH) {
 export async function figuresPdf(doc, indices) {
   const { PDFDocument } = await loadPdfLib();
   const pdf = await PDFDocument.create();
-  pdf.setTitle(indices.length === 1 ? doc.figures[indices[0]].name : "校庭の配置図");
+  pdf.setTitle(indices.length === 1 ? doc.figures[indices[0]].name : placeName(doc));
   const landscape = doc.width >= doc.height;
   const pageWidth = landscape ? A4_LONG : A4_SHORT;
   const pageHeight = landscape ? A4_SHORT : A4_LONG;
