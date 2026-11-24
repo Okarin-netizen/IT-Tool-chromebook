@@ -1392,6 +1392,9 @@ const TOOLS = {
       await t.until(() => document.getElementById("chair-total")?.textContent.includes("全部で 60きゃく"));
       t.expect(await t.page.locator("#board text:has-text('ステージ')").count() === 1, "体育館にステージが出ない");
       await t.page.keyboard.press("Escape");
+      await t.page.click("[aria-label='ステージの形'] button:has-text('前が丸い')");
+      await t.page.click("[aria-label='階段'] button:has-text('まん中')");
+      await t.until(() => __fieldLayout.state.doc.stageShape === "round" && __fieldLayout.state.doc.stairs === "center");
       await t.shot("gym");
       await t.page.click("#save-btn");
       await t.page.click("#save-all-btn");

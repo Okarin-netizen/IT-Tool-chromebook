@@ -228,6 +228,16 @@ function drawTable({ w, h, color }) {
     `<path d="M0 ${fmt(-h / 2 - h * 0.08)}V${fmt(h / 2 + h * 0.08)}" stroke="${INK}" stroke-width="${fmt(h * 0.06)}"/>`;
 }
 
+// Stairs from above: the steps as lines, the lowest step at the bottom (toward the floor).
+export const STAIR_COLOR = "#e6cc9a";
+export function drawStairs({ w, h, color }) {
+  const steps = Math.max(2, Math.round(h / 0.3));
+  let lines = "";
+  for (let i = 1; i < steps; i++) lines += `M${fmt(-w / 2)} ${fmt(-h / 2 + (h * i) / steps)}H${fmt(w / 2)}`;
+  return rect(-w / 2, -h / 2, w, h, `fill="${color}" stroke="${INK}" stroke-width="0.06"`) +
+    `<path d="${lines}" stroke="${INK}" stroke-width="0.04"/>`;
+}
+
 // labelAt: where the item's name goes. "center" for things big enough to write on.
 // stretch: the width and height can be changed separately (else the shape keeps its proportions).
 // outlined: drawn with a dark outline, so it still shows when white on white paper.
@@ -256,6 +266,7 @@ export const PARTS = {
   podium: { name: "演台", group: "式・集会", place: "gym", real: true, w: 1.5, h: 0.7, color: "#b5835a", labelAt: "below", stretch: true, outlined: true, draw: drawBox },
   flowers: { name: "花", group: "式・集会", place: "gym", real: true, w: 1, h: 1, color: "#f06595", labelAt: "below", draw: drawFlowers },
   piano: { name: "ピアノ", group: "式・集会", place: "gym", real: true, w: 1.6, h: 2, color: "#333333", labelAt: "below", draw: drawPiano },
+  stairs: { name: "階段", group: "式・集会", place: "gym", real: true, w: 1.8, h: 1.2, color: STAIR_COLOR, labelAt: "below", stretch: true, draw: drawStairs },
   door: { name: "出入口", group: "式・集会", place: "gym", real: true, w: 1.8, h: 1.2, color: "#333333", labelAt: "below", stretch: true, draw: drawDoor },
   vault: { name: "跳び箱", group: "体育", place: "gym", real: true, w: 1.6, h: 0.9, color: "#b5835a", labelAt: "below", draw: drawVault },
   beam: { name: "平均台", group: "体育", place: "gym", real: true, w: 5, h: 0.3, tile: { w: 2, h: 0.3 }, color: "#b5835a", labelAt: "below", stretch: true, outlined: true, draw: drawBox },

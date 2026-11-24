@@ -1,7 +1,7 @@
 // The settings column on the right. It shows the place and the figure when nothing is chosen,
 // or what can be changed on the chosen items. `api` (from app.js) does the changing.
 import { COLORS, PARTS, MARKS, TEXT_SIZES, NUMBER_SIZE, CHAIR_STEP, chairCount, fitsPlace } from "./parts.js";
-import { FIELDS, GROUNDS, PLACES, STAGES, NORTH_ANGLES, BASE_INDEX, setPlace, isStraight, lineLength, lengthText } from "./drawing.js";
+import { FIELDS, GROUNDS, PLACES, STAGES, STAGE_SHAPES, STAIRS, STAIRS_ACROSS, NORTH_ANGLES, BASE_INDEX, setPlace, isStraight, lineLength, lengthText } from "./drawing.js";
 
 const SIZE_STEPS = { small: 0.7, normal: 1, large: 1.5 };
 const SIZE_WORDS = { small: "小", normal: "中", large: "大" };
@@ -116,8 +116,26 @@ function placeSection(api) {
   if (gym) {
     const stage = segmented("ステージの場所", STAGES, doc.stage, (key) => api.change(() => (doc.stage = key)));
     rows.push(el("div", { className: "row stack" }, ["ステージの場所", Object.assign(stage, { className: "seg wide" })]));
+    if (doc.stage !== "none") rows.push(...stageRows(api));
   }
   return rows;
+}
+
+// The stage's size, shape and stairs. Stairs placed anywhere else are a part (階段).
+function stageRows(api) {
+  const { doc } = api;
+  const across = doc.stage === "left" || doc.stage === "right";
+  const wide = (label, options, value, onPick) => Object.assign(segmented(label, options, value, onPick), { className: "seg wide" });
+  const size = el("span", { className: "unit" }, [
+    numberBox(doc.stageWidth, { min: 3, max: 100, step: 0.5, unit: "", label: "ステージの幅（m）" }, (value) => api.change(() => (doc.stageWidth = value))),
+    "×",
+    numberBox(doc.stageDepth, { min: 1, max: 30, step: 0.5, unit: "m", label: "ステージの奥行き（m）" }, (value) => api.change(() => (doc.stageDepth = value))),
+  ]);
+  return [
+    el("div", { className: "row stack" }, ["ステージの幅×奥行き", size]),
+    el("div", { className: "row stack" }, ["ステージの形", wide("ステージの形", STAGE_SHAPES, doc.stageShape, (key) => api.change(() => (doc.stageShape = key)))]),
+    el("div", { className: "row stack" }, ["階段", wide("階段", across ? STAIRS_ACROSS : STAIRS, doc.stairs, (key) => api.change(() => (doc.stairs = key)))]),
+  ];
 }
 
 function extrasSection(api) {

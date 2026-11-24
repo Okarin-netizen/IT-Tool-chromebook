@@ -1,7 +1,7 @@
 // Draws one figure (the school yard and what is on it) as SVG markup. The editor shows the same
 // markup that is saved as an image or PDF, so what you see is what you print.
 // Everything is in meters: the SVG's viewBox is the yard, 0 0 width height.
-import { PARTS, LINE_WIDTHS, LABEL_SIZE } from "./parts.js";
+import { PARTS, LINE_WIDTHS, LABEL_SIZE, STAIR_COLOR, drawStairs } from "./parts.js";
 
 // Where the figure is: the school yard (校庭) or the gym (体育館). Each starts with its own lines,
 // size and ground; parts are offered by place (parts.js).
@@ -35,6 +35,10 @@ export const GROUNDS = {
 };
 
 export const STAGES = { top: "上", bottom: "下", left: "左", right: "右", none: "なし" };
+export const STAGE_SHAPES = { rect: "四角", round: "前が丸い", apron: "前に出っぱり" };
+// "start" is the left end (the upper end when the stage is on a side wall).
+export const STAIRS = { both: "両はし", start: "左", end: "右", center: "まん中", none: "なし" };
+export const STAIRS_ACROSS = { ...STAIRS, start: "上", end: "下" };
 
 export const NORTH_ANGLES = { 0: "上", 45: "右上", 90: "右", 135: "右下", 180: "下", 225: "左下", 270: "左", 315: "左上" };
 
@@ -58,6 +62,10 @@ export function newDoc() {
     place: "yard",
     field: "track200",
     stage: "top",
+    stageWidth: 15,
+    stageDepth: 6,
+    stageShape: "rect",
+    stairs: "both",
     width: 110,
     height: 70,
     ground: "soil",
@@ -280,7 +288,6 @@ function drawTrack(doc, field, ink) {
 
 /* ---------- the gym ---------- */
 
-const STAGE_DEPTH = 6; // m
 const STAGE_COLOR = "#d6b47c";
 const COURT_LINE = 0.1; // m
 const COURTS = {
@@ -291,31 +298,66 @@ const COURTS = {
 
 // The floor of the gym: all of it but the side the stage is on.
 function floorRect(doc) {
-  const depth = doc.stage === "none" ? 0 : STAGE_DEPTH;
+  const depth = doc.stage === "none" ? 0 : doc.stageDepth;
   const x = doc.stage === "left" ? depth : 0;
   const y = doc.stage === "top" ? depth : 0;
   const across = doc.stage === "left" || doc.stage === "right";
   return { x, y, w: doc.width - (across ? depth : 0), h: doc.height - (across ? 0 : depth) };
 }
 
+// The stage is drawn as if it stood against the top wall (the wall at y = 0, its front at
+// y = depth, its middle at x = 0) and then turned onto its own wall.
+const STAGE_TURNS = {
+  top: (doc) => ({ at: [doc.width / 2, 0], angle: 0 }),
+  bottom: (doc) => ({ at: [doc.width / 2, doc.height], angle: 180 }),
+  left: (doc) => ({ at: [0, doc.height / 2], angle: -90 }),
+  right: (doc) => ({ at: [doc.width, doc.height / 2], angle: 90 }),
+};
+// Which way "start" (the left end, or the upper end on a side wall) lies along the stage.
+const START_SIDE = { top: -1, bottom: 1, left: 1, right: -1 };
+const STAIR = { w: 1.8, h: 1.2 }; // m
+
+function stageOutline(length, depth, shape) {
+  const half = length / 2;
+  if (shape === "round") {
+    const body = depth * 0.7;
+    return `M${fmt(-half)} 0H${fmt(half)}V${fmt(body)}Q0 ${fmt(depth * 1.3)} ${fmt(-half)} ${fmt(body)}Z`;
+  }
+  if (shape === "apron") {
+    const body = depth * 0.7;
+    const apron = Math.min(half, Math.max(2, length * 0.2));
+    return `M${fmt(-half)} 0H${fmt(half)}V${fmt(body)}H${fmt(apron)}V${fmt(depth)}H${fmt(-apron)}V${fmt(body)}H${fmt(-half)}Z`;
+  }
+  return `M${fmt(-half)} 0H${fmt(half)}V${fmt(depth)}H${fmt(-half)}Z`;
+}
+
+// Where the stairs go along the stage (x of their middle), at the front of the stage's ends.
+function stairSpots(doc, length) {
+  const end = length / 2 - STAIR.w / 2 - 0.3;
+  const start = START_SIDE[doc.stage] * end;
+  return { both: [-end, end], start: [start], end: [-start], center: [0], none: [] }[doc.stairs] ?? [];
+}
+
 function drawStage(doc, bw) {
   if (doc.stage === "none") return "";
   const across = doc.stage === "left" || doc.stage === "right";
   const side = across ? doc.height : doc.width;
-  const length = Math.min(side * 0.5, 16);
-  const start = (side - length) / 2;
-  const far = doc.stage === "right" || doc.stage === "bottom";
-  const depthAt = far ? (across ? doc.width : doc.height) - STAGE_DEPTH : 0;
-  const [x, y, w, h] = across ? [depthAt, start, STAGE_DEPTH, length] : [start, depthAt, length, STAGE_DEPTH];
+  const length = Math.min(doc.stageWidth, side);
+  const depth = doc.stageDepth;
+  const { at, angle } = STAGE_TURNS[doc.stage](doc);
   const fill = bw ? "#e9ecef" : STAGE_COLOR;
-  // The word goes near the back wall, leaving the front of the stage for a 演台 and its name.
-  const back = { top: [0, -0.28], bottom: [0, 0.28], left: [-0.28, 0], right: [0.28, 0] }[doc.stage];
-  const labelX = x + w / 2 + back[0] * w;
-  const labelY = y + h / 2 + back[1] * h;
-  // On a side wall the word runs along the wall, or it would not fit in the stage's depth.
-  const turn = across ? ` transform="rotate(${doc.stage === "left" ? -90 : 90} ${fmt(labelX)} ${fmt(labelY)})"` : "";
-  return `<rect x="${fmt(x)}" y="${fmt(y)}" width="${fmt(w)}" height="${fmt(h)}" fill="${fill}" stroke="#495057" stroke-width="0.12"/>` +
-    `<g font-family="${FONT}"${turn}>${words("ステージ", labelX, labelY, 1.2, { color: "#495057" })}</g>`;
+  const line = 'stroke="#495057" stroke-width="0.12"';
+  // The front edge of the body, where stairs stand (in front of a rounded or jutting front too).
+  const front = doc.stageShape === "rect" ? depth : depth * 0.7;
+  const stairs = stairSpots(doc, length).map((x) =>
+    `<g transform="translate(${fmt(x)} ${fmt(front + STAIR.h / 2)}) rotate(180)">${drawStairs({ ...STAIR, color: bw ? "#f1f3f5" : STAIR_COLOR })}</g>`).join("");
+  // The word goes near the back wall, leaving the front for a 演台 and its name. On a side wall
+  // it runs along the wall; on the bottom wall it is turned back so it is not upside down.
+  const back = Math.min(depth * 0.28, 2);
+  const upright = doc.stage === "bottom" ? ` transform="rotate(180 0 ${fmt(back)})"` : "";
+  return `<g transform="translate(${fmt(at[0])} ${fmt(at[1])}) rotate(${angle})">` +
+    `<path d="${stageOutline(length, depth, doc.stageShape)}" fill="${fill}" ${line}/>${stairs}` +
+    `<g font-family="${FONT}"${upright}>${words("ステージ", 0, back, 1.2, { color: "#495057" })}</g></g>`;
 }
 
 // Each court is drawn lying along x, centered on (0, 0); drawCourts turns it into place.
