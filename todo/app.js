@@ -52,7 +52,7 @@ function load() {
 }
 
 function save() {
-  if (!saveJson(STORAGE_KEY, state)) showStatus("保存できませんでした。「別の端末に移す用に保存」でファイルに保存してください。", { error: true, ms: 5000 });
+  if (!saveJson(STORAGE_KEY, state)) showStatus("保存できませんでした。「別の端末に移す用に保存」でファイルに保存してください", { error: true, ms: 5000 });
 }
 
 function newId() {

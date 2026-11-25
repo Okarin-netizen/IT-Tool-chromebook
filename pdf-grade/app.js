@@ -315,7 +315,7 @@ async function addPdfs(pdfs, skipped = 0) {
       dupes++;
       continue;
     }
-    showStatus(`PDFを読み込み中… (${i + 1}/${pdfs.length})`, { sticky: true });
+    showStatus(`PDFを読み込み中…（${i + 1}/${pdfs.length}）`, { sticky: true });
     try {
       state.files.push(await openSubmission(src));
       added++;

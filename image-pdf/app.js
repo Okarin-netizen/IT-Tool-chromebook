@@ -433,7 +433,7 @@ async function openCamera() {
     await startCamera();
   } catch (err) {
     console.error(err);
-    showStatus("カメラを使えませんでした（カメラの使用を許可しているか確認してください）", { error: true });
+    showStatus("カメラを使えませんでした。ブラウザのカメラの許可を確かめてください", { error: true });
     return;
   }
   els.camera.showModal();

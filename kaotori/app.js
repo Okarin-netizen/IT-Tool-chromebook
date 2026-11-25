@@ -153,75 +153,95 @@
   }
 
   /* ---------- 顔検出 ---------- */
+  const DETECT_MAX_PHOTO = 4000; // 検出に使う写真の長い辺（px）。これより大きい写真は縮小する
+  const DETECT_MAX_TILE = 640; // AIに渡す画像の長い辺（px）
+  const TILE_FRACTIONS = [0.55, 0.3, 0.17]; // 小区画の大きさ（写真の短い辺に対する割合）
+  const MIN_TILE_PX = 160; // これより小さくなる小区画は使わない
+  const TILE_STEP = 0.6; // となりの小区画へずらす幅（小区画の大きさに対する割合）
+  const MIN_FACE_PX = 10; // これより小さい顔は誤検出として捨てる
 
-  async function detectFaces(bmp, onProgress) {
-    const W = bmp.width;
-    const H = bmp.height;
-    const f = Math.min(1, 4000 / Math.max(W, H)); // 検出用の縮小率
-    const dw = W * f;
-    const dh = H * f;
-    const L = Math.min(dw, dh);
-    // 大きさの違う顔を拾うため、写真全体＋重なりのある小区画で検出する
-    const tiles = [{ x: 0, y: 0, w: dw, h: dh }];
-    for (const frac of [0.55, 0.3, 0.17]) {
-      const T = L * frac;
-      if (T < 160) continue;
-      const step = T * 0.6;
-      for (let y = 0; y < dh; y += step) {
-        for (let x = 0; x < dw; x += step) {
+  // 大きさの違う顔を拾うため、写真全体＋重なりのある小区画で検出する
+  function makePhotoTiles(width, height) {
+    const shortSide = Math.min(width, height);
+    const tiles = [{ x: 0, y: 0, w: width, h: height }];
+    for (const fraction of TILE_FRACTIONS) {
+      const size = shortSide * fraction;
+      if (size < MIN_TILE_PX) continue;
+      const step = size * TILE_STEP;
+      for (let y = 0; y < height; y += step) {
+        for (let x = 0; x < width; x += step) {
           tiles.push({
-            x: Math.min(x, Math.max(0, dw - T)),
-            y: Math.min(y, Math.max(0, dh - T)),
-            w: Math.min(T, dw),
-            h: Math.min(T, dh),
+            x: Math.min(x, Math.max(0, width - size)),
+            y: Math.min(y, Math.max(0, height - size)),
+            w: Math.min(size, width),
+            h: Math.min(size, height),
           });
-          if (x + T >= dw) break;
+          if (x + size >= width) break;
         }
-        if (y + T >= dh) break;
+        if (y + size >= height) break;
       }
     }
-    const raw = [];
-    const tc = makeCanvas(1, 1);
-    const tctx = tc.getContext("2d", { willReadFrequently: true });
+    return tiles;
+  }
+
+  async function detectFaces(bmp, onProgress) {
+    const shrink = Math.min(1, DETECT_MAX_PHOTO / Math.max(bmp.width, bmp.height)); // 検出用の縮小率
+    const width = bmp.width * shrink;
+    const height = bmp.height * shrink;
+    const shortSide = Math.min(width, height);
+    const tiles = makePhotoTiles(width, height);
+    const found = [];
+    const tileCanvas = makeCanvas(1, 1);
+    const tileCtx = tileCanvas.getContext("2d", { willReadFrequently: true });
     for (let i = 0; i < tiles.length; i++) {
-      const t = tiles[i];
-      const s = Math.min(1, 640 / Math.max(t.w, t.h));
-      tc.width = Math.round(t.w * s);
-      tc.height = Math.round(t.h * s);
-      tctx.imageSmoothingQuality = "high";
-      tctx.drawImage(bmp, t.x / f, t.y / f, t.w / f, t.h / f, 0, 0, tc.width, tc.height);
-      const res = ai.detector.detect(tc);
-      for (const d of res.detections) {
-        const score = d.categories?.[0]?.score ?? 0;
+      const tile = tiles[i];
+      const tileShrink = Math.min(1, DETECT_MAX_TILE / Math.max(tile.w, tile.h));
+      tileCanvas.width = Math.round(tile.w * tileShrink);
+      tileCanvas.height = Math.round(tile.h * tileShrink);
+      tileCtx.imageSmoothingQuality = "high";
+      tileCtx.drawImage(
+        bmp,
+        tile.x / shrink,
+        tile.y / shrink,
+        tile.w / shrink,
+        tile.h / shrink,
+        0,
+        0,
+        tileCanvas.width,
+        tileCanvas.height,
+      );
+      const result = ai.detector.detect(tileCanvas);
+      for (const detection of result.detections) {
+        const score = detection.categories?.[0]?.score ?? 0;
         if (score < ai.threshold) continue;
-        const bb = d.boundingBox;
-        const k = 1 / s / f;
+        const bounds = detection.boundingBox;
+        const toPhoto = 1 / tileShrink / shrink; // AIの画像のピクセル → 元の写真のピクセル
         const box = {
-          x: t.x / f + bb.originX * k,
-          y: t.y / f + bb.originY * k,
-          w: bb.width * k,
-          h: bb.height * k,
+          x: tile.x / shrink + bounds.originX * toPhoto,
+          y: tile.y / shrink + bounds.originY * toPhoto,
+          w: bounds.width * toPhoto,
+          h: bounds.height * toPhoto,
         };
-        if (box.w < 10) continue;
-        const kp = (d.keypoints || []).map((p) => ({ x: (t.x + p.x * t.w) / f, y: (t.y + p.y * t.h) / f }));
-        raw.push({ box, score, kp, tileScale: t.w / L });
+        if (box.w < MIN_FACE_PX) continue;
+        const kp = (detection.keypoints || []).map((p) => ({
+          x: (tile.x + p.x * tile.w) / shrink,
+          y: (tile.y + p.y * tile.h) / shrink,
+        }));
+        found.push({ box, score, kp, tileScale: tile.w / shortSide });
       }
       if (onProgress) onProgress(i / tiles.length);
       await tick();
       checkCancel(); // 区画ごとに画面を更新し、中止できるようにする
     }
     // 重複の除去（信頼度の高いものを残す）
-    raw.sort((a, b) => b.score - a.score);
+    found.sort((a, b) => b.score - a.score);
     const kept = [];
-    for (const r of raw) {
-      if (
-        kept.some((k) => {
-          const o = overlap(k.box, r.box);
-          return o.iou > 0.3 || o.cover > 0.6;
-        })
-      )
-        continue;
-      kept.push(r);
+    for (const face of found) {
+      const isDuplicate = kept.some((other) => {
+        const o = overlap(other.box, face.box);
+        return o.iou > 0.3 || o.cover > 0.6;
+      });
+      if (!isDuplicate) kept.push(face);
     }
     return kept;
   }
@@ -550,7 +570,12 @@
       const pctx = person.getContext("2d");
       pctx.drawImage(c, 0, 0);
       pctx.globalCompositeOperation = "destination-in";
-      SiteBlur.drawBlurred(pctx, mk, Math.max(0.6, c.width / 400), null, { x: 0, y: 0, w: c.width, h: c.height });
+      SiteBlur.drawBlurred(pctx, mk, Math.max(0.6, c.width / 400), null, {
+        x: 0,
+        y: 0,
+        w: c.width,
+        h: c.height,
+      });
       const ctx = c.getContext("2d");
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
