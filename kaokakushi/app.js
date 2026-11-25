@@ -103,227 +103,287 @@
   // 調べ方ごとの、小区画の大きさ（画面の短い辺に対する割合）
   const TILE_SIZES = { fast: [], small: [0.75, 0.42] };
   const DEFAULT_TILE_SIZES = [0.75];
-  function makeTiles(W, H, mode) {
-    const tiles = [{ x: 0, y: 0, w: W, h: H }];
-    const fracs = TILE_SIZES[mode] ?? DEFAULT_TILE_SIZES;
-    const L = Math.min(W, H);
-    for (const frac of fracs) {
-      const T = L * frac;
-      const step = T * 0.8;
+  const TILE_STEP = 0.8; // となりの小区画へずらす幅（小区画の大きさに対する割合。1より小さいと重なる）
+  const DETECT_MAX_SIDE = 640; // AIに渡す画像の長い辺（px）
+  const MIN_FACE_PX = 8; // これより小さい顔は誤検出として捨てる（px）
+
+  function makeTiles(width, height, mode) {
+    const tiles = [{ x: 0, y: 0, w: width, h: height }];
+    const fractions = TILE_SIZES[mode] ?? DEFAULT_TILE_SIZES;
+    const shortSide = Math.min(width, height);
+    for (const fraction of fractions) {
+      const size = shortSide * fraction;
+      const step = size * TILE_STEP;
       for (let y = 0; ; y += step) {
-        const ty = Math.min(y, H - T);
+        const top = Math.min(y, height - size);
         for (let x = 0; ; x += step) {
-          tiles.push({ x: Math.min(x, W - T), y: ty, w: T, h: T });
-          if (x + T >= W) break;
+          tiles.push({ x: Math.min(x, width - size), y: top, w: size, h: size });
+          if (x + size >= width) break;
         }
-        if (y + T >= H) break;
+        if (y + size >= height) break;
       }
     }
     return tiles;
   }
   const tileCanvas = makeCanvas(1, 1);
   const tileCtx = tileCanvas.getContext("2d", { willReadFrequently: true });
-  function detectFrame(src, W, H, tiles, thr) {
-    const raw = [];
-    for (const t of tiles) {
+
+  // 1コマの顔を探す。位置は画面の幅・高さに対する割合（0〜1）で返す
+  function detectFrame(source, width, height, tiles, minScore) {
+    const found = [];
+    for (const tile of tiles) {
       // 検出用に縮小して渡す（AIの入力は小さいので、大きな画像を渡しても精度は上がらず遅くなるだけ）
-      const s = Math.min(1, 640 / Math.max(t.w, t.h));
-      tileCanvas.width = Math.round(t.w * s);
-      tileCanvas.height = Math.round(t.h * s);
-      tileCtx.drawImage(src, t.x, t.y, t.w, t.h, 0, 0, tileCanvas.width, tileCanvas.height);
-      const res = ai.detector.detect(tileCanvas);
-      for (const d of res.detections) {
-        const score = d.categories?.[0]?.score ?? 0;
-        if (score < thr) continue;
-        const bb = d.boundingBox;
-        const k = 1 / s;
+      const shrink = Math.min(1, DETECT_MAX_SIDE / Math.max(tile.w, tile.h));
+      tileCanvas.width = Math.round(tile.w * shrink);
+      tileCanvas.height = Math.round(tile.h * shrink);
+      tileCtx.drawImage(source, tile.x, tile.y, tile.w, tile.h, 0, 0, tileCanvas.width, tileCanvas.height);
+      const result = ai.detector.detect(tileCanvas);
+      for (const detection of result.detections) {
+        const score = detection.categories?.[0]?.score ?? 0;
+        if (score < minScore) continue;
+        const bounds = detection.boundingBox;
+        const grow = 1 / shrink;
         const box = {
-          x: (t.x + bb.originX * k) / W,
-          y: (t.y + bb.originY * k) / H,
-          w: (bb.width * k) / W,
-          h: (bb.height * k) / H,
+          x: (tile.x + bounds.originX * grow) / width,
+          y: (tile.y + bounds.originY * grow) / height,
+          w: (bounds.width * grow) / width,
+          h: (bounds.height * grow) / height,
         };
-        if (box.w * W < 8) continue;
-        const kp = (d.keypoints || []).map((p) => ({ x: (t.x + p.x * t.w) / W, y: (t.y + p.y * t.h) / H }));
-        raw.push({ ...box, score, kp: kp.length >= 2 ? kp : null });
+        if (box.w * width < MIN_FACE_PX) continue;
+        const keypoints = (detection.keypoints || []).map((p) => ({
+          x: (tile.x + p.x * tile.w) / width,
+          y: (tile.y + p.y * tile.h) / height,
+        }));
+        found.push({ ...box, score, kp: keypoints.length >= 2 ? keypoints : null });
       }
     }
-    raw.sort((a, b) => b.score - a.score);
+    return keepBestOfOverlapping(found);
+  }
+
+  // 小区画が重なる所では同じ顔が何度も見つかるので、点数の高いものだけを残す
+  function keepBestOfOverlapping(faces) {
+    faces.sort((a, b) => b.score - a.score);
     const kept = [];
-    for (const r of raw) {
-      if (
-        kept.some((k) => {
-          const o = overlap(k, r);
-          return o.iou > 0.3 || o.cover > 0.6;
-        })
-      )
-        continue;
-      kept.push(r);
+    for (const face of faces) {
+      const isDuplicate = kept.some((other) => {
+        const o = overlap(other, face);
+        return o.iou > 0.3 || o.cover > 0.6;
+      });
+      if (!isDuplicate) kept.push(face);
     }
     return kept;
   }
 
   /* ---------- 顔の追跡（同じ人の顔をコマをまたいでつなぐ） ---------- */
+  // 1人の顔 = track（hits にコマごとの位置）。fi = コマの番号、t = 時刻（秒）
+  const THUMB_PX = 96; // 一覧に出す顔の見本の大きさ
+
   function makeTracker(gapFrames) {
     const tracks = [];
     let nextId = 1;
     return {
       tracks,
-      step(fi, t, dets, canvas) {
-        const active = tracks.filter((tr) => fi - tr.lastFi <= gapFrames);
+      step(frameIndex, time, faces, canvas) {
+        const recent = tracks.filter((track) => frameIndex - track.lastFi <= gapFrames);
         const pairs = [];
-        for (const tr of active) {
-          const p = tr.hits[tr.hits.length - 1];
-          // 動きを考えて少し先を予測する
-          const q = tr.hits.length >= 2 ? tr.hits[tr.hits.length - 2] : null;
-          const k = q ? Math.min(1, (fi - p.fi) / Math.max(1, p.fi - q.fi)) : 0;
-          const pred = q ? { x: p.x + (p.x - q.x) * k, y: p.y + (p.y - q.y) * k, w: p.w, h: p.h } : p;
-          dets.forEach((d, di) => {
-            const o = overlap(pred, d).iou;
-            const dist =
-              Math.hypot(pred.x + pred.w / 2 - (d.x + d.w / 2), pred.y + pred.h / 2 - (d.y + d.h / 2)) /
-              Math.max(pred.w, d.w);
-            const size = Math.max(pred.w, d.w) / Math.min(pred.w, d.w);
-            if ((o > 0.15 || dist < 0.7) && size < 1.8) pairs.push({ tr, di, cost: 1 - o + dist });
+        for (const track of recent) {
+          const expected = predictPosition(track, frameIndex);
+          faces.forEach((face, faceIndex) => {
+            const iou = overlap(expected, face).iou;
+            const distance =
+              Math.hypot(
+                expected.x + expected.w / 2 - (face.x + face.w / 2),
+                expected.y + expected.h / 2 - (face.y + face.h / 2),
+              ) / Math.max(expected.w, face.w);
+            const sizeRatio = Math.max(expected.w, face.w) / Math.min(expected.w, face.w);
+            if ((iou > 0.15 || distance < 0.7) && sizeRatio < 1.8) {
+              pairs.push({ track, faceIndex, cost: 1 - iou + distance });
+            }
           });
         }
+        // いちばん近い組から順に、まだ使っていない顔と追跡をつなぐ
         pairs.sort((a, b) => a.cost - b.cost);
-        const usedT = new Set();
-        const usedD = new Set();
-        for (const p of pairs) {
-          if (usedT.has(p.tr) || usedD.has(p.di)) continue;
-          usedT.add(p.tr);
-          usedD.add(p.di);
-          addHit(p.tr, fi, t, dets[p.di], canvas);
+        const usedTracks = new Set();
+        const usedFaces = new Set();
+        for (const pair of pairs) {
+          if (usedTracks.has(pair.track) || usedFaces.has(pair.faceIndex)) continue;
+          usedTracks.add(pair.track);
+          usedFaces.add(pair.faceIndex);
+          addHit(pair.track, frameIndex, time, faces[pair.faceIndex], canvas);
         }
-        dets.forEach((d, di) => {
-          if (usedD.has(di)) return;
-          const tr = { id: nextId++, hits: [], lastFi: fi, score: 0, thumb: null, bestT: t };
-          tracks.push(tr);
-          addHit(tr, fi, t, d, canvas);
+        // つながらなかった顔は、新しく出てきた人
+        faces.forEach((face, faceIndex) => {
+          if (usedFaces.has(faceIndex)) return;
+          const track = { id: nextId++, hits: [], lastFi: frameIndex, score: 0, thumb: null, bestT: time };
+          tracks.push(track);
+          addHit(track, frameIndex, time, face, canvas);
         });
       },
     };
-    function addHit(tr, fi, t, d, canvas) {
-      tr.hits.push({ fi, t, x: d.x, y: d.y, w: d.w, h: d.h, kp: d.kp, score: d.score });
-      tr.lastFi = fi;
+
+    // 動きを考えて、このコマで顔がありそうな位置を少し先まで予測する
+    function predictPosition(track, frameIndex) {
+      const last = track.hits[track.hits.length - 1];
+      if (track.hits.length < 2) return last;
+      const before = track.hits[track.hits.length - 2];
+      const ahead = Math.min(1, (frameIndex - last.fi) / Math.max(1, last.fi - before.fi));
+      return {
+        x: last.x + (last.x - before.x) * ahead,
+        y: last.y + (last.y - before.y) * ahead,
+        w: last.w,
+        h: last.h,
+      };
+    }
+
+    function addHit(track, frameIndex, time, face, canvas) {
+      track.hits.push({
+        fi: frameIndex,
+        t: time,
+        x: face.x,
+        y: face.y,
+        w: face.w,
+        h: face.h,
+        kp: face.kp,
+        score: face.score,
+      });
+      track.lastFi = frameIndex;
       // いちばん大きく・はっきり写ったコマを一覧用の見本にする
-      const q = d.score * Math.sqrt(d.w * d.h);
-      if (!tr.thumb || q > tr.thumbQ) {
-        tr.thumbQ = q;
-        tr.score = Math.max(tr.score, d.score);
-        tr.bestT = t;
-        const W = canvas.width;
-        const H = canvas.height;
-        const s = Math.max(d.w * W, d.h * H) * 1.6;
-        const cx = (d.x + d.w / 2) * W;
-        const cy = (d.y + d.h / 2) * H;
-        const c = tr.thumb || makeCanvas(96, 96);
-        const ctx = c.getContext("2d");
-        ctx.fillStyle = "#ddd";
-        ctx.fillRect(0, 0, 96, 96);
-        ctx.drawImage(canvas, cx - s / 2, cy - s / 2, s, s, 0, 0, 96, 96);
-        tr.thumb = c;
+      const quality = face.score * Math.sqrt(face.w * face.h);
+      if (!track.thumb || quality > track.thumbQ) {
+        track.thumbQ = quality;
+        track.bestT = time;
+        track.thumb = drawThumb(track.thumb, canvas, face);
       }
-      tr.score = Math.max(tr.score, d.score);
+      track.score = Math.max(track.score, face.score);
+    }
+
+    // 顔のまわりを少し広めに切り抜いた正方形の見本
+    function drawThumb(thumb, canvas, face) {
+      const side = Math.max(face.w * canvas.width, face.h * canvas.height) * 1.6;
+      const centerX = (face.x + face.w / 2) * canvas.width;
+      const centerY = (face.y + face.h / 2) * canvas.height;
+      const out = thumb || makeCanvas(THUMB_PX, THUMB_PX);
+      const ctx = out.getContext("2d");
+      ctx.fillStyle = "#ddd";
+      ctx.fillRect(0, 0, THUMB_PX, THUMB_PX);
+      ctx.drawImage(canvas, centerX - side / 2, centerY - side / 2, side, side, 0, 0, THUMB_PX, THUMB_PX);
+      return out;
     }
   }
 
   // 追跡結果を整える：ゆれをならし、見失ったすき間を埋め、出入りの前後も少し長めに隠す
-  function finalizeTracks(rawTracks, nFrames, frames, fpsEff) {
-    const regions = Array.from({ length: nFrames }, () => []);
+  // regions[コマの番号] = そのコマで隠す顔の一覧
+  function finalizeTracks(rawTracks, frameCount, frames, fpsEff) {
+    const regions = Array.from({ length: frameCount }, () => []);
     const tracks = [];
-    const pad = Math.max(2, Math.round(fpsEff * 0.25));
+    const pad = Math.max(2, Math.round(fpsEff * 0.25)); // 出入りの前後に足すコマ数
     let no = 1;
-    for (const tr of rawTracks) {
-      const H = tr.hits;
-      if (H.length === 1 && tr.score < 0.6) continue; // 1コマだけのあいまいな検出は誤検出として捨てる
-      // ゆれをならす（近くのコマの平均）
-      const sm = H.map((h, i) => {
-        let sx = 0;
-        let sy = 0;
-        let sw = 0;
-        let sh = 0;
-        let n = 0;
-        for (let j = Math.max(0, i - 2); j <= Math.min(H.length - 1, i + 2); j++) {
-          if (Math.abs(H[j].fi - h.fi) > 3) continue;
-          const wgt = j === i ? 2 : 1;
-          sx += (H[j].x + H[j].w / 2) * wgt;
-          sy += (H[j].y + H[j].h / 2) * wgt;
-          sw += H[j].w * wgt;
-          sh += H[j].h * wgt;
-          n += wgt;
-        }
-        // 大きさは平均より少し大きい方へ寄せて、はみ出しを防ぐ
-        const w = Math.max(sw / n, h.w);
-        const hh = Math.max(sh / n, h.h);
-        return { tid: tr.id, x: sx / n - w / 2, y: sy / n - hh / 2, w, h: hh, kp: h.kp, fi: h.fi };
+    const put = (frameIndex, region) => {
+      if (frameIndex < 0 || frameIndex >= frameCount) return;
+      regions[frameIndex].push({
+        tid: region.tid,
+        x: region.x,
+        y: region.y,
+        w: region.w,
+        h: region.h,
+        kp: region.kp,
       });
-      const put = (fi, r) => {
-        if (fi >= 0 && fi < nFrames)
-          regions[fi].push({ tid: r.tid, x: r.x, y: r.y, w: r.w, h: r.h, kp: r.kp });
-      };
-      for (let i = 0; i < sm.length; i++) {
-        put(sm[i].fi, sm[i]);
-        if (i + 1 < sm.length)
-          for (let fi = sm[i].fi + 1; fi < sm[i + 1].fi; fi++)
-            put(fi, lerpRegion(sm[i], sm[i + 1], (fi - sm[i].fi) / (sm[i + 1].fi - sm[i].fi)));
+    };
+    for (const track of rawTracks) {
+      const hits = track.hits;
+      if (hits.length === 1 && track.score < 0.6) continue; // 1コマだけのあいまいな検出は誤検出として捨てる
+      const smooth = smoothHits(track.id, hits);
+      for (let i = 0; i < smooth.length; i++) {
+        const here = smooth[i];
+        const next = smooth[i + 1];
+        put(here.fi, here);
+        if (!next) continue;
+        // 見失ったコマは前後の位置から補間する
+        for (let fi = here.fi + 1; fi < next.fi; fi++)
+          put(fi, lerpRegion(here, next, (fi - here.fi) / (next.fi - here.fi)));
       }
-      const f0 = sm[0].fi;
-      const f1 = sm[sm.length - 1].fi;
+      const firstHit = smooth[0];
+      const lastHit = smooth[smooth.length - 1];
       for (let k = 1; k <= pad; k++) {
-        put(f0 - k, sm[0]);
-        put(f1 + k, sm[sm.length - 1]);
+        put(firstHit.fi - k, firstHit);
+        put(lastHit.fi + k, lastHit);
       }
-      const a = Math.max(0, f0 - pad);
-      const b = Math.min(nFrames - 1, f1 + pad);
+      const first = Math.max(0, firstHit.fi - pad);
+      const last = Math.min(frameCount - 1, lastHit.fi + pad);
       tracks.push({
-        id: tr.id,
+        id: track.id,
         no: no++,
         hide: true,
-        first: a,
-        last: b,
-        tFirst: frames[a].t,
-        tLast: frames[b].t,
-        bestT: tr.bestT,
-        score: tr.score,
-        thumb: tr.thumb,
-        hits: H.length,
+        first,
+        last,
+        tFirst: frames[first].t,
+        tLast: frames[last].t,
+        bestT: track.bestT,
+        score: track.score,
+        thumb: track.thumb,
+        hits: hits.length,
       });
     }
     return { tracks, regions };
   }
 
+  // ゆれをならす（前後2コマずつとの重みつき平均。3コマより離れたコマは使わない）
+  function smoothHits(trackId, hits) {
+    return hits.map((hit, i) => {
+      let sumX = 0;
+      let sumY = 0;
+      let sumW = 0;
+      let sumH = 0;
+      let total = 0;
+      for (let j = Math.max(0, i - 2); j <= Math.min(hits.length - 1, i + 2); j++) {
+        const near = hits[j];
+        if (Math.abs(near.fi - hit.fi) > 3) continue;
+        const weight = j === i ? 2 : 1;
+        sumX += (near.x + near.w / 2) * weight;
+        sumY += (near.y + near.h / 2) * weight;
+        sumW += near.w * weight;
+        sumH += near.h * weight;
+        total += weight;
+      }
+      // 大きさは平均より少し大きい方へ寄せて、はみ出しを防ぐ
+      const w = Math.max(sumW / total, hit.w);
+      const h = Math.max(sumH / total, hit.h);
+      return { tid: trackId, x: sumX / total - w / 2, y: sumY / total - h / 2, w, h, kp: hit.kp, fi: hit.fi };
+    });
+  }
+
   // 時刻 t に隠すべき顔の位置（前後のコマから補間）
   function regionsAt(t) {
-    const F = state.frames;
-    if (!F.length) return [];
-    let lo = 0;
-    let hi = F.length - 1;
+    const frames = state.frames;
+    if (!frames.length) return [];
     const eps = 0.25 / (state.info?.fps || 30);
-    if (t + eps < F[0].t) return state.regions[0].slice();
+    if (t + eps < frames[0].t) return state.regions[0].slice();
+    // t より前で、いちばん近いコマを二分探索で探す
+    let lo = 0;
+    let hi = frames.length - 1;
     while (lo < hi) {
-      const m = (lo + hi + 1) >> 1;
-      if (F[m].t <= t + eps) lo = m;
-      else hi = m - 1;
+      const mid = (lo + hi + 1) >> 1;
+      if (frames[mid].t <= t + eps) lo = mid;
+      else hi = mid - 1;
     }
     const i = lo;
-    const A = state.regions[i];
-    if (i + 1 >= F.length) return A.slice();
-    const k = Math.max(0, Math.min(1, (t - F[i].t) / (F[i + 1].t - F[i].t)));
-    if (k < 0.001) return A.slice();
-    const B = state.regions[i + 1];
+    const before = state.regions[i];
+    if (i + 1 >= frames.length) return before.slice();
+    const k = Math.max(0, Math.min(1, (t - frames[i].t) / (frames[i + 1].t - frames[i].t)));
+    if (k < 0.001) return before.slice();
+    const after = state.regions[i + 1];
     const out = [];
-    for (const a of A) {
-      const b = B.find((r) => r.tid === a.tid);
+    for (const a of before) {
+      const b = after.find((r) => r.tid === a.tid);
       out.push(b ? lerpRegion(a, b, k) : a);
     }
-    for (const b of B) if (!A.some((a) => a.tid === b.tid)) out.push(b);
+    for (const b of after) if (!before.some((a) => a.tid === b.tid)) out.push(b);
     return out;
   }
 
   /* ---------- 隠す加工 ---------- */
-  function settings() {
+  // 隠し方の設定（右の「隠し方」の欄）。k = 強さ 1〜5、area = 顔の箱に対する大きさ
+  function hidingSettings() {
     return {
       method: state.method,
       k: +$("strength").value,
@@ -338,13 +398,13 @@
   const fxBctx = fxB.getContext("2d");
 
   // 顔の箱（割合）から、隠す範囲（ピクセル）を求める
-  function faceRect(r, W, H, area) {
-    const bw = r.w * W;
-    const bh = r.h * H;
+  function faceRect(r, width, height, area) {
+    const bw = r.w * width;
+    const bh = r.h * height;
     const w = bw * area;
     const h = bh * area * 1.18;
-    const cx = (r.x + r.w / 2) * W;
-    const cy = (r.y + r.h / 2) * H - bh * (area - 1) * 0.3;
+    const cx = (r.x + r.w / 2) * width;
+    const cy = (r.y + r.h / 2) * height - bh * (area - 1) * 0.3;
     return { x: cx - w / 2, y: cy - h / 2, w, h };
   }
   function clipShape(ctx, x, y, w, h, ellipse) {
@@ -353,17 +413,17 @@
     else ctx.rect(x, y, w, h);
     ctx.clip();
   }
-  function applyRegion(ctx, W, H, rc, method, S, ellipse) {
+  function applyRegion(ctx, width, height, rc, method, hiding, ellipse) {
     let { x, y, w, h } = rc;
     // 画面の外にはみ出した分を切る（ただし形は保つ）
     const x0 = Math.max(0, x);
     const y0 = Math.max(0, y);
-    const x1 = Math.min(W, x + w);
-    const y1 = Math.min(H, y + h);
+    const x1 = Math.min(width, x + w);
+    const y1 = Math.min(height, y + h);
     if (x1 - x0 < 1 || y1 - y0 < 1) return;
     const src = ctx.canvas;
     if (method === "mosaic") {
-      const blocks = [18, 13, 10, 7, 5][S.k - 1] || 10;
+      const blocks = [18, 13, 10, 7, 5][hiding.k - 1] || 10;
       const cell = Math.max(2, Math.min(w, h) / blocks);
       const sw = Math.max(1, Math.round((x1 - x0) / cell));
       const sh = Math.max(1, Math.round((y1 - y0) / cell));
@@ -379,12 +439,12 @@
       ctx.restore();
     } else if (method === "blur") {
       // 小さく縮めてからぼかすことで、強くて速いぼかしにする
-      const rad = Math.max(2, Math.min(w, h) * [0.05, 0.08, 0.11, 0.15, 0.2][S.k - 1]);
+      const rad = Math.max(2, Math.min(w, h) * [0.05, 0.08, 0.11, 0.15, 0.2][hiding.k - 1]);
       const pad = Math.ceil(rad * 2);
       const px0 = Math.max(0, x0 - pad);
       const py0 = Math.max(0, y0 - pad);
-      const px1 = Math.min(W, x1 + pad);
-      const py1 = Math.min(H, y1 + pad);
+      const px1 = Math.min(width, x1 + pad);
+      const py1 = Math.min(height, y1 + pad);
       const sc = Math.min(1, 160 / Math.max(px1 - px0, py1 - py0));
       const tw = Math.max(1, Math.round((px1 - px0) * sc));
       const th = Math.max(1, Math.round((py1 - py0) * sc));
@@ -406,50 +466,67 @@
     } else {
       // fill
       ctx.save();
-      ctx.fillStyle = S.color;
+      ctx.fillStyle = hiding.color;
       clipShape(ctx, x, y, w, h, ellipse);
       ctx.fillRect(x, y, w, h);
       ctx.restore();
     }
   }
-  function drawEyeBar(ctx, r, W, H, S) {
+  function drawEyeBar(ctx, r, width, height, hiding) {
     let eL;
     let eR;
     if (r.kp && r.kp.length >= 2) {
-      eR = { x: r.kp[0].x * W, y: r.kp[0].y * H };
-      eL = { x: r.kp[1].x * W, y: r.kp[1].y * H };
+      eR = { x: r.kp[0].x * width, y: r.kp[0].y * height };
+      eL = { x: r.kp[1].x * width, y: r.kp[1].y * height };
     } else {
-      eR = { x: (r.x + r.w * 0.3) * W, y: (r.y + r.h * 0.38) * H };
-      eL = { x: (r.x + r.w * 0.7) * W, y: eR.y };
+      eR = { x: (r.x + r.w * 0.3) * width, y: (r.y + r.h * 0.38) * height };
+      eL = { x: (r.x + r.w * 0.7) * width, y: eR.y };
     }
     if (eL.x < eR.x) [eL, eR] = [eR, eL];
     const cx = (eL.x + eR.x) / 2;
     const cy = (eL.y + eR.y) / 2;
     const ang = Math.atan2(eL.y - eR.y, eL.x - eR.x);
-    const bw = r.w * W;
+    const bw = r.w * width;
     const d = Math.max(Math.hypot(eL.x - eR.x, eL.y - eR.y), bw * 0.36);
-    const w = Math.max(d * 2.3, bw * (0.95 + (S.area - 1.15) * 0.4));
-    const h = d * (0.42 + S.k * 0.09);
+    const w = Math.max(d * 2.3, bw * (0.95 + (hiding.area - 1.15) * 0.4));
+    const h = d * (0.42 + hiding.k * 0.09);
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(ang);
-    ctx.fillStyle = S.color;
+    ctx.fillStyle = hiding.color;
     ctx.fillRect(-w / 2, -h / 2, w, h);
     ctx.restore();
   }
   // ctx に描かれたコマへ、隠す加工をまとめて入れる
-  function applyEffects(ctx, W, H, t, S) {
+  function applyEffects(ctx, width, height, t, hiding) {
     const regs = regionsAt(t);
     for (const r of regs) {
-      const tr = trackById.get(r.tid);
-      if (!tr || !tr.hide) continue;
-      if (S.method === "eyebar") drawEyeBar(ctx, r, W, H, S);
-      else applyRegion(ctx, W, H, faceRect(r, W, H, S.area), S.method, S, S.shape === "ellipse");
+      const track = trackById.get(r.tid);
+      if (!track || !track.hide) continue;
+      if (hiding.method === "eyebar") drawEyeBar(ctx, r, width, height, hiding);
+      else
+        applyRegion(
+          ctx,
+          width,
+          height,
+          faceRect(r, width, height, hiding.area),
+          hiding.method,
+          hiding,
+          hiding.shape === "ellipse",
+        );
     }
     for (const m of state.masks) {
       if (t < m.t0 - 1e-3 || t > m.t1 + 1e-3) continue;
-      const method = S.method === "eyebar" ? "fill" : S.method;
-      applyRegion(ctx, W, H, { x: m.x * W, y: m.y * H, w: m.w * W, h: m.h * H }, method, S, false);
+      const method = hiding.method === "eyebar" ? "fill" : hiding.method;
+      applyRegion(
+        ctx,
+        width,
+        height,
+        { x: m.x * width, y: m.y * height, w: m.w * width, h: m.h * height },
+        method,
+        hiding,
+        false,
+      );
     }
     return regs;
   }
@@ -615,22 +692,22 @@
   }
   let lastNowKey = "";
   function drawFrame(src, t) {
-    const W = view.width;
-    const H = view.height;
-    vctx.drawImage(src, 0, 0, W, H);
-    const S = settings();
+    const width = view.width;
+    const height = view.height;
+    vctx.drawImage(src, 0, 0, width, height);
+    const hiding = hidingSettings();
     let regs = [];
     if (state.analyzed) {
-      if (!$("showOriginal").checked) regs = applyEffects(vctx, W, H, t, S);
+      if (!$("showOriginal").checked) regs = applyEffects(vctx, width, height, t, hiding);
       else regs = regionsAt(t);
     }
-    if ($("showBoxes").checked) drawOverlay(regs, W, H, t, S);
+    if ($("showBoxes").checked) drawOverlay(regs, width, height, t, hiding);
     if (dragRect) {
       vctx.save();
       vctx.strokeStyle = "#2563eb";
       vctx.lineWidth = 2;
       vctx.setLineDash([6, 4]);
-      vctx.strokeRect(dragRect.x * W, dragRect.y * H, dragRect.w * W, dragRect.h * H);
+      vctx.strokeRect(dragRect.x * width, dragRect.y * height, dragRect.w * width, dragRect.h * height);
       vctx.restore();
     }
     // 時間表示
@@ -647,21 +724,21 @@
       for (const el of $("trackList").children) el.classList.toggle("now", now.has(+el.dataset.tid));
     }
   }
-  function drawOverlay(regs, W, H, t, S) {
+  function drawOverlay(regs, width, height, t, hiding) {
     vctx.save();
-    vctx.font = `bold ${Math.max(11, Math.round(W / 70))}px sans-serif`;
-    vctx.lineWidth = Math.max(1.5, W / 640);
+    vctx.font = `bold ${Math.max(11, Math.round(width / 70))}px sans-serif`;
+    vctx.lineWidth = Math.max(1.5, width / 640);
     for (const r of regs) {
-      const tr = trackById.get(r.tid);
-      if (!tr) continue;
-      const rc = faceRect(r, W, H, S.area);
-      vctx.setLineDash(tr.hide ? [] : [6, 4]);
-      vctx.strokeStyle = tr.hide ? "rgba(22,163,74,.9)" : "rgba(239,68,68,.95)";
+      const track = trackById.get(r.tid);
+      if (!track) continue;
+      const rc = faceRect(r, width, height, hiding.area);
+      vctx.setLineDash(track.hide ? [] : [6, 4]);
+      vctx.strokeStyle = track.hide ? "rgba(22,163,74,.9)" : "rgba(239,68,68,.95)";
       vctx.strokeRect(rc.x, rc.y, rc.w, rc.h);
-      const label = tr.hide ? String(tr.no) : `${tr.no} 隠さない`;
+      const label = track.hide ? String(track.no) : `${track.no} 隠さない`;
       const tw = vctx.measureText(label).width + 8;
       const th = parseInt(vctx.font.match(/\d+/)[0], 10) + 4;
-      vctx.fillStyle = tr.hide ? "rgba(22,163,74,.9)" : "rgba(239,68,68,.95)";
+      vctx.fillStyle = track.hide ? "rgba(22,163,74,.9)" : "rgba(239,68,68,.95)";
       vctx.fillRect(rc.x, rc.y - th, tw, th);
       vctx.fillStyle = "#fff";
       vctx.fillText(label, rc.x + 4, rc.y - 5);
@@ -670,7 +747,7 @@
       if (t < m.t0 - 1e-3 || t > m.t1 + 1e-3) continue;
       vctx.setLineDash([4, 3]);
       vctx.strokeStyle = "rgba(37,99,235,.95)";
-      vctx.strokeRect(m.x * W, m.y * H, m.w * W, m.h * H);
+      vctx.strokeRect(m.x * width, m.y * height, m.w * width, m.h * height);
     }
     vctx.restore();
   }
@@ -726,6 +803,9 @@
   }
 
   /* ---------- 顔を探す（解析） ---------- */
+  const ANALYZE_MAX_SIDE = 1280; // 解析に使うコマの長い辺（px）
+  const PREVIEW_MAX_WIDTH = 480; // 解析中・書き出し中に出す小さな画面の幅（px）
+  const PROGRESS_EVERY_MS = 120; // 進み具合を書きかえる間かく
   let cancelFlag = false;
   async function analyze() {
     if (!ai.ready || !state.info || state.busy) return;
@@ -734,58 +814,53 @@
     cancelFlag = false;
     updateButtons();
     const mode = $("scanMode").value;
-    const thr = parseFloat($("sensitivity").value);
+    const minScore = parseFloat($("sensitivity").value);
     const everyOther = $("everyOther").checked;
     const { w, h, duration, fps } = state.info;
-    // 解析用の大きさ（長い辺 1280 まで）
-    const s = Math.min(1, 1280 / Math.max(w, h));
-    const aw = Math.max(2, Math.round(w * s));
-    const ah = Math.max(2, Math.round(h * s));
-    const tiles = makeTiles(aw, ah, mode);
-    const perFrame = Math.ceil((tiles.length - 1) / (mode === "small" ? 6 : 3));
+    const shrink = Math.min(1, ANALYZE_MAX_SIDE / Math.max(w, h));
+    const width = Math.max(2, Math.round(w * shrink));
+    const height = Math.max(2, Math.round(h * shrink));
+    const tiles = makeTiles(width, height, mode);
+    const smallTiles = tiles.length - 1; // tiles[0] は画面全体
+    const tilesPerFrame = Math.ceil(smallTiles / (mode === "small" ? 6 : 3));
     const fpsEff = everyOther ? fps / 2 : fps;
     const tracker = makeTracker(Math.max(3, Math.round(fpsEff * 0.7)));
     const frames = [];
-    const t0 = performance.now();
+    const startedAt = performance.now();
     showBusy("顔を探しています…", 0, true);
-    const prev = $("busyPreview");
-    prev.hidden = false;
-    prev.width = Math.round(aw * Math.min(1, 480 / aw));
-    prev.height = Math.round((ah * prev.width) / aw);
-    const pctx = prev.getContext("2d");
+    const preview = $("busyPreview");
+    preview.hidden = false;
+    preview.width = Math.round(width * Math.min(1, PREVIEW_MAX_WIDTH / width));
+    preview.height = Math.round((height * preview.width) / width);
+    const previewCtx = preview.getContext("2d");
     try {
       const input = new MB.Input({ source: new MB.BlobSource(state.file), formats: MB.ALL_FORMATS });
-      const vt = await input.getPrimaryVideoTrack();
-      const sink = new MB.CanvasSink(vt, { width: aw, height: ah, fit: "fill", poolSize: 2 });
-      let n = 0;
-      let lastUI = 0;
-      for await (const wc of sink.canvases()) {
+      const videoTrack = await input.getPrimaryVideoTrack();
+      const sink = new MB.CanvasSink(videoTrack, { width, height, fit: "fill", poolSize: 2 });
+      let decoded = 0;
+      let lastProgressAt = 0;
+      for await (const frame of sink.canvases()) {
         if (cancelFlag) break;
-        n++;
-        if (everyOther && n % 2 === 0) continue;
-        const fi = frames.length;
-        frames.push({ t: wc.timestamp });
+        decoded++;
+        if (everyOther && decoded % 2 === 0) continue;
+        const frameIndex = frames.length;
+        frames.push({ t: frame.timestamp });
         // 画面全体は毎コマ、小区画は数コマで一巡するように順番に調べる（追跡で間をつなぐ）
         const use = [tiles[0]];
-        for (let j = 0; j < Math.min(perFrame, tiles.length - 1); j++)
-          use.push(tiles[1 + ((fi * perFrame + j) % (tiles.length - 1))]);
-        const dets = detectFrame(wc.canvas, aw, ah, use, thr);
-        tracker.step(fi, wc.timestamp, dets, wc.canvas);
+        for (let j = 0; j < Math.min(tilesPerFrame, smallTiles); j++) {
+          use.push(tiles[1 + ((frameIndex * tilesPerFrame + j) % smallTiles)]);
+        }
+        const faces = detectFrame(frame.canvas, width, height, use, minScore);
+        tracker.step(frameIndex, frame.timestamp, faces, frame.canvas);
         const now = performance.now();
-        if (now - lastUI > 120) {
-          lastUI = now;
-          const p = Math.min(1, wc.timestamp / Math.max(0.001, duration));
-          const el = (now - t0) / 1000;
-          const rest = p > 0.02 ? el / p - el : NaN;
+        if (now - lastProgressAt > PROGRESS_EVERY_MS) {
+          lastProgressAt = now;
+          const done = Math.min(1, frame.timestamp / Math.max(0.001, duration));
           busy.setText(
-            `顔を探しています… ${Math.round(p * 100)}%\n見つかった顔: ${tracker.tracks.length}　残り ${isFinite(rest) ? "約" + fmtTime(rest, false) : "計算中"}`,
+            `顔を探しています… ${Math.round(done * 100)}%\n見つかった顔: ${tracker.tracks.length}　残り ${restTimeText(startedAt, done)}`,
           );
-          busy.setBar(p);
-          pctx.drawImage(wc.canvas, 0, 0, prev.width, prev.height);
-          pctx.strokeStyle = "#22c55e";
-          pctx.lineWidth = 2;
-          for (const d of dets)
-            pctx.strokeRect(d.x * prev.width, d.y * prev.height, d.w * prev.width, d.h * prev.height);
+          busy.setBar(done);
+          drawAnalyzePreview(previewCtx, frame.canvas, faces);
           await yieldUI();
         }
       }
@@ -802,9 +877,9 @@
       state.tracks = tracks;
       trackById = new Map(tracks.map((t) => [t.id, t]));
       state.analyzed = true;
-      const sec = Math.round((performance.now() - t0) / 1000);
+      const seconds = Math.round((performance.now() - startedAt) / 1000);
       $("scanInfo").textContent =
-        `${tracks.length}人分の顔が見つかりました（${fmtTime(sec, false)}かかりました）。プレビューで確認してください。`;
+        `${tracks.length}人分の顔が見つかりました（${fmtTime(seconds, false)}かかりました）。プレビューで確認してください。`;
       renderTrackList();
     } catch (e) {
       console.error(e);
@@ -817,43 +892,53 @@
     }
   }
 
+  // 解析中の小さな画面：今のコマと、見つかった顔の緑の枠
+  function drawAnalyzePreview(ctx, frameCanvas, faces) {
+    const { width, height } = ctx.canvas;
+    ctx.drawImage(frameCanvas, 0, 0, width, height);
+    ctx.strokeStyle = "#22c55e";
+    ctx.lineWidth = 2;
+    for (const face of faces)
+      ctx.strokeRect(face.x * width, face.y * height, face.w * width, face.h * height);
+  }
+
   /* ---------- 見つかった顔の一覧 ---------- */
   function renderTrackList() {
     const box = $("trackList");
     box.innerHTML = "";
     $("trackCount").textContent = state.tracks.length;
-    for (const tr of state.tracks) {
+    for (const track of state.tracks) {
       const card = document.createElement("div");
-      card.className = "tcard " + (tr.hide ? "on" : "off");
-      card.dataset.tid = tr.id;
+      card.className = "tcard " + (track.hide ? "on" : "off");
+      card.dataset.tid = track.id;
       card.title = "クリックでこの顔が写っている場面へ移動";
-      if (tr.thumb) card.appendChild(tr.thumb);
+      if (track.thumb) card.appendChild(track.thumb);
       else card.appendChild(makeCanvas(96, 96));
       const tt = document.createElement("div");
       tt.className = "tt";
-      tt.textContent = `${tr.no}　${fmtTime(tr.tFirst, false)}〜${fmtTime(tr.tLast, false)}`;
+      tt.textContent = `${track.no}　${fmtTime(track.tFirst, false)}〜${fmtTime(track.tLast, false)}`;
       card.appendChild(tt);
       const lb = document.createElement("label");
       const cb = document.createElement("input");
       cb.type = "checkbox";
-      cb.checked = tr.hide;
+      cb.checked = track.hide;
       cb.addEventListener("change", () => {
-        setHide(tr, cb.checked);
+        setHide(track, cb.checked);
       });
       lb.addEventListener("click", (e) => e.stopPropagation());
       lb.append(cb, document.createTextNode("隠す"));
       card.appendChild(lb);
       card.addEventListener("click", () => {
         pause();
-        seekTo(tr.bestT);
+        seekTo(track.bestT);
       });
       box.appendChild(card);
     }
     lastNowKey = "__";
   }
-  function setHide(tr, v) {
-    tr.hide = v;
-    const card = $("trackList").querySelector(`[data-tid="${tr.id}"]`);
+  function setHide(track, v) {
+    track.hide = v;
+    const card = $("trackList").querySelector(`[data-tid="${track.id}"]`);
     if (card) {
       card.className = "tcard " + (v ? "on" : "off");
       card.querySelector("input").checked = v;
@@ -884,16 +969,16 @@
     }
     // 顔をクリック → 隠す／隠さないを切り替え
     if (!state.analyzed) return;
-    const S = settings();
-    const W = view.width;
-    const H = view.height;
+    const hiding = hidingSettings();
+    const width = view.width;
+    const height = view.height;
     const regs = regionsAt(curTime());
     let hit = null;
     let best = Infinity;
     for (const r of regs) {
-      const rc = faceRect(r, W, H, S.area);
-      const px = p.x * W;
-      const py = p.y * H;
+      const rc = faceRect(r, width, height, hiding.area);
+      const px = p.x * width;
+      const py = p.y * height;
       if (px >= rc.x && px <= rc.x + rc.w && py >= rc.y && py <= rc.y + rc.h) {
         const a = rc.w * rc.h;
         if (a < best) {
@@ -903,8 +988,8 @@
       }
     }
     if (hit) {
-      const tr = trackById.get(hit.tid);
-      if (tr) setHide(tr, !tr.hide);
+      const track = trackById.get(hit.tid);
+      if (track) setHide(track, !track.hide);
     }
   });
   view.addEventListener("pointermove", (e) => {
@@ -1014,80 +1099,94 @@
   }
 
   /* ---------- 書き出し ---------- */
+  const EXPORT_PREVIEW_EVERY_MS = 250; // 書き出し中に小さな画面を書きかえる間かく
   let conversion = null;
+
+  // 「残り 約1分」のような、終わるまでの見込み。done = 0〜1
+  function restTimeText(startedAt, done) {
+    const elapsed = (performance.now() - startedAt) / 1000;
+    const rest = done > 0.02 ? elapsed / done - elapsed : NaN;
+    return isFinite(rest) ? "約" + fmtTime(rest, false) : "計算中";
+  }
+
+  // 書き出す動画の大きさ：「大きさ」で選んだ短い辺まで縮める（エンコーダーのため偶数にする）
+  function outputSize(w, h) {
+    const target = +$("outSize").value;
+    if (!target || Math.min(w, h) <= target) return { width: w, height: h };
+    const k = target / Math.min(w, h);
+    return { width: Math.round((w * k) / 2) * 2, height: Math.round((h * k) / 2) * 2 };
+  }
+
+  // このブラウザで書き出せる形式を選ぶ：MP4（H.264 など）を優先し、だめなら WebM
+  async function chooseFormat(width, height, quality) {
+    const mp4 = new MB.Mp4OutputFormat({ fastStart: "in-memory" });
+    const mp4Codecs = ["avc", "hevc", "vp9", "av1"].filter((c) => mp4.getSupportedVideoCodecs().includes(c));
+    const mp4Codec = await MB.getFirstEncodableVideoCodec(mp4Codecs, { width, height, quality });
+    if (mp4Codec) return { format: mp4, codec: mp4Codec };
+    const webm = new MB.WebMOutputFormat();
+    const webmCodec = await MB.getFirstEncodableVideoCodec(webm.getSupportedVideoCodecs(), {
+      width,
+      height,
+      quality,
+    });
+    if (webmCodec) return { format: webm, codec: webmCodec };
+    throw new Error("このブラウザでは動画を書き出せません（動画のエンコーダーがありません）");
+  }
+
   async function exportVideo() {
     if (!state.analyzed || state.busy) return;
     pause();
     state.busy = true;
     cancelFlag = false;
     updateButtons();
-    const S = settings();
-    const t0 = performance.now();
+    const effectSettings = hidingSettings();
+    const startedAt = performance.now();
     showBusy("動画を書き出す準備をしています…", 0, true);
-    const prev = $("busyPreview");
-    prev.hidden = false;
-    const pctx = prev.getContext("2d");
+    const preview = $("busyPreview");
+    preview.hidden = false;
+    const previewCtx = preview.getContext("2d");
     try {
       const { w, h } = state.info;
-      const target = +$("outSize").value;
-      let ow = w;
-      let oh = h;
-      if (target && Math.min(w, h) > target) {
-        const k = target / Math.min(w, h);
-        ow = Math.round((w * k) / 2) * 2;
-        oh = Math.round((h * k) / 2) * 2;
-      }
+      const { width: outWidth, height: outHeight } = outputSize(w, h);
       const quality = $("outQuality").value === "high" ? MB.QUALITY_HIGH : MB.QUALITY_MEDIUM;
-      let format = new MB.Mp4OutputFormat({ fastStart: "in-memory" });
-      let codec = await MB.getFirstEncodableVideoCodec(
-        ["avc", "hevc", "vp9", "av1"].filter((c) => format.getSupportedVideoCodecs().includes(c)),
-        { width: ow, height: oh, quality },
-      );
-      if (!codec) {
-        format = new MB.WebMOutputFormat();
-        codec = await MB.getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), {
-          width: ow,
-          height: oh,
-          quality,
-        });
-      }
-      if (!codec) throw new Error("このブラウザでは動画を書き出せません（動画のエンコーダーがありません）");
+      const { format, codec } = await chooseFormat(outWidth, outHeight, quality);
       const output = new MB.Output({ format, target: new MB.BufferTarget() });
       const input = new MB.Input({ source: new MB.BlobSource(state.file), formats: MB.ALL_FORMATS });
-      const canvas = makeCanvas(ow, oh);
+      const canvas = makeCanvas(outWidth, outHeight);
       const ctx = canvas.getContext("2d");
-      prev.width = Math.round(ow * Math.min(1, 480 / ow));
-      prev.height = Math.round((oh * prev.width) / ow);
-      let lastUI = 0;
+      preview.width = Math.round(outWidth * Math.min(1, PREVIEW_MAX_WIDTH / outWidth));
+      preview.height = Math.round((outHeight * preview.width) / outWidth);
+      let lastPreviewAt = 0;
       const videoOpts = {
         codec,
         quality,
         forceTranscode: true,
         allowTransformationMetadata: false,
-        processedWidth: ow,
-        processedHeight: oh,
+        processedWidth: outWidth,
+        processedHeight: outHeight,
+        // 1コマずつ、顔を隠してから書き出しに渡す
         process: async (sample) => {
           if (cancelFlag) return null;
-          const W = sample.displayWidth;
-          const H = sample.displayHeight;
-          if (canvas.width !== W || canvas.height !== H) {
-            canvas.width = W;
-            canvas.height = H;
+          const frameWidth = sample.displayWidth;
+          const frameHeight = sample.displayHeight;
+          if (canvas.width !== frameWidth || canvas.height !== frameHeight) {
+            canvas.width = frameWidth;
+            canvas.height = frameHeight;
           }
           sample.drawWithFit(ctx, { fit: "fill" });
-          applyEffects(ctx, W, H, sample.timestamp, S);
+          applyEffects(ctx, frameWidth, frameHeight, sample.timestamp, effectSettings);
           const now = performance.now();
-          if (now - lastUI > 250) {
-            lastUI = now;
-            pctx.drawImage(canvas, 0, 0, prev.width, prev.height);
+          if (now - lastPreviewAt > EXPORT_PREVIEW_EVERY_MS) {
+            lastPreviewAt = now;
+            previewCtx.drawImage(canvas, 0, 0, preview.width, preview.height);
             await yieldUI();
           }
           return canvas;
         },
       };
-      if (ow !== w || oh !== h) {
-        videoOpts.width = ow;
-        videoOpts.height = oh;
+      if (outWidth !== w || outHeight !== h) {
+        videoOpts.width = outWidth;
+        videoOpts.height = outHeight;
         videoOpts.fit = "fill";
       }
       conversion = await MB.Conversion.init({
@@ -1097,21 +1196,19 @@
         audio: $("dropAudio").checked ? { discard: true } : {},
         showWarnings: false,
       });
-      if (!conversion.isValid)
-        throw new Error(
-          "この動画は変換できません（" + conversion.discardedTracks.map((d) => d.reason).join(", ") + "）",
-        );
+      if (!conversion.isValid) {
+        const reasons = conversion.discardedTracks.map((d) => d.reason).join(", ");
+        throw new Error("この動画は変換できません（" + reasons + "）");
+      }
       const lostAudio =
         !$("dropAudio").checked &&
         state.info.audio &&
         conversion.discardedTracks.some((d) => d.track.type === "audio");
-      conversion.onProgress = (p) => {
-        const el = (performance.now() - t0) / 1000;
-        const rest = p > 0.02 ? el / p - el : NaN;
+      conversion.onProgress = (done) => {
         busy.setText(
-          `モザイク入りの動画を書き出しています… ${Math.round(p * 100)}%\n残り ${isFinite(rest) ? "約" + fmtTime(rest, false) : "計算中"}`,
+          `モザイク入りの動画を書き出しています… ${Math.round(done * 100)}%\n残り ${restTimeText(startedAt, done)}`,
         );
-        busy.setBar(p);
+        busy.setBar(done);
       };
       await conversion.execute();
       if (cancelFlag) return;
@@ -1119,9 +1216,9 @@
       const blob = new Blob([output.target.buffer], { type: format.mimeType || "video/mp4" });
       const base = safeFileName(state.file.name.replace(/\.[^.]+$/, "")) || "video";
       download(blob, `${base}_かおかくし_${fileTimeStamp()}${ext}`);
-      const sec = Math.round((performance.now() - t0) / 1000);
+      const seconds = Math.round((performance.now() - startedAt) / 1000);
       $("exportInfo").textContent =
-        `保存しました（${(blob.size / 1048576).toFixed(1)}MB、${codecName(codec)}、${fmtTime(sec, false)}かかりました）。` +
+        `保存しました（${(blob.size / 1048576).toFixed(1)}MB、${codecName(codec)}、${fmtTime(seconds, false)}かかりました）。` +
         (lostAudio ? "※ 音声はこのブラウザで変換できない形式のため入っていません。" : "") +
         "公開する前に、保存した動画を最後まで見て確認してください。";
     } catch (e) {
@@ -1352,7 +1449,7 @@
     state,
     ai,
     regionsAt,
-    settings,
+    settings: hidingSettings,
     openVideo,
     analyze,
     exportVideo,

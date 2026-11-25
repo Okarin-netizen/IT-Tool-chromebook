@@ -212,7 +212,7 @@ function makeRow(item) {
   }
   const names = document.createElement("div");
   names.className = "names";
-  names.innerHTML = `<span class="new-name"></span><span class="old-name"><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg><span></span></span>`;
+  names.innerHTML = `<span class="new-name"></span><span class="old-name"><svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg><span></span></span>`;
   const remove = iconButton("i-close", "このファイルを外す", () => removeItem(item));
   row.append(thumb, names, remove);
   return row;

@@ -102,7 +102,7 @@ function createCard(view) {
     <div class="label"><b>${view.index + 1}</b> ページ</div>
     <div class="card-actions">
       <button class="mini" data-act="save" title="このページを画像で保存" aria-label="このページを画像で保存"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg><span class="mini-text">保存</span></button>
-      <button class="mini" data-act="copy" title="このページをコピー（スライドやドキュメントに貼り付けできます）" aria-label="このページをコピー"><svg class="i" aria-hidden="true"><use href="#i-copy"/></svg><span class="mini-text">コピー</span></button>
+      <button class="mini" data-act="copy" title="このページをコピー（スライドやドキュメントに貼り付けられます）" aria-label="このページをコピー"><svg class="i" aria-hidden="true"><use href="#i-copy"/></svg><span class="mini-text">コピー</span></button>
     </div>`;
   view.el = li;
 
@@ -163,9 +163,9 @@ function setAllSelected(selected) {
   updateUi();
 }
 
-// "3/10ページ選択中", or "全10ページ" when none is chosen.
+// "3 / 10ページ選択中", or "全10ページ" when none is chosen.
 function countText(chosen, total) {
-  return chosen ? `${chosen}/${total}ページ選択中` : `全${total}ページ`;
+  return chosen ? `${chosen} / ${total}ページ選択中` : `全${total}ページ`;
 }
 
 function updateUi() {
@@ -253,7 +253,7 @@ function copyPage(view) {
     const png = pageCanvas(view.index, Number(els.dpi.value)).then((canvas) => canvasToBlob(canvas, "image/png"));
     const copied = await copyImage(png);
     hideStatus();
-    if (copied) showStatus(`${view.index + 1}ページをコピーしました。Ctrl+V で貼り付けできます`);
+    if (copied) showStatus(`${view.index + 1}ページをコピーしました。Ctrl+V で貼り付けられます`);
     else showStatus("コピーできませんでした。保存ボタンで保存してください", { error: true });
   });
 }

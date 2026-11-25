@@ -17,6 +17,12 @@ node tests/smoke.cjs --ocr            # PDF文字取り出しの OCR も確か�
 node tests/smoke.cjs --headed         # ブラウザの画面を表示して動かす
 ```
 
+ツールの名前（`<title>`・上のバー・manifest・README）と色（`style.css`・`theme-color`・manifest・説明書・アイコン）が `shared/js/tools.js` とそろっているか、同じ名前の線のアイコンがどのページでも同じ絵かは、ブラウザなしで確かめられます。
+
+```sh
+node tests/consistency.mjs
+```
+
 同梱ライブラリ（`shared/vendor/`）の版とオフライン用の一覧が `shared/js/vendor.js` と合っているかは、ブラウザなしで確かめられます。
 
 ```sh
@@ -61,6 +67,7 @@ node tests/compare-styles.cjs /tmp/before /tmp/after # 違いがあれば一覧�
 ## ファイル
 
 - `smoke.cjs`: テスト本体。ツールごとの確認は `TOOLS` にまとまっています
+- `consistency.mjs`: ツールの名前・色・アイコンのそろい方の確認（ブラウザなし）
 - `compare-styles.cjs`: `--styles` で書き出したスタイルの比較
 - `migration.cjs`: 古い版から新しい版への移行の確認
 - `lib/server.cjs`: テスト用のサーバー。本番と同じ `/IT-Tool-chromebook/` の下にリポジトリを配ります
