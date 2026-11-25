@@ -28,14 +28,31 @@ export const FIELDS = {
 };
 
 export const GROUNDS = {
-  soil: { name: "土", place: "yard", color: "#efe1c1" },
-  grass: { name: "芝", place: "yard", color: "#cfe3b0" },
-  wood: { name: "木", place: "gym", color: "#efdbb2" },
-  white: { name: "白", color: "#ffffff" },
+// bw: how the ground looks in black and white, so the choice still shows when printed: a gray,
+// and maybe one of the BW_PATTERNS drawn over it.
+  soil: { name: "土", place: "yard", color: "#efe1c1", bw: { fill: "#ffffff" } },
+  grass: { name: "芝", place: "yard", color: "#cfe3b0", bw: { fill: "#ffffff", pattern: "bw-grass" } },
+  wood: { name: "木", place: "gym", color: "#efdbb2", bw: { fill: "#ffffff", pattern: "bw-wood" } },
+  white: { name: "白", color: "#ffffff", bw: { fill: "#ffffff" } },
   // 床に敷いたシート (式や集会のとき). The court lines are under it, so they are not drawn.
-  sheetGreen: { name: "緑シート", place: "gym", color: "#a9d3a6", sheet: true },
-  sheetBlue: { name: "青シート", place: "gym", color: "#a9c8e6", sheet: true },
+  sheetGreen: { name: "緑シート", place: "gym", color: "#a9d3a6", sheet: true, bw: { fill: "#e4e7ea" } },
+  sheetBlue: { name: "青シート", place: "gym", color: "#a9c8e6", sheet: true, bw: { fill: "#cfd4d9" } },
 };
+
+// Textures for black and white printing, where colors cannot tell grounds apart.
+const BW_PATTERNS =
+  '<pattern id="bw-grass" width="2" height="2" patternUnits="userSpaceOnUse"><path d="M0.4 0.9l0.2-0.5l0.2 0.5M1.4 1.9l0.2-0.5l0.2 0.5" fill="none" stroke="#9aa0a6" stroke-width="0.08"/></pattern>' +
+  '<pattern id="bw-wood" width="1" height="1" patternUnits="userSpaceOnUse"><path d="M0 0.5H1" stroke="#000" stroke-opacity=".1" stroke-width="0.04"/></pattern>' +
+  '<pattern id="bw-stage" width="0.8" height="0.8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0.4H0.8" stroke="#868e96" stroke-width="0.08"/></pattern>';
+
+function groundFill(ground, bw) {
+  return bw ? ground.bw.fill : ground.color;
+}
+
+function groundTexture(ground, bw, x, y, w, h) {
+  if (!bw || !ground.bw.pattern) return "";
+  return `<rect x="${fmt(x)}" y="${fmt(y)}" width="${fmt(w)}" height="${fmt(h)}" fill="url(#${ground.bw.pattern})"/>`;
+}
 
 export const STAGES = { top: "上", bottom: "下", left: "左", right: "右", none: "なし" };
 export const STAGE_SHAPES = { rect: "四角", round: "前が丸い", apron: "前に出っぱり" };
@@ -350,7 +367,7 @@ function drawStage(doc, bw) {
   const length = Math.min(doc.stageWidth, side);
   const depth = doc.stageDepth;
   const { at, angle } = STAGE_TURNS[doc.stage](doc);
-  const fill = bw ? "#e9ecef" : STAGE_COLOR;
+  const fill = bw ? "url(#bw-stage)" : STAGE_COLOR;
   const line = 'stroke="#495057" stroke-width="0.12"';
   // The front edge of the body, where stairs stand (in front of a rounded or jutting front too).
   const front = doc.stageShape === "rect" ? depth : depth * 0.7;
@@ -361,6 +378,7 @@ function drawStage(doc, bw) {
   const back = Math.min(depth * 0.28, 2);
   const upright = doc.stage === "bottom" ? ` transform="rotate(180 0 ${fmt(back)})"` : "";
   return `<g transform="translate(${fmt(at[0])} ${fmt(at[1])}) rotate(${angle})">` +
+    (bw ? `<path d="${stageOutline(length, depth, doc.stageShape)}" fill="#fff"/>` : "") +
     `<path d="${stageOutline(length, depth, doc.stageShape)}" fill="${fill}" ${line}/>${stairs}` +
     `<g font-family="${FONT}"${upright}>${words("ステージ", 0, back, 1.2, { color: "#495057" })}</g></g>`;
 }
@@ -462,16 +480,22 @@ function drawSheet(doc, color) {
 /* ---------- the ground ---------- */
 
 function drawField(doc, bw) {
-  const ground = bw ? GROUNDS.white.color : GROUNDS[doc.ground].color;
+  const kind = GROUNDS[doc.ground];
+  const ground = groundFill(kind, bw);
   const ink = bw ? BW_LINE : "#ffffff";
   const field = FIELDS[doc.field];
-  let markup = `<rect width="${fmt(doc.width)}" height="${fmt(doc.height)}" fill="${ground}" stroke="#8a8f98" stroke-width="0.25"/>`;
+  const defs = bw ? `<defs>${BW_PATTERNS}</defs>` : "";
+  let markup = `${defs}<rect width="${fmt(doc.width)}" height="${fmt(doc.height)}" fill="${ground}" stroke="#8a8f98" stroke-width="0.25"/>` +
+    groundTexture(kind, bw, 0, 0, doc.width, doc.height);
   if (doc.place === "gym") {
-    const sheet = GROUNDS[doc.ground].sheet;
-    markup = `<rect width="${fmt(doc.width)}" height="${fmt(doc.height)}" fill="${sheet ? GROUNDS.wood.color : ground}" stroke="#495057" stroke-width="0.3"/>`;
     const walls = `<rect width="${fmt(doc.width)}" height="${fmt(doc.height)}" fill="none" stroke="#495057" stroke-width="0.3"/>`;
-    if (sheet) return markup + drawSheet(doc, bw ? "#f1f3f5" : ground) + walls + drawStage(doc, bw);
-    return markup + drawCourts(doc, field, bw) + drawStage(doc, bw);
+    if (kind.sheet) {
+      // The sheet lies on the wooden floor; only the stage's sides show the wood.
+      const wood = `${defs}<rect width="${fmt(doc.width)}" height="${fmt(doc.height)}" fill="${groundFill(GROUNDS.wood, bw)}"/>` +
+        groundTexture(GROUNDS.wood, bw, 0, 0, doc.width, doc.height);
+      return wood + drawSheet(doc, ground) + walls + drawStage(doc, bw);
+    }
+    return markup + walls + drawCourts(doc, field, bw) + drawStage(doc, bw);
   }
   if (field.radius) markup += drawTrack(doc, field, ink);
   if (doc.field === "rect") {

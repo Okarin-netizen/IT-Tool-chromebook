@@ -124,7 +124,7 @@ body {
 .board.placing { cursor: crosshair; }
 .board [data-id] { cursor: move; }
 .board .handle { cursor: pointer; }
-.board .handle[data-handle="resize"] { cursor: nwse-resize; }
+.board.dragging * { pointer-events: none; } /* see holdCursor in app.js */
 .board .handle[data-handle="rotate"] { cursor: grab; }
 
 .pages {
