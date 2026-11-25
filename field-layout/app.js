@@ -168,11 +168,20 @@ function boardScale() {
 
 const pxToMeters = (px) => px / boardScale();
 
-function handle(name, x, y, shape = "circle") {
+function handle(name, x, y, shape = "circle", extra = "") {
   const r = pxToMeters(HANDLE_PX);
-  const look = `class="handle" data-handle="${name}" fill="#fff" stroke="#3565c9" stroke-width="${pxToMeters(1.6)}"`;
+  const look = `class="handle" data-handle="${name}"${extra} fill="#fff" stroke="#3565c9" stroke-width="${pxToMeters(1.6)}"`;
   if (shape === "square") return `<rect ${look} x="${x - r}" y="${y - r}" width="${r * 2}" height="${r * 2}"/>`;
   return `<circle ${look} cx="${x}" cy="${y}" r="${r}"/>`;
+}
+
+const RESIZE_CORNERS = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+const RESIZE_SIDES = [...RESIZE_CORNERS, [0, -1], [1, 0], [0, 1], [-1, 0]];
+const CURSORS = ["ew-resize", "nwse-resize", "ns-resize", "nesw-resize"];
+// The resize arrow for a handle, turned with the item to the nearest of the four.
+function resizeCursor(sx, sy, rot) {
+  const angle = (Math.atan2(sy, sx) * 180) / Math.PI + rot;
+  return CURSORS[((Math.round(angle / 45) % 4) + 4) % 4];
 }
 
 function lineOverlay(item, single) {
@@ -190,7 +199,12 @@ function boxOverlay(item, single) {
   const dashed = `stroke="#3565c9" stroke-width="${pxToMeters(1.5)}" stroke-dasharray="${pxToMeters(4)} ${pxToMeters(3)}" fill="none" pointer-events="none"`;
   let markup = `<rect x="${-hw - pad}" y="${-hh - pad}" width="${(hw + pad) * 2}" height="${(hh + pad) * 2}" ${dashed}/>`;
   if (single) {
-    markup += handle("resize", hw + pad, hh + pad, "square");
+    // Square handles on the corners (and, for parts that stretch, on the sides). The side or
+    // corner across from the one pulled stays where it is.
+    const sides = PARTS[item.type]?.stretch ? RESIZE_SIDES : RESIZE_CORNERS;
+    for (const [sx, sy] of sides) {
+      markup += handle("resize", sx * (hw + pad), sy * (hh + pad), "square", ` data-sx="${sx}" data-sy="${sy}" style="cursor:${resizeCursor(sx, sy, item.rot ?? 0)}"`);
+    }
     if (item.type !== "number") {
       const top = -hh - pad - pxToMeters(ROTATE_GAP_PX);
       markup += `<path d="M0 ${-hh - pad}V${top}" stroke="#3565c9" stroke-width="${pxToMeters(1.5)}" pointer-events="none"/>` + handle("rotate", 0, top);
@@ -343,13 +357,27 @@ function onBoardDown(e) {
   const handleEl = e.target.closest("[data-handle]");
   const own = e.target.closest("[data-id]");
   board.setPointerCapture(e.pointerId);
-  if (handleEl) return startHandle(handleEl.dataset.handle, point);
+  if (handleEl) return startHandle(handleEl, point);
   if (own) return startMove(own.dataset.id, point, e);
   if (e.target.closest("[data-base]")) showStatus(BASE_HINT);
   if (MARKS[state.tool]?.line) return startLine(point);
   if (state.tool !== "select") return place(state.tool, point);
   if (e.pointerType === "touch" && state.zoom > 1) return startPan(e);
   startBand(point, e.shiftKey);
+}
+
+// While dragging, the board is redrawn on every move, so the shape under the pointer is
+// replaced again and again and the browser can lose the mouse cursor (on Windows and
+// ChromeOS alike). So the board itself holds the cursor, and the shapes on it stop taking
+// the pointer until the drag ends.
+function holdCursor(cursor) {
+  board.classList.add("dragging");
+  board.style.cursor = cursor;
+}
+
+function releaseCursor() {
+  board.classList.remove("dragging");
+  board.style.cursor = "";
 }
 
 function startMove(id, point, e) {
@@ -361,6 +389,7 @@ function startMove(id, point, e) {
   }
   if (!state.selection.includes(id)) state.selection = [id];
   const before = new Map(selectedItems().map((item) => [item.id, structuredClone(item)]));
+  holdCursor("move");
   state.drag = { kind: "move", start: point, client: { x: e.clientX, y: e.clientY }, before, lead: id, moved: false };
   renderAll();
 }
@@ -380,9 +409,12 @@ function dragMove(drag, point, e) {
   }
 }
 
-function startHandle(name, point) {
+function startHandle(handleEl, point) {
   const [item] = selectedItems();
-  state.drag = { kind: name, item, before: structuredClone(item), straight: item.type === "line" && isStraight(item), moved: false, start: point };
+  const name = handleEl.dataset.handle;
+  const side = { x: Number(handleEl.dataset.sx ?? 1), y: Number(handleEl.dataset.sy ?? 1) };
+  state.drag = { kind: name, item, before: structuredClone(item), side, straight: item.type === "line" && isStraight(item), moved: false, start: point };
+  holdCursor(name === "rotate" ? "grabbing" : handleEl.style.cursor || "pointer");
 }
 
 // Where `point` is in the item's own turned frame, measured from its middle.
@@ -393,24 +425,39 @@ function localPoint(item, point) {
   return { x: dx * Math.cos(angle) - dy * Math.sin(angle), y: dx * Math.sin(angle) + dy * Math.cos(angle) };
 }
 
+// Pulls one side or corner; the one across from it stays put, so a long part (a carpet, a row
+// of chairs) grows only on the side that is pulled.
 function dragResize(drag, point) {
-  const { item, before } = drag;
-  const local = localPoint(item, point);
+  const { item, before, side } = drag;
+  const local = localPoint(before, point);
   const { hw, hh } = halfSize(before);
-  const grow = Math.max(Math.abs(local.x) / hw, Math.abs(local.y) / hh);
-  if (item.type === "text") {
-    item.size = Math.max(0.6, Math.round(before.size * grow * 10) / 10);
-  } else if (item.type === "chairs") {
+  // How far the pulled side now is from the side that stays, along each axis.
+  const spanX = side.x ? Math.max(0, side.x * local.x + hw) : hw * 2;
+  const spanY = side.y ? Math.max(0, side.y * local.y + hh) : hh * 2;
+  let w;
+  let h;
+  if (item.type === "chairs") {
     // Whole chairs only, so the size always matches the count.
-    item.w = Math.max(1, Math.round((Math.abs(local.x) * 2) / CHAIR_STEP.x)) * CHAIR_STEP.x;
-    item.h = Math.max(1, Math.round((Math.abs(local.y) * 2) / CHAIR_STEP.y)) * CHAIR_STEP.y;
+    item.w = Math.max(1, Math.round(spanX / CHAIR_STEP.x)) * CHAIR_STEP.x;
+    item.h = Math.max(1, Math.round(spanY / CHAIR_STEP.y)) * CHAIR_STEP.y;
   } else if (PARTS[item.type]?.stretch) {
-    item.w = Math.max(MIN_SIZE, snap(Math.abs(local.x) * 2, SIZE_SNAP * ink()));
-    item.h = Math.max(MIN_SIZE, snap(Math.abs(local.y) * 2, SIZE_SNAP * ink()));
+    item.w = Math.max(MIN_SIZE, snap(spanX, SIZE_SNAP * ink()));
+    item.h = Math.max(MIN_SIZE, snap(spanY, SIZE_SNAP * ink()));
   } else {
-    item.w = Math.max(MIN_SIZE, before.w * grow);
-    item.h = Math.max(MIN_SIZE, before.h * grow);
+    const grow = Math.max(spanX / (hw * 2), spanY / (hh * 2));
+    if (item.type === "text") item.size = Math.max(0.6, Math.round(before.size * grow * 10) / 10);
+    else {
+      item.w = Math.max(MIN_SIZE, before.w * grow);
+      item.h = Math.max(MIN_SIZE, before.h * grow);
+    }
   }
+  ({ hw: w, hh: h } = halfSize(item));
+  // Move the middle so the side across from the pulled one stays where it was.
+  const dx = side.x * (w - hw);
+  const dy = side.y * (h - hh);
+  const angle = ((before.rot ?? 0) * Math.PI) / 180;
+  item.x = before.x + dx * Math.cos(angle) - dy * Math.sin(angle);
+  item.y = before.y + dx * Math.sin(angle) + dy * Math.cos(angle);
 }
 
 function dragRotate(drag, point, e) {
@@ -438,6 +485,7 @@ function startLine(point) {
   items().push(line);
   state.selection = [line.id];
   state.drag = { kind: "create", item: line, curved: Boolean(MARKS[state.tool].curved) };
+  holdCursor("crosshair");
   render();
 }
 
@@ -461,6 +509,7 @@ function finishCreate(drag) {
 function startBand(point, additive) {
   const keep = additive ? state.selection.slice() : [];
   state.drag = { kind: "band", start: point, end: point, keep };
+  holdCursor("default");
   if (!additive && state.selection.length) {
     state.selection = [];
     renderAll();
@@ -487,6 +536,7 @@ function finishBand(drag) {
 
 function startPan(e) {
   state.drag = { kind: "pan", client: { x: e.clientX, y: e.clientY }, scroll: { x: wrap.scrollLeft, y: wrap.scrollTop } };
+  holdCursor("grabbing");
 }
 
 const DRAGS = {
@@ -516,6 +566,7 @@ function onBoardUp() {
   const { drag } = state;
   if (!drag) return;
   state.drag = null;
+  releaseCursor();
   if (drag.kind === "create") return finishCreate(drag);
   if (drag.kind === "band") return finishBand(drag);
   if (drag.kind === "pan") return;
