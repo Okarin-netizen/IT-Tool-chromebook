@@ -2,6 +2,8 @@
 // along the same lines as jscanify: find the paper, take the point farthest from its middle in
 // each quarter as a corner, then stretch the four corners back to a rectangle.
 
+import { drawBlurred } from "./canvas.js";
+
 const DETECT_PX = 360; // the photo is shrunk to this before looking for the paper
 const MIN_PAPER = 0.15; // the paper must cover at least this much of the photo
 const BG_CELL = 24; // px of the photo per pixel of the paper's brightness map (scanLook)
@@ -29,8 +31,7 @@ function blurredGray(canvas, w, h) {
   small.width = w;
   small.height = h;
   const ctx = small.getContext("2d", { willReadFrequently: true });
-  ctx.filter = "blur(2px)";
-  ctx.drawImage(canvas, 0, 0, w, h);
+  drawBlurred(ctx, canvas, 2, null, { x: 0, y: 0, w, h });
   const px = ctx.getImageData(0, 0, w, h).data;
   const gray = new Uint8Array(w * h);
   for (let i = 0; i < gray.length; i++) {
@@ -254,8 +255,7 @@ function paperBrightness(canvas) {
   big.width = w;
   big.height = h;
   const bctx = big.getContext("2d", { willReadFrequently: true });
-  bctx.filter = "blur(8px)";
-  bctx.drawImage(small, 0, 0, w, h);
+  drawBlurred(bctx, small, 8, null, { x: 0, y: 0, w, h });
   return bctx.getImageData(0, 0, w, h).data;
 }
 

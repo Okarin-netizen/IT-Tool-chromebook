@@ -1704,6 +1704,38 @@ const TOOLS = {
   kaotori: {
     async run(t) {
       await t.until(() => __kaotori.ai.ready, 60000);
+      // ぼかし: Safari (iPad) ignores ctx.filter, so blur.js blurs by hand there. The hand-made
+      // blur has to blur, and look like Chrome's filter.
+      const blur = await t.page.evaluate(() => {
+        const W = 120;
+        const src = document.createElement("canvas");
+        src.width = src.height = W;
+        const g = src.getContext("2d");
+        for (let i = 0; i < W; i += 6) {
+          g.fillStyle = i % 12 ? "#000" : "#fff";
+          g.fillRect(i, 0, 6, W);
+        }
+        const run = (byHand) => {
+          SiteBlur.forceFallback = byHand;
+          const c = document.createElement("canvas");
+          c.width = c.height = W;
+          const x = c.getContext("2d", { willReadFrequently: true });
+          x.drawImage(src, 0, 0);
+          SiteBlur.drawBlurred(x, c, 8);
+          return x.getImageData(30, 60, 60, 1).data;
+        };
+        const filter = run(false);
+        const byHand = run(true);
+        SiteBlur.forceFallback = false;
+        let diff = 0;
+        let spread = 0;
+        for (let i = 0; i < byHand.length; i += 4) {
+          diff = Math.max(diff, Math.abs(filter[i] - byHand[i]));
+          spread = Math.max(spread, Math.abs(byHand[i] - 128));
+        }
+        return { diff, spread };
+      });
+      t.expect(blur.spread < 30 && blur.diff < 12, `iPad向けのぼかしが効いていない: ${JSON.stringify(blur)}`);
       await t.setFiles("#fileInput", [t.png("集合写真.png", 640, 480)]);
       await t.until(() => __kaotori.state.photos.length === 1 && document.getElementById("busy").hidden, 60000);
       await t.page.locator("#photoView").waitFor();

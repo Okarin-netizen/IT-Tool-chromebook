@@ -2,6 +2,7 @@
 /* かおかくし — 動画に写った顔へ自動でモザイク・ぼかし・目線を入れる
  * すべての処理はブラウザ内で行い、動画を外部へ送信しない。 */
 /* global MPVision -- shared/vendor/mediapipe-tasks-vision の vision.js が用意する */
+/* global SiteBlur -- shared/js/blur.js が用意する（ぼかし） */
 (() => {
   "use strict";
 
@@ -392,12 +393,10 @@
       fxB.width = tw;
       fxB.height = th;
       fxActx.drawImage(src, px0, py0, px1 - px0, py1 - py0, 0, 0, tw, th);
-      fxBctx.filter = `blur(${Math.max(1, rad * sc)}px)`;
-      fxBctx.drawImage(fxA, 0, 0);
+      // iPad（Safari）は ctx.filter が効かないので、SiteBlur が手作業でぼかす
+      SiteBlur.drawBlurred(fxBctx, fxA, Math.max(1, rad * sc));
       fxActx.clearRect(0, 0, tw, th);
-      fxActx.filter = `blur(${Math.max(1, rad * sc * 0.7)}px)`;
-      fxActx.drawImage(fxB, 0, 0);
-      fxActx.filter = "none";
+      SiteBlur.drawBlurred(fxActx, fxB, Math.max(1, rad * sc * 0.7));
       ctx.save();
       clipShape(ctx, x, y, w, h, ellipse);
       ctx.imageSmoothingEnabled = true;
