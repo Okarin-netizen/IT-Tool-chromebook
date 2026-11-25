@@ -2,6 +2,7 @@
 /* かおトリ — 集合写真の顔切り抜き・証明写真トリミング
  * すべての処理はブラウザ内で行い、画像を外部へ送信しない。 */
 /* global MPVision -- shared/vendor/mediapipe-tasks-vision の vision.js が用意する */
+/* global SiteBlur -- shared/js/blur.js が用意する（ぼかし） */
 (() => {
   "use strict";
 
@@ -549,8 +550,7 @@
       const pctx = person.getContext("2d");
       pctx.drawImage(c, 0, 0);
       pctx.globalCompositeOperation = "destination-in";
-      pctx.filter = `blur(${Math.max(0.6, c.width / 400)}px)`;
-      pctx.drawImage(mk, 0, 0, c.width, c.height);
+      SiteBlur.drawBlurred(pctx, mk, Math.max(0.6, c.width / 400), null, { x: 0, y: 0, w: c.width, h: c.height });
       const ctx = c.getContext("2d");
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -657,10 +657,19 @@
         if (ellipse) ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, PI * 2);
         else ctx.rect(x, y, w, h);
         ctx.clip();
-        ctx.filter = `blur(${rad}px)`;
-        // 2回重ねて、ぼかしの強さを確実にする
-        ctx.drawImage(c, 0, 0);
-        ctx.drawImage(c, 0, 0);
+        // まわりも少し含めてぼかし、ふちが透けたり薄くなったりしないようにする。
+        // iPad（Safari）は ctx.filter が効かないので、SiteBlur が手作業でぼかす
+        const pad = Math.ceil(rad * 4);
+        const px0 = Math.max(0, Math.floor(x - pad));
+        const py0 = Math.max(0, Math.floor(y - pad));
+        const around = {
+          x: px0,
+          y: py0,
+          w: Math.min(c.width, Math.ceil(x + w + pad)) - px0,
+          h: Math.min(c.height, Math.ceil(y + h + pad)) - py0,
+        };
+        // 前は同じぼかしを2回重ねていたので、同じ強さ（√2倍）にそろえる
+        SiteBlur.drawBlurred(ctx, c, rad * Math.SQRT2, around, around);
         ctx.restore();
       } else {
         // fill

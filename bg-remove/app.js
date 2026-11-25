@@ -3,7 +3,7 @@ import { download, onFileDrop, onFilePaste } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { isImage } from "../shared/js/heic.js";
 import { loadPhoto, stripExtension, makeCanvas, fitWithin } from "../shared/js/photo.js";
-import { canvasToBlob } from "../shared/js/canvas.js";
+import { canvasToBlob, drawBlurred } from "../shared/js/canvas.js";
 import { loadScript } from "../shared/js/load-script.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
@@ -165,9 +165,7 @@ function alphaMask() {
   const mask = makeCanvas(w, h);
   const ctx = mask.getContext("2d");
   ctx.imageSmoothingQuality = "high";
-  ctx.filter = `blur(${(settings.soft * Math.max(w, h)) / 1500}px)`;
-  ctx.drawImage(small, 0, 0, w, h);
-  ctx.filter = "none";
+  drawBlurred(ctx, small, (settings.soft * Math.max(w, h)) / 1500, null, { x: 0, y: 0, w, h });
   ctx.drawImage(state.keep, 0, 0);
   ctx.globalCompositeOperation = "destination-out";
   ctx.drawImage(state.erase, 0, 0);
@@ -196,9 +194,7 @@ function drawBackground(ctx, width, height) {
   } else if (settings.background === "blur") {
     // Drawn a little larger so the blurred edges do not fade in from transparent.
     const blur = (settings.blur * Math.max(width, height)) / 1000;
-    ctx.filter = `blur(${blur}px)`;
-    ctx.drawImage(state.source, -blur * 2, -blur * 2, width + blur * 4, height + blur * 4);
-    ctx.filter = "none";
+    drawBlurred(ctx, state.source, blur, null, { x: -blur * 2, y: -blur * 2, w: width + blur * 4, h: height + blur * 4 });
   } else if (settings.background === "photo" && state.backgroundPhoto) {
     const photo = state.backgroundPhoto;
     const k = Math.max(width / photo.width, height / photo.height);

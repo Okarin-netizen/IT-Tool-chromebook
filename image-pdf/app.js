@@ -5,7 +5,7 @@ import { isImage, isHeic, readableImage } from "../shared/js/heic.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { loadText, saveText } from "../shared/js/storage.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
-import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
+import { canvasToBlob, grayscale, pixelRatio } from "../shared/js/canvas.js";
 import { createSortable } from "../shared/js/sortable.js";
 import { detectCorners, scanLook, warp } from "../shared/js/straighten.js";
 import "../shared/js/guide.js";
@@ -479,11 +479,11 @@ async function pageJpeg(img, gray, scan) {
   canvas.width = turned ? img.height : img.width;
   canvas.height = turned ? img.width : img.height;
   const ctx = canvas.getContext("2d");
-  if (gray) ctx.filter = "grayscale(1) contrast(1.25)";
   ctx.translate(canvas.width / 2, canvas.height / 2);
   ctx.rotate((img.rotation * Math.PI) / 180);
   ctx.drawImage(bitmap, -img.width / 2, -img.height / 2);
   bitmap.close();
+  if (gray) grayscale(ctx, canvas.width, canvas.height, 1.25);
   if (scan) scanLook(canvas);
   return new Uint8Array(await (await canvasToJpeg(canvas)).arrayBuffer());
 }

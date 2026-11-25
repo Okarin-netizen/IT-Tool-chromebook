@@ -2,6 +2,7 @@
 // colors (a photo's brightness and colors, or a board or a print made easy to read). The same
 // code makes the small preview and the full-size photo that is saved.
 import { makeCanvas } from "../shared/js/photo.js";
+import { drawBlurred } from "../shared/js/canvas.js";
 import { warp } from "../shared/js/straighten.js";
 
 const AUTO_CUT = 0.005; // auto levels ignore this share of the darkest and brightest pixels
@@ -187,8 +188,7 @@ function backgroundMap(canvas, dark) {
   sctx.putImageData(image, 0, 0);
   const big = makeCanvas(width, height);
   const bctx = big.getContext("2d", { willReadFrequently: true });
-  bctx.filter = `blur(${BG_BLUR}px)`;
-  bctx.drawImage(small, 0, 0, width, height);
+  drawBlurred(bctx, small, BG_BLUR, null, { x: 0, y: 0, w: width, h: height });
   return bctx.getImageData(0, 0, width, height).data;
 }
 
