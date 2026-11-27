@@ -77,7 +77,7 @@
       "id": "ipad-gif-maker",
       "what": "gif-maker: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs gif-maker の NG）",
       "check": "node tests/ipad-pitfalls.mjs gif-maker",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ipad-video-frame",

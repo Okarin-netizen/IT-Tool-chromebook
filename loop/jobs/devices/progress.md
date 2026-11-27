@@ -93,3 +93,7 @@
 ## 周 15: ipad-screenshot-stitch
 - screenshot-stitch/style.css の .form（max-height）と .preview-wrap（height）の 100vh の次の行に 100dvh を足した（100vh は古い端末のため残した）。
 - ipad-pitfalls screenshot-stitch・ふつうの smoke screenshot-stitch・verify.sh が通った。次は ipad-gif-maker。
+
+## 周 16: ipad-gif-maker
+- gif-maker/style.css の .form（max-height）と .camera video（max-height）の 100vh の次の行に 100dvh を足した（100vh は古い端末のため残した）。
+- ipad-pitfalls gif-maker・ふつうの smoke gif-maker・verify.sh が通った。次は ipad-video-frame。
