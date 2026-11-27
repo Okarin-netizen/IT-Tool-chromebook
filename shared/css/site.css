@@ -59,6 +59,7 @@ a { color: var(--accent); }
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh; /* iPad の Safari で下が隠れないように */
   overflow-y: auto;
   display: flex;
   flex-direction: column;

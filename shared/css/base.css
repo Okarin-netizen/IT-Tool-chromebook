@@ -145,8 +145,17 @@
 .guide-btn { white-space: nowrap; text-decoration: none; }
 .guide-dialog .dialog-buttons { align-items: center; }
 .guide-more { margin-right: auto; color: var(--accent); font-size: 14px; }
-.guide-dialog { width: 640px; max-height: calc(100vh - 32px); }
-.guide-body { max-height: calc(100vh - 160px); overflow: auto; }
+/* iPad の Safari では 100vh が画面より高くなるので、使える高さ 100dvh で上書きする。 */
+.guide-dialog {
+  width: 640px;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+}
+.guide-body {
+  max-height: calc(100vh - 160px);
+  max-height: calc(100dvh - 160px);
+  overflow: auto;
+}
 .guide-body h1 { margin: 0 0 8px; font-size: 22px; }
 .guide-body li { margin: 4px 0; }
 .guide-body .note { color: var(--muted); font-size: 14px; }

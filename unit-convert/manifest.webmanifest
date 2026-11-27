@@ -1,0 +1,15 @@
+{
+  "name": "単位の換算",
+  "short_name": "単位の換算",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f1f3f6",
+  "theme_color": "#6a4c93",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

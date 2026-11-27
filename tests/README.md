@@ -15,6 +15,8 @@ node tests/smoke.cjs                  # 全ツール
 node tests/smoke.cjs pdf-text calc    # 指定したツールだけ
 node tests/smoke.cjs --ocr            # PDF文字取り出しの OCR も確かめる（少し時間がかかる）
 node tests/smoke.cjs --headed         # ブラウザの画面を表示して動かす
+node tests/smoke.cjs --device=chromebook   # 学校の端末の大きさと操作で（chromebook / windows / ipad）
+node tests/smoke.cjs --browser=webkit --device=ipad  # Safari と同じ中身で（npx playwright install webkit が要る。Windows・Mac で）
 ```
 
 ツールの名前（`<title>`・上のバー・manifest・README）と色（`style.css`・`theme-color`・manifest・説明書・アイコン）が `shared/js/tools.js` とそろっているか、同じ名前の線のアイコンがどのページでも同じ絵かは、ブラウザなしで確かめられます。
@@ -27,6 +29,12 @@ node tests/consistency.mjs
 
 ```sh
 node tests/vendor-check.mjs
+```
+
+iPad の Safari で動かない書き方（`ctx.filter`、`100vh`、ダブルクリックだけの操作など）がないかは、ブラウザなしで確かめられます。
+
+```sh
+node tests/ipad-pitfalls.mjs
 ```
 
 電卓の計算（`calc/expr.js`）とグラフの交点・頂点（`calc/points.js`）は、ブラウザなしで確かめられます。

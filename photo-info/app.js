@@ -181,7 +181,8 @@ async function redrawn(file, kind) {
   bitmap.close();
   const webp = kind === "webp";
   const blob = await canvasToBlob(canvas, webp ? "image/webp" : "image/png", WEBP_QUALITY);
-  return { blob, ext: webp ? "webp" : "png" };
+  // iPad の Safari は WebP を作れず PNG になるので、できた形式で拡張子を決める。
+  return { blob, ext: blob.type === "image/webp" ? "webp" : "png" };
 }
 
 function outputName(item, ext, used) {

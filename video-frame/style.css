@@ -14,7 +14,11 @@
 
 /* Settings on the left, the video in the middle, the photos taken on the right. */
 .video-layout { grid-template-columns: 250px minmax(0, 1fr) 240px; gap: 14px; padding: 12px; }
-.video-layout .form { max-height: calc(100vh - 82px); overflow: auto; }
+.video-layout .form {
+  max-height: calc(100vh - 82px);
+  max-height: calc(100dvh - 82px); /* iPad の Safari で下が隠れないように */
+  overflow: auto;
+}
 .form .tabs .tab { padding: 0 8px; }
 .form input[type="number"] { width: 6em; }
 .form .field.check { align-items: flex-start; font-size: 13px; }
@@ -27,7 +31,13 @@
 
 .player { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .screen { display: flex; justify-content: center; background: #111; border-radius: 4px; overflow: hidden; }
-.screen video { display: block; max-width: 100%; max-height: calc(100vh - 250px); min-height: 160px; }
+.screen video {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 250px);
+  max-height: calc(100dvh - 250px); /* iPad の Safari で下が隠れないように */
+  min-height: 160px;
+}
 .seek { width: 100%; margin: 4px 0 0; accent-color: var(--accent); }
 .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
 .controls .field select {
@@ -56,6 +66,7 @@
   flex-direction: column;
   gap: 8px;
   max-height: calc(100vh - 82px);
+  max-height: calc(100dvh - 82px); /* iPad の Safari で下が隠れないように */
   padding: 12px;
   border-radius: 12px;
   background: var(--surface);

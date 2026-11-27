@@ -25,7 +25,11 @@
   font-weight: 400;
 }
 
-.form { max-height: calc(100vh - 90px); overflow: auto; }
+.form {
+  max-height: calc(100vh - 90px);
+  max-height: calc(100dvh - 90px); /* iPad の Safari で下が隠れないように */
+  overflow: auto;
+}
 .form .slider { grid-template-columns: 5.5em 1fr 3.2em; }
 .field.stack { flex-direction: column; align-items: stretch; gap: 4px; }
 .list-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
@@ -89,7 +93,11 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 }
 
 /* The preview scrolls along the joined picture; with the seam editor open, both fit the screen. */
-.preview-wrap { align-items: stretch; height: calc(100vh - 90px); }
+.preview-wrap {
+  align-items: stretch;
+  height: calc(100vh - 90px);
+  height: calc(100dvh - 90px); /* iPad の Safari で下が隠れないように */
+}
 .preview-scroll {
   flex: 1;
   min-height: 120px;

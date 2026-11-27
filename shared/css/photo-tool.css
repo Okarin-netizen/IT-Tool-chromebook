@@ -121,6 +121,7 @@ body {
   display: block;
   max-width: 100%;
   max-height: calc(100vh - 130px);
+  max-height: calc(100dvh - 130px); /* iPad の Safari で下が隠れないように */
   width: auto;
   height: auto;
   background: #fff;

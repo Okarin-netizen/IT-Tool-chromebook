@@ -396,21 +396,22 @@
       const t = document.createElement("div");
       t.className = "pface";
       const photo = K.state.photos.find((p) => p.id === f.photoId);
-      t.title = `${photo?.name || ""}\nドラッグで別の人へ移動（指は長押ししてから）／ダブルクリックで写真を開く`;
+      t.title = `${photo?.name || ""}\nドラッグで別の人へ移動（指は長押ししてから）／ダブルクリック（指は軽くふれる）で写真を開く`;
       if (f.peopleThumb) {
         const c = makeCanvas(84, 84);
         c.getContext("2d").drawImage(f.peopleThumb, 0, 0);
         t.appendChild(c);
       }
-      dragSource(t, f, g);
-      t.addEventListener("dblclick", () => {
+      const openPhoto = () => {
         const idx = K.state.photos.indexOf(photo);
         if (idx >= 0) {
           K.state.current = idx;
           K.showTab("photo");
           K.refreshAll();
         }
-      });
+      };
+      dragSource(t, f, g, openPhoto);
+      t.addEventListener("dblclick", openPhoto); // ipad-ok: 指やペンで軽くふれても写真を開ける（dragSource の onTap）
       body.appendChild(t);
     }
     card.appendChild(body);
@@ -433,11 +434,11 @@
     dropGroups.set(el, getGroup);
   }
 
-  function dragSource(tile, face, from) {
+  function dragSource(tile, face, from, onTap) {
     tile.addEventListener("pointerdown", (e) => {
       if (!e.isPrimary || e.button !== 0) return;
       const touch = e.pointerType !== "mouse";
-      press = { tile, face, from, pointerId: e.pointerId, x: e.clientX, y: e.clientY, touch, timer: 0 };
+      press = { tile, face, from, onTap, pointerId: e.pointerId, x: e.clientX, y: e.clientY, touch, timer: 0 };
       if (touch) press.timer = setTimeout(() => startDrag(press.x, press.y), LONG_PRESS_MS);
       else e.preventDefault(); // no text selection while dragging with a mouse
     });
@@ -465,8 +466,11 @@
   });
   window.addEventListener("pointerup", (e) => {
     if (!press || e.pointerId !== press.pointerId) return;
+    // iPad ではダブルタップが拡大になるので、指やペンで軽くふれただけでもダブルクリックと同じことをする
+    const tap = !drag && press.touch ? press.onTap : null;
     if (drag) finishDrag();
     endPress();
+    tap?.();
   });
   window.addEventListener("pointercancel", (e) => {
     if (!press || e.pointerId !== press.pointerId) return;
@@ -490,6 +494,9 @@
 
   function startDrag(x, y) {
     clearTimeout(press.timer);
+    // 画面の低い iPad では「保存しました」のお知らせが下の「使わない」を隠すので、動かし始めたら閉じる
+    const notice = document.getElementById("saved-notice");
+    if (notice) notice.hidden = true;
     const ghost = document.createElement("div");
     ghost.className = "pface-ghost";
     const src = press.tile.querySelector("canvas");

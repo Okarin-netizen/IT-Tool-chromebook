@@ -41,7 +41,7 @@
       <span class="app-title">PDF一括採点</span>
       <label class="btn primary" for="file-input" title="PDF（いくつでも）か、PDFの入ったZIPを選ぶ"><svg class="i" aria-hidden="true"><use href="#i-open"/></svg>PDFを追加</label>
       <input id="file-input" type="file" accept="application/pdf,.pdf,application/zip,.zip" multiple hidden>
-      <button id="files-btn" class="btn" title="提出者の一覧を表示/かくす" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-people"/></svg>一覧</button>
+      <button id="files-btn" class="btn" title="提出者の一覧を表示/かくす" aria-label="提出者の一覧" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-people"/></svg><span class="label">一覧</span></button>
     </div>
 
     <div class="group tools" role="radiogroup" aria-label="道具">
@@ -123,7 +123,7 @@
     <div class="group">
       <button id="undo-btn" class="btn icon" disabled title="元に戻す (Ctrl+Z)"><svg class="i" aria-hidden="true"><use href="#i-undo"/></svg></button>
       <button id="redo-btn" class="btn icon" disabled title="やり直す (Ctrl+Y)"><svg class="i" aria-hidden="true"><use href="#i-redo"/></svg></button>
-      <button id="delete-btn" class="btn" disabled title="選んでいるものを消す (Delete)"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>削除</button>
+      <button id="delete-btn" class="btn" disabled aria-label="削除" title="選んでいるものを消す (Delete)"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg><span class="label">削除</span></button>
     </div>
 
     <div class="group" role="group" aria-label="表示倍率">
@@ -133,13 +133,13 @@
     </div>
 
     <div class="group" role="group" aria-label="提出者の移動">
-      <button id="prev-btn" class="btn" disabled title="前の人へ (Shift+N)"><svg class="i" aria-hidden="true"><use href="#i-up"/></svg>前の人</button>
-      <button id="next-btn" class="btn" disabled title="次の人へ (N)"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>次の人</button>
+      <button id="prev-btn" class="btn" disabled aria-label="前の人" title="前の人へ (Shift+N)"><svg class="i" aria-hidden="true"><use href="#i-up"/></svg><span class="label">前の人</span></button>
+      <button id="next-btn" class="btn" disabled aria-label="次の人" title="次の人へ (N)"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg><span class="label">次の人</span></button>
       <button id="focus-btn" class="btn" disabled aria-pressed="false" title="問題の部分を囲むと、全員の同じ場所を続けて表示して1問ずつ採点できます"><svg class="i" aria-hidden="true"><use href="#i-focus"/></svg><span id="focus-label">設問ごと</span></button>
     </div>
 
     <div class="group end">
-      <button id="save-btn" class="btn primary" disabled title="1人ずつのPDFをZIPにまとめて保存 (Ctrl+S)"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg>返却用にまとめて保存</button>
+      <button id="save-btn" class="btn primary" disabled title="1人ずつのPDFをZIPにまとめて保存 (Ctrl+S)"><svg class="i" aria-hidden="true"><use href="#i-save"/></svg><span class="long">返却用にまとめて</span>保存</button>
     </div>
   </header>
 

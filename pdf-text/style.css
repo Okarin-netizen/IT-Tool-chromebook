@@ -179,6 +179,11 @@ body {
 .witem .tdel { top: -2px; }
 .witem.active .resize, .witem:hover .resize { display: block; }
 
+/* 指やペンの端末（iPad）はマウスを乗せられないので、文字を動かす取っ手はいつも出しておく（大きさ変えはふれて選ぶと出る）。 */
+@media (hover: none) {
+  .titem .handle { display: flex; }
+}
+
 @media (max-width: 640px) {
   .group.end { margin-left: 0; }
   .viewer { padding: 16px 8px 64px; }
