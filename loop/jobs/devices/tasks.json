@@ -5,7 +5,7 @@
       "id": "pdf-pages-windows",
       "what": "PDF結合・分割・回転: Windows の広さで「保存」ボタンが「白紙ページを入れる」のメニューに隠れて押せない",
       "check": "node tests/smoke.cjs --device=windows pdf-pages && node tests/smoke.cjs pdf-pages",
-      "passes": false
+      "passes": true
     },
     {
       "id": "pdf-grade-touch",

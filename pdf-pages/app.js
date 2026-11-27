@@ -762,7 +762,19 @@ addNextTool({ saveBtn: els.saveBtn, save: saveAll, kind: "pdf" });
 els.extractBtn.addEventListener("click", saveSelected);
 els.splitBtn.addEventListener("click", saveEachPage);
 const { close: closeMenu, toggle: toggleMenu } = createMenus(els.moreMenu);
-els.moreBtn.addEventListener("click", () => toggleMenu(els.moreMenu));
+els.moreBtn.addEventListener("click", () => {
+  toggleMenu(els.moreMenu);
+  placeMenuBelowToolbar();
+});
+// When the toolbar wraps to 2 rows (Windows 125%), open the menu under the whole toolbar so it does not cover 「1つのPDFに保存」.
+function placeMenuBelowToolbar() {
+  const menu = els.moreMenu;
+  menu.style.top = "";
+  if (menu.hidden || getComputedStyle(menu).position !== "absolute") return;
+  const toolbarBottom = menu.closest(".toolbar").getBoundingClientRect().bottom;
+  const wrapTop = menu.parentElement.getBoundingClientRect().top;
+  menu.style.top = `${toolbarBottom - wrapTop + 6}px`;
+}
 const menuActions = [
   [els.blankBtn, insertBlank],
   [els.duplicateBtn, duplicatePages],

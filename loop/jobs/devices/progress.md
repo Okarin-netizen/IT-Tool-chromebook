@@ -7,3 +7,7 @@
 - 最初に全部回した結果: chromebook で pdf-grade、windows で pdf-pages、ipad で pdf-grade・image-pdf・kaotori が失敗。落とし穴は22件。これを tasks.json にした。
 - smoke の失敗のくわしい理由は `SMOKE_DEBUG=1 node tests/smoke.cjs ...` で出る。
 - 指のテストの失敗は、アプリのせいかテストの作りのせいか、まだ分からない。テストのせいだと思ったら直さずに書く。
+
+## 周 1: pdf-pages-windows
+- 125%（1536幅）だとツールバーが2段になり、「ページの操作」メニューが2段目の保存ボタンを覆っていた。開くときにツールバー全体の下へ出すようにした（pdf-pages/app.js placeMenuBelowToolbar）。
+- windows・ふつうの smoke と verify.sh が通った。次は pdf-grade-touch。
