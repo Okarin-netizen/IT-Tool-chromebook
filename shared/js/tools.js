@@ -25,6 +25,7 @@ export const TOOLS = [
   { id: "gif-maker", name: "写真をつなげてGIF", takes: ["image"] },
   { id: "video-frame", name: "動画から写真" },
   { id: "class-picker", name: "名前ルーレット・班分け" },
+  { id: "lottery", name: "くじ引き" },
   { id: "class-screen", name: "授業の画面" },
   { id: "qr-maker", name: "QRコード作成" },
   { id: "typing", name: "タイピング練習" },
