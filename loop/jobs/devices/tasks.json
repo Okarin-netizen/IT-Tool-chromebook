@@ -89,7 +89,7 @@
       "id": "ipad-kaotori",
       "what": "kaotori: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs kaotori の NG）",
       "check": "node tests/ipad-pitfalls.mjs kaotori",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ipad-todo",

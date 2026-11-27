@@ -101,3 +101,7 @@
 ## 周 17: ipad-video-frame
 - video-frame/style.css の .form・.screen video・.shots-wrap（どれも max-height）の 100vh の次の行に 100dvh を足した（100vh は古い端末のため残した）。
 - ipad-pitfalls video-frame・ふつうの smoke video-frame・verify.sh が通った。次は ipad-kaotori。
+
+## 周 18: ipad-kaotori
+- 写真の上のダブルクリック（調整を開く）は、顔にふれて使う顔にし「切り抜き一覧」のカードにふれれば同じなので `// ipad-ok:` を書いた。人ごとの顔のダブルクリック（写真を開く）は、指・ペンで軽くふれても開くようにした（people.js dragSource の onTap）。
+- ipad-pitfalls kaotori・ipad とふつうの smoke kaotori・verify.sh が通った。次は ipad-todo。

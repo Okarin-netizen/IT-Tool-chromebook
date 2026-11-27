@@ -961,7 +961,7 @@
       refreshAll();
     }
   });
-  pc.addEventListener("dblclick", (e) => {
+  pc.addEventListener("dblclick", (e) => { // ipad-ok: 顔にふれて使う顔にし、「切り抜き一覧」のカードにふれても同じ調整画面が開く
     const p = canvasPos(e);
     const f = hitFace(p.x, p.y);
     if (f) {
