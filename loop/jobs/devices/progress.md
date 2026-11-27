@@ -105,3 +105,7 @@
 ## 周 18: ipad-kaotori
 - 写真の上のダブルクリック（調整を開く）は、顔にふれて使う顔にし「切り抜き一覧」のカードにふれれば同じなので `// ipad-ok:` を書いた。人ごとの顔のダブルクリック（写真を開く）は、指・ペンで軽くふれても開くようにした（people.js dragSource の onTap）。
 - ipad-pitfalls kaotori・ipad とふつうの smoke kaotori・verify.sh が通った。次は ipad-todo。
+
+## 周 19: ipad-todo
+- 課題のダブルクリックで直す欄を開くのは、どの課題にもある「直す」ボタンで同じことができるので、todo/app.js のその行に `// ipad-ok:` を書いた。
+- ipad-pitfalls todo・ふつうの smoke todo・verify.sh が通った。次は all-devices。

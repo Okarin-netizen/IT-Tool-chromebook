@@ -355,7 +355,7 @@ $("task-form").addEventListener("submit", (e) => {
 });
 
 // Double-clicking a task's title or details also opens it for changing.
-$("task-list").addEventListener("dblclick", (e) => {
+$("task-list").addEventListener("dblclick", (e) => { // ipad-ok: 「直す」ボタン
   const task = e.target.closest(".task:not(.editing)");
   if (task && e.target.closest(".task-body")) startEditing(task.dataset.id);
 });

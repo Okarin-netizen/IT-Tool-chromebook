@@ -95,7 +95,7 @@
       "id": "ipad-todo",
       "what": "todo: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs todo の NG）",
       "check": "node tests/ipad-pitfalls.mjs todo",
-      "passes": false
+      "passes": true
     },
     {
       "id": "all-devices",
