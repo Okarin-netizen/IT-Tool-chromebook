@@ -61,3 +61,7 @@
 ## 周 7: kaotori-ipad
 - 高さ740だと「使わない」の置き場が画面の下に固定され、ZIP保存のあとの「保存しました」お知らせ（右下に固定）がそれを隠していた。kaotori/people.js の startDrag で、顔を動かし始めたらお知らせを閉じるようにした。
 - ipad・ふつうの smoke と verify.sh が通った。次は ipad-shared-css。
+
+## 周 8: ipad-shared-css
+- base.css（説明のダイアログ2か所）・photo-tool.css（.preview）・site.css（.side）の 100vh の次の行に 100dvh を足した（100vh は古い端末のため残した）。
+- ipad-pitfalls shared/css と verify.sh が通った。次は ipad-pdf-pages。

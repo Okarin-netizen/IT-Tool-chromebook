@@ -29,7 +29,7 @@
       "id": "ipad-shared-css",
       "what": "shared/css: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs shared/css の NG）",
       "check": "node tests/ipad-pitfalls.mjs shared/css",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ipad-pdf-pages",
