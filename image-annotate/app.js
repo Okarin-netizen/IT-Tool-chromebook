@@ -3,7 +3,7 @@ import { download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { isImage, isHeic, readableImage } from "../shared/js/heic.js";
 import { registerOffline } from "../shared/js/offline.js";
-import { canDraw, scrollWithFinger, drawSurface, penButtonGroup, onPenDown } from "../shared/js/pen.js";
+import { canDraw, scrollWithFinger, drawSurface, penButtonGroup, onPenDown, keepPointInView } from "../shared/js/pen.js";
 import { canvasToBlob } from "../shared/js/canvas.js";
 import { copyImage } from "../shared/js/clipboard.js";
 import { History } from "../shared/js/history.js";
@@ -19,6 +19,7 @@ const LINE_HEIGHT = 1.25; // must match .text-editor line-height in style.css
 const TWO_POINT = new Set(["arrow", "line", "rect", "ellipse", "mosaic"]);
 // Tools that draw: a finger scrolls instead while 「ペンだけで書く」 is on (shared/js/pen.js).
 const DRAWING_TOOLS = new Set([...TWO_POINT, "pen", "marker", "crop", "callout"]);
+const MAX_ZOOM = 5; // two-finger zoom, times the size that fits the screen
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -54,6 +55,7 @@ const state = {
   bases: [], // every version of the image this session, so undo can bring an earlier one back
   W: 0,
   H: 0,
+  zoom: 1, // two-finger zoom on top of fitting the width (1 = fits)
   unit: 2, // base stroke unit in image pixels, scaled to the image size
   items: [],
   // arrow/line/rect/ellipse/mosaic: { type, x1, y1, x2, y2, color, mul, fill }
@@ -136,6 +138,7 @@ function start(base, name) {
   setBase(base);
   state.unit = Math.max(1, Math.round(Math.max(state.W, state.H) / 400));
   state.fileName = (name || "image").replace(/\.[^.]+$/, "");
+  state.zoom = 1;
   state.items = [];
   state.selected = null;
   history.reset();
@@ -160,11 +163,23 @@ function setBase(base) {
 function fitToView() {
   if (!state.base) return;
   const avail = els.viewer.clientWidth - 32;
-  const s = Math.min(1, avail / state.W);
+  const s = Math.min(1, avail / state.W) * state.zoom;
   els.canvas.style.width = `${Math.round(state.W * s)}px`;
   els.canvas.style.height = `${Math.round(state.H * s)}px`;
   if (state.editing) positionEditor();
 }
+
+// Two fingers spread or pinched while 「ペンだけで書く」 is on (shared/js/pen.js).
+const pinchZoom = {
+  limit: (factor) => Math.min(MAX_ZOOM, Math.max(1, state.zoom * factor)) / state.zoom,
+  done(factor, clientX, clientY) {
+    const zoom = Math.min(MAX_ZOOM, Math.max(1, state.zoom * factor));
+    const keep = keepPointInView(els.viewer, zoom / state.zoom, clientX, clientY);
+    state.zoom = zoom;
+    fitToView();
+    keep();
+  },
+};
 
 /* ---------- sizes ---------- */
 
@@ -660,7 +675,7 @@ let drag = null;
 els.canvas.addEventListener("pointerdown", (e) => {
   if (!state.base || e.button !== 0 || drag) return;
   if (DRAWING_TOOLS.has(state.tool) && !canDraw(e) && !handleAt(...toImage(e))) {
-    scrollWithFinger(e, els.viewer);
+    scrollWithFinger(e, els.viewer, { zoom: pinchZoom });
     return;
   }
   e.preventDefault(); // keeps focus in the text editor instead of moving it to the canvas

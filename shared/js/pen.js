@@ -101,7 +101,9 @@ const scrolls = new Map(); // scroller → its finger scroll
 // Moves `scroller` with this finger (and any other finger already on it) until they lift.
 // Without `scroller`, the nearest box around the touched element that can scroll is used.
 // The pointer is captured on the element that got the event, as trackPointer does.
-export function scrollWithFinger(e, scroller = scrollerOf(e.currentTarget)) {
+//   zoom   optional, for two fingers spreading or pinching (see pinchZoom below):
+//          { limit(factor) → the factor the tool allows, done(factor, clientX, clientY) }
+export function scrollWithFinger(e, scroller = scrollerOf(e.currentTarget), { zoom = null } = {}) {
   e.preventDefault();
   if (handIsWriting()) return; // a hand resting next to the pen: do nothing at all
   let scroll = scrolls.get(scroller);
@@ -109,7 +111,7 @@ export function scrollWithFinger(e, scroller = scrollerOf(e.currentTarget)) {
     scroll = createFingerScroll(scroller);
     scrolls.set(scroller, scroll);
   }
-  scroll.add(e);
+  scroll.add(e, zoom);
 }
 
 function scrollerOf(el) {
@@ -129,13 +131,17 @@ function createFingerScroll(scroller) {
   const fingers = new Map(); // pointer id → { x, y, target }
   let samples = []; // { t, dx, dy } of recent movement, for the glide
   let glideFrame = 0;
+  let zoom = null; // what the tool does with a pinch (scrollWithFinger)
+  let pinch = null; // { distance, x, y, factor } while two fingers spread or pinch
 
-  function add(e) {
+  function add(e, zoomOptions) {
     cancelAnimationFrame(glideFrame);
     const target = e.currentTarget;
     target.setPointerCapture?.(e.pointerId);
     fingers.set(e.pointerId, { x: e.clientX, y: e.clientY, target });
     if (fingers.size === 1) samples = [];
+    zoom = zoomOptions;
+    if (fingers.size === 2 && zoom) startPinch();
     target.addEventListener("pointermove", move);
     target.addEventListener("pointerup", up);
     target.addEventListener("pointercancel", up);
@@ -151,6 +157,7 @@ function createFingerScroll(scroller) {
     finger.x = e.clientX;
     finger.y = e.clientY;
     scroller.scrollBy(dx, dy);
+    if (pinch) previewPinch();
     const now = performance.now();
     samples.push({ t: now, dx, dy });
     samples = samples.filter((s) => now - s.t < VELOCITY_WINDOW_MS);
@@ -159,15 +166,58 @@ function createFingerScroll(scroller) {
   function up(e) {
     const finger = fingers.get(e.pointerId);
     if (!finger) return;
+    if (pinch) {
+      // The last move may not have arrived before the lift: count where the finger let go.
+      finger.x = e.clientX;
+      finger.y = e.clientY;
+      previewPinch();
+    }
     release(e.pointerId, finger);
+    if (pinch) {
+      endPinch();
+      samples = []; // no glide after a pinch
+    }
     if (!fingers.size && e.type === "pointerup") glide();
   }
 
   function release(id, finger) {
     fingers.delete(id);
+    // Fingers on the same element share its listeners: keep them for the ones still down.
+    if ([...fingers.values()].some((other) => other.target === finger.target)) return;
     finger.target.removeEventListener("pointermove", move);
     finger.target.removeEventListener("pointerup", up);
     finger.target.removeEventListener("pointercancel", up);
+  }
+
+  /* While the fingers move, everything in the scroller is only stretched (fast); the tool
+     draws it again at the new size once a finger lifts. */
+  function fingerSpan() {
+    const [a, b] = [...fingers.values()];
+    return { distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  }
+
+  function startPinch() {
+    const { distance, x, y } = fingerSpan();
+    pinch = { distance, x, y, factor: 1 };
+    for (const child of scroller.children) {
+      const box = child.getBoundingClientRect();
+      child.style.transformOrigin = `${x - box.left}px ${y - box.top}px`;
+    }
+  }
+
+  function previewPinch() {
+    pinch.factor = zoom.limit(fingerSpan().distance / pinch.distance);
+    for (const child of scroller.children) child.style.transform = `scale(${pinch.factor})`;
+  }
+
+  function endPinch() {
+    for (const child of scroller.children) {
+      child.style.transform = "";
+      child.style.transformOrigin = "";
+    }
+    const { factor, x, y } = pinch;
+    pinch = null;
+    if (Math.abs(factor - 1) > 0.01) zoom.done(factor, x, y);
   }
 
   // Keeps going a little after the finger lifts, slowing down, like a normal page.
@@ -196,10 +246,25 @@ function createFingerScroll(scroller) {
 
   function stop() {
     cancelAnimationFrame(glideFrame);
+    if (pinch) endPinch();
     for (const [id, finger] of [...fingers]) release(id, finger);
   }
 
   return { add, stop };
+}
+
+// Keeps the spot under (clientX, clientY) in place when the content of `scroller` grows by
+// `ratio`: call before changing the size, then call what it returns after.
+export function keepPointInView(scroller, ratio, clientX, clientY) {
+  const box = scroller.getBoundingClientRect();
+  const x = clientX - box.left;
+  const y = clientY - box.top;
+  const contentX = (scroller.scrollLeft + x) * ratio;
+  const contentY = (scroller.scrollTop + y) * ratio;
+  return () => {
+    scroller.scrollLeft = contentX - x;
+    scroller.scrollTop = contentY - y;
+  };
 }
 
 /* ---------- the drawing surface ---------- */
