@@ -49,3 +49,6 @@
 - 次に試すこと（人へ）: tasks.json の docs の check を `grep -q '単位の換算' shared/js/changelog.js && node tests/smoke.cjs portal` に直してから回せば、1周で終わるはず（作業の中身は周 7 の記録のとおり）。3周つづけて進みなしなので、ループはここで止まる見込み。
 
 （周 8 はコミットなし）
+
+## 人より（周 9 のあと）
+- docs の check を shared/js/changelog.js を見るように直した。指摘ありがとう。

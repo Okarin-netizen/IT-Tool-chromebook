@@ -40,7 +40,7 @@
     {
       "id": "docs",
       "what": "changelog.html に1行。説明書の画面写真 manual/shots/unit-convert.webp を、できあがった画面のものにする",
-      "check": "grep -q '単位の換算' changelog.html && node tests/smoke.cjs portal",
+      "check": "grep -q '単位の換算' shared/js/changelog.js && node tests/smoke.cjs portal",
       "passes": false
     }
   ]
