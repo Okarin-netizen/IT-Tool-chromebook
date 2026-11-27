@@ -21,3 +21,15 @@
 - 人がテストを直すまで pdf-grade-touch は通らない。原因1の直しを入れたまま、人の判断を待つ（次の周はこのタスクを飛ばさない決まりなので、progress を見た人に直してもらう）。
 
 （周 2 はコミットなし）
+
+## 周 3: pdf-grade-touch（通せなかった・コミットなし）
+### つまずいたこと
+- 周 2 の `.status { pointer-events: none; }` は消えていた（作業ツリーが戻されていた）ので pdf-grade/style.css の末尾に足し直した。そのうえで `SMOKE_DEBUG=1 node tests/smoke.cjs --device=chromebook pdf-grade` を回すと、周 2 と同じく gradeByQuestion の「囲んだ場所が決まらない: null」で落ちる。tests/smoke.cjs は周 2 から変わっていない。
+- 周 2 の見立て（commentBank の click でページの上の方が #viewer の外へスクロールされ、`t.drag(ink,[[40,40],…])` の始まりがツールバーの上に落ちる。t.drag は ink の boundingBox からの座標でマウスを動かすだけ）をコードで確かめた。アプリで直すにはツールバーを1段にするしかなく、見た目が変わるのでやらない。
+### 次に試すこと
+- 人へ: tests/smoke.cjs の gradeByQuestion で、`#focus-btn` を押す前に `#viewer` の scrollTop を 0 に戻してほしい（penAndFinger の最後と同じやり方）。直れば、style.css の1行と合わせて通るはず。
+- それまでこのタスクは通らない。ループを止めて人が直すか、このタスクを後回しにしてよいか決めてほしい。
+
+（周 3 はコミットなし）
+
+（周 3 はコミットなし）
