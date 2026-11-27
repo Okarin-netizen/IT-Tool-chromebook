@@ -5,7 +5,7 @@
       "id": "core",
       "what": "convert.js: CATEGORIES、長さ・重さ・面積・体積・時間・速さの convert、UnitError",
       "check": "node tests/unit-convert.mjs core",
-      "passes": false
+      "passes": true
     },
     {
       "id": "temperature",
