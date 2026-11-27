@@ -89,3 +89,7 @@
 ## 周 14: ipad-photo-collage
 - photo-collage/style.css の .form の max-height（100vh）の次の行に 100dvh を足した（100vh は古い端末のため残した）。
 - ipad-pitfalls photo-collage・ふつうの smoke photo-collage・verify.sh が通った。次は ipad-screenshot-stitch。
+
+## 周 15: ipad-screenshot-stitch
+- screenshot-stitch/style.css の .form（max-height）と .preview-wrap（height）の 100vh の次の行に 100dvh を足した（100vh は古い端末のため残した）。
+- ipad-pitfalls screenshot-stitch・ふつうの smoke screenshot-stitch・verify.sh が通った。次は ipad-gif-maker。

@@ -71,7 +71,7 @@
       "id": "ipad-screenshot-stitch",
       "what": "screenshot-stitch: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs screenshot-stitch の NG）",
       "check": "node tests/ipad-pitfalls.mjs screenshot-stitch",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ipad-gif-maker",
