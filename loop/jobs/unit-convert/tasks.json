@@ -1,0 +1,47 @@
+{
+  "job": "unit-convert",
+  "tasks": [
+    {
+      "id": "core",
+      "what": "convert.js: CATEGORIES、長さ・重さ・面積・体積・時間・速さの convert、UnitError",
+      "check": "node tests/unit-convert.mjs core",
+      "passes": false
+    },
+    {
+      "id": "temperature",
+      "what": "convert.js: 温度（℃・℉・K、絶対零度より下は UnitError）",
+      "check": "node tests/unit-convert.mjs temperature",
+      "passes": false
+    },
+    {
+      "id": "data",
+      "what": "convert.js: データ量（bit・B・KB…、dataBase 1024 / 1000）",
+      "check": "node tests/unit-convert.mjs data",
+      "passes": false
+    },
+    {
+      "id": "format",
+      "what": "convert.js: formatNumber",
+      "check": "node tests/unit-convert.mjs format",
+      "passes": false
+    },
+    {
+      "id": "scaffold",
+      "what": "_template からフォルダを作り、tools.js・ポータル・README・アイコン・manifest・manual/data.js（説明書の項目と仮の画面写真 manual/shots/unit-convert.webp）に足す（画面の中身は空でよい）",
+      "check": "node tests/consistency.mjs && node tests/smoke.cjs portal",
+      "passes": false
+    },
+    {
+      "id": "ui",
+      "what": "画面: タブ・入力・入れかえ・答えと式・一覧・データ量の切りかえ・覚える・オフライン",
+      "check": "node tests/smoke.cjs unit-convert",
+      "passes": false
+    },
+    {
+      "id": "docs",
+      "what": "changelog.html に1行。説明書の画面写真 manual/shots/unit-convert.webp を、できあがった画面のものにする",
+      "check": "grep -q '単位の換算' changelog.html && node tests/smoke.cjs portal",
+      "passes": false
+    }
+  ]
+}

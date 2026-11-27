@@ -1351,6 +1351,43 @@ const TOOLS = {
     },
   },
 
+  "unit-convert": {
+    async run(t) {
+      const text = (sel) => t.page.textContent(sel);
+      t.expect(await t.page.locator(".tab[data-cat]").count() === 8, "種類のタブが8つない");
+      await t.page.click(".tab[data-cat='length']");
+      await t.page.selectOption("#from", "km");
+      await t.page.selectOption("#to", "m");
+      await t.page.fill("#value", "1.5");
+      await t.until(() => document.querySelector("#result").textContent.trim() === "1,500");
+      t.expect((await text("#formula")).includes("1.5 km = 1,500 m"), `式が違う: ${await text("#formula")}`);
+      t.expect((await text("#all li[data-unit='cm']")).includes("150,000"), "一覧に cm がない");
+      await t.page.click("#swap");
+      await t.until(() => document.querySelector("#from").value === "m" && document.querySelector("#to").value === "km");
+      await t.page.fill("#value", "abc");
+      await t.until(() => document.querySelector("#result").textContent.includes("数を入れてください"));
+      await t.page.click(".tab[data-cat='temperature']");
+      await t.page.selectOption("#from", "c");
+      await t.page.selectOption("#to", "k");
+      await t.page.fill("#value", "-300");
+      await t.until(() => document.querySelector("#result").textContent.includes("絶対零度"));
+      t.expect(!(await t.page.isVisible("#data-base")), "温度なのにデータ量の切りかえが出ている");
+      await t.page.click(".tab[data-cat='data']");
+      await t.page.selectOption("#from", "KB");
+      await t.page.selectOption("#to", "B");
+      await t.page.fill("#value", "1");
+      await t.until(() => document.querySelector("#result").textContent.trim() === "1,024");
+      await t.page.selectOption("#data-base", "1000");
+      await t.until(() => document.querySelector("#result").textContent.trim() === "1,000");
+      await t.shot("data");
+      // Remembers the last category and units.
+      await t.page.reload();
+      await t.until(() => document.querySelector(".tab[data-cat='data']")?.getAttribute("aria-selected") === "true");
+      t.expect(await t.page.inputValue("#from") === "KB", "開き直すと単位が戻らない");
+      t.expect(await t.page.evaluate(() => __unitConvert.formatNumber(1234.5)) === "1,234.5", "テスト用のフックがない");
+    },
+  },
+
   "paper-maker": {
     async run(t) {
       await t.page.click(".kind[data-kind='coord']");
