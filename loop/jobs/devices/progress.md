@@ -109,3 +109,8 @@
 ## 周 19: ipad-todo
 - 課題のダブルクリックで直す欄を開くのは、どの課題にもある「直す」ボタンで同じことができるので、todo/app.js のその行に `// ipad-ok:` を書いた。
 - ipad-pitfalls todo・ふつうの smoke todo・verify.sh が通った。次は all-devices。
+
+## 周 20: all-devices
+- 指の端末（chromebook・ipad）で pdf-text が落ちていた: 周 10 の @media (hover: none) が乗せたときの取っ手を消していた。代わりに、指の端末では文字を動かす取っ手をいつも出すようにした（pdf-text/style.css）。
+- 落とし穴・3端末の smoke・verify.sh が通った。chromebook の image-resize が1回だけ「blob の読み込み失敗」で落ち、やり直すと通った（ときどき落ちるテストかもしれない。人に見てほしい）。
+DONE

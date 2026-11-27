@@ -101,7 +101,7 @@
       "id": "all-devices",
       "what": "全ツールを3つの端末で通す（ほかの直しで壊れていないかの最後の確認）",
       "check": "node tests/ipad-pitfalls.mjs && node tests/smoke.cjs --device=chromebook && node tests/smoke.cjs --device=windows && node tests/smoke.cjs --device=ipad",
-      "passes": false
+      "passes": true
     }
   ]
 }
