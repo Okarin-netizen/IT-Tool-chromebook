@@ -2441,6 +2441,17 @@ async function penAndFinger(t, hook) {
   await pause(1500);
   await t.page.$eval("#viewer", (el) => (el.scrollTop = 0));
 
+  // A hand resting on the page places nothing: no stamp, and (一括採点) the score stays put.
+  const count = () => t.page.evaluate((h) => window[h].state.items.length, hook);
+  await t.page.evaluate((h) => window[h].setTool("stamp", { hint: false }), hook);
+  const items = await count();
+  await handGone();
+  await t.touch(viewer, "touchStart", [[cx, cy]]);
+  await t.touch(viewer, "touchEnd", []);
+  await pause(0);
+  t.expect(await count() === items, "「ペンだけ」なのに、指（手のひら）でハンコが押された");
+  await t.page.evaluate((h) => window[h].setTool("pen", { hint: false }), hook);
+
   // A mouse still draws.
   await t.drag(ink, [[60, 120], [120, 150]]);
   t.expect(await strokes() === start + 4, "「ペンだけ」がオンだとマウスで書けない");
