@@ -21,3 +21,7 @@
 ## 周 4（format）
 - formatNumber を作成。toPrecision(10) で丸めてから、|n| が 1e15 以上か 1e-6 未満なら「a × 10^b」、それ以外は toFixed（後ろの 0 を消す）＋3けたごとの「,」。
 - 次は scaffold（_template を写して tools.js・ポータル・README・manual などに足す）。
+
+## 周 5（scaffold）
+- unit-convert/ に index.html・app.js（convert.js を読み registerOffline と window.__unitConvert だけ）・style.css・icon.svg・manifest を作成。色は #6a4c93。tools.js・ポータル（授業・勉強、日付の計算の次）・README の表と節・manual/data.js に追加。
+- manual/shots/unit-convert.webp は空の画面の仮の写真。次は ui（docs のタスクで写真を撮り直す）。

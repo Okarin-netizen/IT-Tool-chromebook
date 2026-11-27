@@ -29,7 +29,7 @@
       "id": "scaffold",
       "what": "_template からフォルダを作り、tools.js・ポータル・README・アイコン・manifest・manual/data.js（説明書の項目と仮の画面写真 manual/shots/unit-convert.webp）に足す（画面の中身は空でよい）",
       "check": "node tests/consistency.mjs && node tests/smoke.cjs portal",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ui",

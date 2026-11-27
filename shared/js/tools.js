@@ -36,6 +36,7 @@ export const TOOLS = [
   { id: "timer", name: "タイマー・ポモドーロ" },
   { id: "char-count", name: "文字数カウンター" },
   { id: "date-calc", name: "日付の計算" },
+  { id: "unit-convert", name: "単位の換算" },
   { id: "paper-maker", name: "方眼紙・罫線プリント" },
   { id: "field-layout", name: "校庭・体育館の配置図" },
 ];
