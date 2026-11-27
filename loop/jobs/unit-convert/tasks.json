@@ -35,7 +35,7 @@
       "id": "ui",
       "what": "画面: タブ・入力・入れかえ・答えと式・一覧・データ量の切りかえ・覚える・オフライン",
       "check": "node tests/smoke.cjs unit-convert",
-      "passes": false
+      "passes": true
     },
     {
       "id": "docs",

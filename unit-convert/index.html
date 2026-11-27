@@ -14,18 +14,38 @@
 <body>
   <svg class="sprite" aria-hidden="true">
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M8 4v16M4 16l4 4 4-4M16 20V4M12 8l4-4 4 4"/></symbol>
   </svg>
   <header class="toolbar">
     <div class="group">
       <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
       <span class="app-title">単位の換算</span>
     </div>
+    <div id="tabs" class="group tabs" role="tablist" aria-label="単位の種類"></div>
   </header>
 
-  <main>
-    <section id="welcome" class="welcome">
-      <h1>単位の換算</h1>
-      <p>長さ・重さ・面積・体積・時間・速さ・温度・データ量の単位を変えます。</p>
+  <main class="layout">
+    <section class="card main-card" aria-label="換算">
+      <div class="form-row">
+        <input id="value" class="value" type="text" inputmode="decimal" value="1" autocomplete="off" aria-label="数">
+        <select id="from" aria-label="もとの単位"></select>
+        <button id="swap" class="btn icon" type="button" title="単位を入れかえる" aria-label="単位を入れかえる"><svg class="i" aria-hidden="true"><use href="#i-swap"/></svg></button>
+        <select id="to" aria-label="変えたい単位"></select>
+      </div>
+      <label id="data-base-row" class="field" hidden>1KB は
+        <select id="data-base">
+          <option value="1024">1024 バイト</option>
+          <option value="1000">1000 バイト</option>
+        </select>
+      </label>
+      <div class="result">
+        <p class="result-line"><output id="result" class="result-number"></output> <span id="result-unit" class="result-unit"></span></p>
+        <p id="formula" class="formula"></p>
+      </div>
+    </section>
+    <section class="card list-card" aria-labelledby="all-title">
+      <h2 id="all-title" class="list-title">ほかの単位では</h2>
+      <ul id="all" class="all"></ul>
     </section>
   </main>
 

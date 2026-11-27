@@ -25,3 +25,7 @@
 ## 周 5（scaffold）
 - unit-convert/ に index.html・app.js（convert.js を読み registerOffline と window.__unitConvert だけ）・style.css・icon.svg・manifest を作成。色は #6a4c93。tools.js・ポータル（授業・勉強、日付の計算の次）・README の表と節・manual/data.js に追加。
 - manual/shots/unit-convert.webp は空の画面の仮の写真。次は ui（docs のタスクで写真を撮り直す）。
+
+## 周 6（ui）
+- 画面を作成: タブは CATEGORIES から app.js で作る。#value は type="text"（"abc" を入れられるように）、全角数字や「,」も読む。答えの単位名は #result の外の #result-unit。
+- 種類・種類ごとの単位・dataBase を localStorage「unit-convert-settings-v1」に覚える。左に入力と答え、右に一覧の2列で 1280×800 に収まる。次は docs（changelog と説明書の写真）。
