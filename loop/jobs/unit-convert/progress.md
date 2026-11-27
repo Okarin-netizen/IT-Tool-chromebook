@@ -43,3 +43,9 @@
 - 次に試すこと（人へ）: docs の check を `grep -q '単位の換算' shared/js/changelog.js && node tests/smoke.cjs portal` に直すまで、この周を回しても同じところで止まる。変更はコミットしないと次の周で消えるので、check を直したらすぐ同じ作業ツリーで回すか、人がこの変更をコミットしてほしい。
 
 （周 7 はコミットなし）
+
+## 周 9（docs）— 通せなかった（コミットなし）
+- つまずいたこと: check は今も `grep -q '単位の換算' changelog.html` のまま。更新履歴の中身は shared/js/changelog.js にあり、changelog.html には文字が入らない作りなので、細工なしには通らない。loop/run.sh を読むと、コミットしなかった変更は周の終わりに `git checkout -- . && git clean -fd` で必ず捨てられる。なので周 7・8 と同じ作業（changelog.js の1行・manual/data.js の説明2か所・写真の撮り直し）を今回はやり直さなかった（やっても消えるだけ）。
+- 次に試すこと（人へ）: tasks.json の docs の check を `grep -q '単位の換算' shared/js/changelog.js && node tests/smoke.cjs portal` に直してから回せば、1周で終わるはず（作業の中身は周 7 の記録のとおり）。3周つづけて進みなしなので、ループはここで止まる見込み。
+
+（周 8 はコミットなし）
