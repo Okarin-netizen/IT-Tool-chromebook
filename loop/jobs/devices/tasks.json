@@ -83,7 +83,7 @@
       "id": "ipad-video-frame",
       "what": "video-frame: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs video-frame の NG）",
       "check": "node tests/ipad-pitfalls.mjs video-frame",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ipad-kaotori",

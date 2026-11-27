@@ -97,3 +97,7 @@
 ## 周 16: ipad-gif-maker
 - gif-maker/style.css の .form（max-height）と .camera video（max-height）の 100vh の次の行に 100dvh を足した（100vh は古い端末のため残した）。
 - ipad-pitfalls gif-maker・ふつうの smoke gif-maker・verify.sh が通った。次は ipad-video-frame。
+
+## 周 17: ipad-video-frame
+- video-frame/style.css の .form・.screen video・.shots-wrap（どれも max-height）の 100vh の次の行に 100dvh を足した（100vh は古い端末のため残した）。
+- ipad-pitfalls video-frame・ふつうの smoke video-frame・verify.sh が通った。次は ipad-kaotori。
