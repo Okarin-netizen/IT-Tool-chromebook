@@ -15,3 +15,5 @@
 .ai-status { font-size: 13px; color: var(--muted); }
 .ai-status.error { color: #b42318; }
 .preview.painting { cursor: crosshair; touch-action: none; }
+/* No brush chosen: fingers scroll the page as usual (the drawing-surface rule is for the brushes). */
+.preview.draw-surface:not(.painting) { touch-action: auto; }

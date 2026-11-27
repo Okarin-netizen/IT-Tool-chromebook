@@ -49,3 +49,8 @@ input[type=color]{width:100%;height:32px;margin-top:3px;border:1px solid var(--l
   .lists{grid-template-columns:1fr;max-height:none}
 }
 #video{position:absolute;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none}
+
+/* A long press on the video must not select or open Safari's menu. While a box is being drawn
+   (＋ 範囲を追加), a finger or pen drags it instead of scrolling the page. */
+#view{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#stage.drawing #view{touch-action:none}

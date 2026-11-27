@@ -829,6 +829,7 @@ const TOOLS = {
   },
 
   "image-annotate": {
+    touch: true,
     async run(t) {
       await t.setFiles("#file-input", [t.png("画面.png", 800, 500)]);
       await t.page.locator("#stage").waitFor();
@@ -901,6 +902,7 @@ const TOOLS = {
       t.page.once("dialog", (d) => d.accept());
       await t.setFiles("#file-input", [t.heic("iPhone.heic")]);
       await t.until(() => document.querySelector("#canvas").width === 400, 30000);
+      await penAndFingerOnImage(t);
     },
     async offline(t) {
       await t.setFiles("#file-input", [t.png("画面.png", 800, 500)]);
@@ -1651,6 +1653,7 @@ const TOOLS = {
 
   // 人の背景を消す: the person stays, the background turns see-through.
   "bg-remove": {
+    touch: true,
     async run(t) {
       await t.until(() => document.getElementById("ai-status").textContent === "", 60000);
       await t.setFiles("#file-input", [t.person("人.jpg")]);
@@ -1662,7 +1665,18 @@ const TOOLS = {
       });
       t.expect(alpha[0] > 200 && alpha[1] < 40, `人が残らないか、背景が消えない: ${alpha}`);
       await t.page.click("[data-brush='erase']");
-      await t.drag(t.page.locator("#preview"), [[100, 100], [140, 140]]);
+      // 「ペンだけで書く」: once a pen has painted, a finger no longer paints.
+      const preview = t.page.locator("#preview");
+      await t.penDrag(preview, [[100, 100], [140, 140]]);
+      t.expect(await t.page.isEnabled("#clear-edits"), "消すペンで直せない（ペン）");
+      t.expect(await t.page.getAttribute(".pen-only-btn", "aria-pressed") === "true", "ペンで「ペンだけ」がオンにならない");
+      await t.page.click("#clear-edits");
+      await inputSettled(t, 700);
+      await t.fingerDrag(preview, [[100, 100], [120, 130], [140, 160]]);
+      await inputSettled(t, 0);
+      t.expect(await t.page.isDisabled("#clear-edits"), "「ペンだけ」なのに指でぬれた");
+      await t.page.click(".pen-only-btn");
+      await t.drag(preview, [[100, 100], [140, 140]]);
       t.expect(await t.page.isEnabled("#clear-edits"), "消すペンで直せない");
       await t.page.click("#save-btn");
       const [file] = await t.downloads(1);
@@ -2288,12 +2302,7 @@ async function penAndFinger(t, hook) {
   const strokes = () => t.page.evaluate((h) => window[h].state.items.filter((i) => i.type === "stroke").length, hook);
   const scrollTop = () => t.page.$eval("#viewer", (el) => el.scrollTop);
   const pressed = () => t.page.getAttribute(".pen-only-btn", "aria-pressed");
-  // Waits in the page, after the input sent so far has been handled.
-  // Input is handled before the next frames are drawn, so two frames go by first.
-  const pause = (ms) => t.page.evaluate(async (wait) => {
-    for (let i = 0; i < 2; i++) await new Promise((resolve) => requestAnimationFrame(resolve));
-    await new Promise((resolve) => setTimeout(resolve, wait));
-  }, ms);
+  const pause = (ms) => inputSettled(t, ms);
   const handGone = () => pause(700); // past the time a finger counts as the hand
   await t.page.evaluate((h) => window[h].setTool("pen", { hint: false }), hook);
   const start = await strokes();
@@ -2361,6 +2370,45 @@ async function penAndFinger(t, hook) {
   await t.penDrag(ink, [[60, 200], [100, 220]]);
   t.expect(await pressed() === "false", "自分でオフにしたのに、ペンでまたオンになった");
   t.expect(await t.page.evaluate(() => localStorage.getItem("portal-pen-only")) === "off", "「ペンだけ」の設定が端末に残らない");
+}
+
+// 画像に書き込み with 「ペンだけで書く」: a tall picture so the page can scroll.
+async function penAndFingerOnImage(t) {
+  t.page.once("dialog", (d) => d.accept().catch(() => {})); // another handler may have taken it
+  await t.setFiles("#file-input", [t.png("縦長.png", 600, 2400)]);
+  await t.until(() => document.querySelector("#canvas").height === 2400);
+  await t.page.click("[data-tool='pen']");
+  const canvas = t.page.locator("#canvas");
+  const pens = () => t.page.evaluate(() => __imageAnnotate.state.items.filter((i) => i.type === "pen").length);
+  const scrollTop = () => t.page.$eval("#viewer", (el) => el.scrollTop);
+  const start = await pens();
+  await t.penDrag(canvas, [[60, 60], [100, 90], [140, 60]]);
+  t.expect(await pens() === start + 1, "画像に書き込み: ペンで書けない");
+  t.expect(await t.page.getAttribute(".pen-only-btn", "aria-pressed") === "true", "画像に書き込み: ペンで「ペンだけ」がオンにならない");
+  // The pen keeps its line while a finger lands and lifts next to it.
+  await t.pen(canvas, "down", [60, 140]);
+  await t.pen(canvas, "move", [90, 160]);
+  await t.touch(canvas, "touchStart", [[300, 200]]);
+  await t.touch(canvas, "touchEnd", []);
+  await t.pen(canvas, "move", [120, 140]);
+  await t.pen(canvas, "move", [150, 160]);
+  await t.pen(canvas, "up", [150, 160]);
+  const last = await t.page.evaluate(() => __imageAnnotate.state.items.at(-1).points.length);
+  t.expect(await pens() === start + 2 && last >= 4, `画像に書き込み: 指がふれるとペンの線が切れる（点${last}）`);
+  await inputSettled(t, 700);
+  const top = await scrollTop();
+  await t.fingerDrag(canvas, [[200, 400], [200, 320], [200, 240], [200, 160]]);
+  await inputSettled(t, 0);
+  t.expect(await scrollTop() > top + 100 && await pens() === start + 2, "画像に書き込み: 「ペンだけ」のとき指でスクロールできない");
+  await t.page.click(".pen-only-btn"); // back to off, for the offline check
+}
+
+// Waits in the page until the input sent so far has been handled (two frames), then `ms` more.
+function inputSettled(t, ms) {
+  return t.page.evaluate(async (wait) => {
+    for (let i = 0; i < 2; i++) await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => setTimeout(resolve, wait));
+  }, ms);
 }
 
 async function editAndUndo(t, hook, ink, on, color) {

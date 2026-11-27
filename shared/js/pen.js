@@ -99,8 +99,9 @@ function switchOnForPen() {
 const scrolls = new Map(); // scroller → its finger scroll
 
 // Moves `scroller` with this finger (and any other finger already on it) until they lift.
+// Without `scroller`, the nearest box around the touched element that can scroll is used.
 // The pointer is captured on the element that got the event, as trackPointer does.
-export function scrollWithFinger(e, scroller) {
+export function scrollWithFinger(e, scroller = scrollerOf(e.currentTarget)) {
   e.preventDefault();
   if (handIsWriting()) return; // a hand resting next to the pen: do nothing at all
   let scroll = scrolls.get(scroller);
@@ -109,6 +110,15 @@ export function scrollWithFinger(e, scroller) {
     scrolls.set(scroller, scroll);
   }
   scroll.add(e);
+}
+
+function scrollerOf(el) {
+  for (let box = el.parentElement; box && box !== document.body; box = box.parentElement) {
+    const { overflowY, overflowX } = getComputedStyle(box);
+    const scrolls = /auto|scroll/.test(overflowY + overflowX);
+    if (scrolls && (box.scrollHeight > box.clientHeight || box.scrollWidth > box.clientWidth)) return box;
+  }
+  return document.scrollingElement;
 }
 
 function stopAllFingerScrolls() {

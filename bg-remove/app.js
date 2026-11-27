@@ -7,6 +7,7 @@ import { canvasToBlob, drawBlurred } from "../shared/js/canvas.js";
 import { loadScript } from "../shared/js/load-script.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { canDraw, scrollWithFinger, drawSurface, penButtonGroup, onPenDown } from "../shared/js/pen.js";
 import "../shared/js/guide.js";
 import { LIB, OFFLINE } from "../shared/js/vendor.js";
 
@@ -229,17 +230,33 @@ function strokeTo(ctx, operation, from, to, radius) {
   ctx.stroke();
 }
 
+// Only the pointer that started follows the brush, so a hand resting next to the pen paints
+// nothing. While 「ペンだけで書く」 is on, a finger scrolls instead (shared/js/pen.js).
+let painting = false;
+
 function startPainting(e) {
-  if (state.brush === "none" || !state.source) return;
+  if (state.brush === "none" || !state.source || painting) return;
+  if (!canDraw(e)) {
+    scrollWithFinger(e);
+    return;
+  }
   e.preventDefault();
+  painting = true;
   els.preview.setPointerCapture(e.pointerId);
   let last = paint(e, null);
-  const move = (ev) => (last = paint(ev, last));
-  const up = () => {
+  const move = (ev) => {
+    if (ev.pointerId === e.pointerId) last = paint(ev, last);
+  };
+  const up = (ev) => {
+    if (ev && ev.pointerId !== e.pointerId) return;
+    painting = false;
+    stopWatchingPen?.();
     els.preview.removeEventListener("pointermove", move);
     els.preview.removeEventListener("pointerup", up);
     els.preview.removeEventListener("pointercancel", up);
   };
+  // A finger already painting when the pen lands is the hand holding it: stop following it.
+  const stopWatchingPen = e.pointerType === "touch" ? onPenDown(() => up()) : null;
   els.preview.addEventListener("pointermove", move);
   els.preview.addEventListener("pointerup", up);
   els.preview.addEventListener("pointercancel", up);
@@ -337,6 +354,8 @@ els.color.addEventListener("input", changed);
 for (const key of ["blur", "spread", "soft", "brushSize"]) els[key].addEventListener("input", changed);
 els.clearEdits.addEventListener("click", clearEdits);
 els.preview.addEventListener("pointerdown", startPainting);
+drawSurface(els.preview);
+document.querySelector(".toolbar .group.end").before(penButtonGroup());
 els.saveBtn.addEventListener("click", save);
 addNextTool({ saveBtn: els.saveBtn, save, kind: "image" });
 onFilePaste((files) => openFile(files[0]));
