@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ペンの確認</title>
+  <meta name="description" content="iPad の Apple Pencil や Chromebook のペンで、ペンと指の見分けが正しく動くかを確かめるページ">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#bd3b58">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  </svg>
+  <header class="toolbar">
+    <div class="group">
+      <a class="btn back" href="../" title="ツール一覧に戻る" aria-label="ツール一覧に戻る"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></a>
+      <span class="app-title">ペンの確認</span>
+    </div>
+    <div class="group" id="pen-slot"></div>
+    <div class="group end">
+      <button id="clear-btn" class="btn"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>線を消す</button>
+    </div>
+  </header>
+
+  <main class="check">
+    <section class="panel how">
+      <h1>ペンの確認</h1>
+      <p>iPad や Chromebook で、ペンと指の見分けが正しく動くかを確かめるページです。書いたものはどこにも送られません。</p>
+      <ol>
+        <li>下の「方法1」の四角に、ペンで書きます。上の「ペンだけ」がオンになります。</li>
+        <li>手のひらを画面に置いたまま、ペンで書きます。よけいな線が出なければ大丈夫です。</li>
+        <li>指で上下にさわって、四角の中がスクロールするかを見ます。「方法2」の四角でも同じことをして、なめらかさをくらべます。</li>
+        <li>ペンで長押しして、文字の選択や虫めがねが出ないかを見ます。</li>
+        <li>この画面のスクリーンショットを送ってください。</li>
+      </ol>
+    </section>
+
+    <section class="panel area">
+      <h2>方法1: 指のスクロールをこのサイトで動かす（いまのツールと同じ）</h2>
+      <div id="box1" class="scroll-box"><canvas id="pad1" class="pad"></canvas></div>
+    </section>
+
+    <section class="panel area">
+      <h2>方法2: 指のスクロールをブラウザにまかせる（くらべる用）</h2>
+      <div id="box2" class="scroll-box"><canvas id="pad2" class="pad pad-native"></canvas></div>
+    </section>
+    <section class="panel readout" aria-live="polite">
+      <h2>いまの入力</h2>
+      <dl>
+        <dt>さわったもの</dt><dd id="r-type">まだ</dd>
+        <dt>1秒あたりの点の数</dt><dd id="r-rate">-</dd>
+        <dt>細かい点（coalesced）</dt><dd id="r-coalesced">-</dd>
+        <dt>ペンの強さ（参考）</dt><dd id="r-pressure">-</dd>
+        <dt>ペンのかたむき（参考）</dt><dd id="r-tilt">-</dd>
+        <dt>Safari のペンの合図</dt><dd id="r-stylus">-</dd>
+        <dt>ペンだけで書く</dt><dd id="r-mode">-</dd>
+        <dt>使っているブラウザ</dt><dd id="r-agent" class="small"></dd>
+      </dl>
+      <h2>記録</h2>
+      <ol id="log" class="log"></ol>
+    </section>
+  </main>
+
+  <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
