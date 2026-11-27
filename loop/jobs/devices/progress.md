@@ -57,3 +57,7 @@
 ## 周 6: image-pdf-ipad
 - iPad（1180幅）だとカードが約210pxと広く、指定の位置に落とすと前のカードの右半分＝「今の場所のまま」になっていた。shared/js/sortable.js で、1枚を隣のカードの上に落としたら順番が変わらない側でなく「そのカードの場所へ」入るようにした。
 - ipad・ふつうの smoke（sortable を使う5ツールとも）と verify.sh が通った。次は kaotori-ipad。
+
+## 周 7: kaotori-ipad
+- 高さ740だと「使わない」の置き場が画面の下に固定され、ZIP保存のあとの「保存しました」お知らせ（右下に固定）がそれを隠していた。kaotori/people.js の startDrag で、顔を動かし始めたらお知らせを閉じるようにした。
+- ipad・ふつうの smoke と verify.sh が通った。次は ipad-shared-css。

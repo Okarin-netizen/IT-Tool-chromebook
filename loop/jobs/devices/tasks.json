@@ -23,7 +23,7 @@
       "id": "kaotori-ipad",
       "what": "かおトリ: iPad で顔を指で「使わない」へ動かせない",
       "check": "node tests/smoke.cjs --device=ipad kaotori && node tests/smoke.cjs kaotori",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ipad-shared-css",

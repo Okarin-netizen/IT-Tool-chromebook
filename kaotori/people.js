@@ -490,6 +490,9 @@
 
   function startDrag(x, y) {
     clearTimeout(press.timer);
+    // 画面の低い iPad では「保存しました」のお知らせが下の「使わない」を隠すので、動かし始めたら閉じる
+    const notice = document.getElementById("saved-notice");
+    if (notice) notice.hidden = true;
     const ghost = document.createElement("div");
     ghost.className = "pface-ghost";
     const src = press.tile.querySelector("canvas");
