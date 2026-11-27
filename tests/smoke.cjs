@@ -15,14 +15,45 @@
 
 const fs = require("fs");
 const path = require("path");
-const { chromium } = require("playwright");
+const playwright = require("playwright");
 const { startServer } = require("./lib/server.cjs");
 const fixtures = require("./lib/fixtures.cjs");
 
 const OUT_DIR = path.join(__dirname, "output");
 const args = process.argv.slice(2);
 const flags = new Set(args.filter((a) => a.startsWith("--")));
-const VIEWPORT = flags.has("--narrow") ? { width: 600, height: 900 } : { width: 1280, height: 800 };
+// --device=<name>: open every page as it looks on one of the machines the school uses.
+// The sizes are the part of the screen a page gets (the browser's own bars taken off).
+const DEVICES = {
+  // 11.6" Chromebook, 1366×768. Most can fold into a tablet, so touch is on.
+  chromebook: { viewport: { width: 1366, height: 650 }, deviceScaleFactor: 1, hasTouch: true },
+  // Windows laptop, 1920×1080 at the usual 125% zoom, mouse only.
+  windows: { viewport: { width: 1536, height: 730 }, deviceScaleFactor: 1.25, hasTouch: false },
+  // iPad (10th gen) held sideways in Safari. iPadOS Safari says it is a Mac that has touch.
+  // This is still Chromium: it catches size and touch problems, not Safari-only ones.
+  ipad: {
+    viewport: { width: 1180, height: 740 }, deviceScaleFactor: 2, hasTouch: true,
+    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
+  },
+};
+const DEVICE_NAME = args.find((a) => a.startsWith("--device="))?.slice("--device=".length);
+const DEVICE = DEVICE_NAME ? DEVICES[DEVICE_NAME] : null;
+if (DEVICE_NAME && !DEVICE) {
+  console.error(`知らない端末: ${DEVICE_NAME}（${Object.keys(DEVICES).join(" / ")}）`);
+  process.exit(2);
+}
+const VIEWPORT = DEVICE ? DEVICE.viewport : flags.has("--narrow") ? { width: 600, height: 900 } : { width: 1280, height: 800 };
+const contextOptions = (touch) => ({
+  viewport: VIEWPORT, locale: "ja-JP", hasTouch: !!touch,
+  ...(DEVICE && { deviceScaleFactor: DEVICE.deviceScaleFactor, hasTouch: DEVICE.hasTouch || !!touch, userAgent: DEVICE.userAgent }),
+});
+
+// On a real machine the page must not be wider than the screen (no sideways scrolling).
+async function checkFitsWidth(t, when) {
+  if (!DEVICE) return;
+  const over = await t.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  t.expect(over <= 1, `${DEVICE_NAME}: ${when}に横にはみ出している（${over}px）`);
+}
 const STYLE_DIR = args.includes("--styles") ? path.resolve(args[args.indexOf("--styles") + 1]) : null;
 const only = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--styles");
 
@@ -2496,7 +2527,7 @@ async function editAndUndo(t, hook, ink, on, color) {
 
 async function testTool(browser, server, name) {
   const tool = TOOLS[name];
-  const context = await browser.newContext({ viewport: VIEWPORT, locale: "ja-JP", hasTouch: !!tool.touch });
+  const context = await browser.newContext(contextOptions(tool.touch));
   await context.addInitScript(captureDownloads);
   const page = await context.newPage();
   const t = new ToolTest(name, page, server);
@@ -2515,14 +2546,16 @@ async function testTool(browser, server, name) {
     t.expect(await page.evaluate(() => !!navigator.serviceWorker.controller), "サービスワーカーが有効になっていない");
     t.expect(await page.evaluate(() => caches.has("other-repo-v1")), "ほかのサイトのキャッシュを消してしまった");
     await t.shot("start");
+    await checkFitsWidth(t, "開いたとき");
     await tool.run(t);
+    await checkFitsWidth(t, "操作したあと");
 
     server.setOffline(true);
     await page.reload();
     await tool.offline?.(t);
     server.setOffline(false);
   } catch (err) {
-    t.problems.push(err.message.split("\n")[0]);
+    t.problems.push(process.env.SMOKE_DEBUG ? err.message.split("\n").slice(0, 12).join(" / ") : err.message.split("\n")[0]);
   } finally {
     server.setOffline(false);
     await context.close();
@@ -2531,7 +2564,7 @@ async function testTool(browser, server, name) {
 }
 
 async function testPortal(browser, server) {
-  const context = await browser.newContext({ viewport: VIEWPORT, locale: "ja-JP" });
+  const context = await browser.newContext(contextOptions(false));
   const page = await context.newPage();
   const t = new ToolTest("portal", page, server);
   try {
@@ -2645,7 +2678,10 @@ async function main() {
   if (STYLE_DIR) fs.mkdirSync(STYLE_DIR, { recursive: true });
   await fixtures.prepare();
   const server = await startServer(path.resolve(__dirname, ".."));
-  const browser = await chromium.launch({ headless: !flags.has("--headed") });
+  // --browser=webkit runs Safari's engine (iPad). It needs `npx playwright install webkit`
+  // and works on Windows and Mac; the cloud container has only Chromium.
+  const engine = args.find((a) => a.startsWith("--browser="))?.slice("--browser=".length) ?? "chromium";
+  const browser = await playwright[engine].launch({ headless: !flags.has("--headed") });
   const names = only.length ? only : ["portal", ...Object.keys(TOOLS)];
   let failed = 0;
   for (const name of names) {

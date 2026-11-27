@@ -1,0 +1,107 @@
+{
+  "job": "devices",
+  "tasks": [
+    {
+      "id": "pdf-pages-windows",
+      "what": "PDF結合・分割・回転: Windows の広さで「保存」ボタンが「白紙ページを入れる」のメニューに隠れて押せない",
+      "check": "node tests/smoke.cjs --device=windows pdf-pages && node tests/smoke.cjs pdf-pages",
+      "passes": false
+    },
+    {
+      "id": "pdf-grade-touch",
+      "what": "PDF一括採点: 指が使える端末で、ペンで書いている間の指で線が増えた・切れた",
+      "check": "node tests/smoke.cjs --device=chromebook pdf-grade && node tests/smoke.cjs --device=ipad pdf-grade && node tests/smoke.cjs pdf-grade",
+      "passes": false
+    },
+    {
+      "id": "image-pdf-ipad",
+      "what": "画像→PDF: iPad で写真をドラッグで並べかえられない",
+      "check": "node tests/smoke.cjs --device=ipad image-pdf && node tests/smoke.cjs image-pdf",
+      "passes": false
+    },
+    {
+      "id": "kaotori-ipad",
+      "what": "かおトリ: iPad で顔を指で「使わない」へ動かせない",
+      "check": "node tests/smoke.cjs --device=ipad kaotori && node tests/smoke.cjs kaotori",
+      "passes": false
+    },
+    {
+      "id": "ipad-shared-css",
+      "what": "shared/css: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs shared/css の NG）",
+      "check": "node tests/ipad-pitfalls.mjs shared/css",
+      "passes": false
+    },
+    {
+      "id": "ipad-pdf-pages",
+      "what": "pdf-pages: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs pdf-pages の NG）",
+      "check": "node tests/ipad-pitfalls.mjs pdf-pages",
+      "passes": false
+    },
+    {
+      "id": "ipad-pdf-text",
+      "what": "pdf-text: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs pdf-text の NG）",
+      "check": "node tests/ipad-pitfalls.mjs pdf-text",
+      "passes": false
+    },
+    {
+      "id": "ipad-pdf-grade",
+      "what": "pdf-grade: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs pdf-grade の NG）",
+      "check": "node tests/ipad-pitfalls.mjs pdf-grade",
+      "passes": false
+    },
+    {
+      "id": "ipad-image-annotate",
+      "what": "image-annotate: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs image-annotate の NG）",
+      "check": "node tests/ipad-pitfalls.mjs image-annotate",
+      "passes": false
+    },
+    {
+      "id": "ipad-photo-info",
+      "what": "photo-info: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs photo-info の NG）",
+      "check": "node tests/ipad-pitfalls.mjs photo-info",
+      "passes": false
+    },
+    {
+      "id": "ipad-photo-collage",
+      "what": "photo-collage: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs photo-collage の NG）",
+      "check": "node tests/ipad-pitfalls.mjs photo-collage",
+      "passes": false
+    },
+    {
+      "id": "ipad-screenshot-stitch",
+      "what": "screenshot-stitch: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs screenshot-stitch の NG）",
+      "check": "node tests/ipad-pitfalls.mjs screenshot-stitch",
+      "passes": false
+    },
+    {
+      "id": "ipad-gif-maker",
+      "what": "gif-maker: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs gif-maker の NG）",
+      "check": "node tests/ipad-pitfalls.mjs gif-maker",
+      "passes": false
+    },
+    {
+      "id": "ipad-video-frame",
+      "what": "video-frame: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs video-frame の NG）",
+      "check": "node tests/ipad-pitfalls.mjs video-frame",
+      "passes": false
+    },
+    {
+      "id": "ipad-kaotori",
+      "what": "kaotori: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs kaotori の NG）",
+      "check": "node tests/ipad-pitfalls.mjs kaotori",
+      "passes": false
+    },
+    {
+      "id": "ipad-todo",
+      "what": "todo: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs todo の NG）",
+      "check": "node tests/ipad-pitfalls.mjs todo",
+      "passes": false
+    },
+    {
+      "id": "all-devices",
+      "what": "全ツールを3つの端末で通す（ほかの直しで壊れていないかの最後の確認）",
+      "check": "node tests/ipad-pitfalls.mjs && node tests/smoke.cjs --device=chromebook && node tests/smoke.cjs --device=windows && node tests/smoke.cjs --device=ipad",
+      "passes": false
+    }
+  ]
+}

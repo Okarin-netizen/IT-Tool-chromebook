@@ -38,7 +38,7 @@ for i in $(seq 1 "$MAX"); do
   echo "=== 周 $i / $MAX（$(date '+%H:%M')） ==="
   sed "s/{{JOB}}/$JOB/g" loop/PROMPT.md | timeout 30m claude -p \
       --dangerously-skip-permissions \
-      --disallowedTools "Bash(git push:*)" "Bash(git reset:*)" "Bash(git checkout:*)" "Bash(git switch:*)" \
+      --disallowedTools "Bash(git push:*)" "Bash(git reset:*)" "Bash(git checkout:*)" "Bash(git switch:*)" "Write(/tmp/claude/**)" "Edit(/tmp/claude/**)" \
       --max-turns 80 --output-format json > "$LOG/$i.json" 2> "$LOG/$i.err"
 
   # AI がコミットせずに残したものは捨てる。ただし progress.md の申し送りは取っておく
