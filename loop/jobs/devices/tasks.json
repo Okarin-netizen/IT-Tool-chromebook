@@ -65,7 +65,7 @@
       "id": "ipad-photo-collage",
       "what": "photo-collage: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs photo-collage の NG）",
       "check": "node tests/ipad-pitfalls.mjs photo-collage",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ipad-screenshot-stitch",

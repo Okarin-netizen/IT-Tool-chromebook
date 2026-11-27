@@ -85,3 +85,7 @@
 ## 周 13: ipad-photo-info
 - WebP をかき直して保存するとき、iPad の Safari では PNG になるので、できた blob.type で拡張子（webp / png）を決めるようにした（photo-info/app.js redrawn）。
 - ipad-pitfalls photo-info・ふつうの smoke photo-info・verify.sh が通った。次は ipad-photo-collage。
+
+## 周 14: ipad-photo-collage
+- photo-collage/style.css の .form の max-height（100vh）の次の行に 100dvh を足した（100vh は古い端末のため残した）。
+- ipad-pitfalls photo-collage・ふつうの smoke photo-collage・verify.sh が通った。次は ipad-screenshot-stitch。
