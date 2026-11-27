@@ -53,3 +53,7 @@
 ## 周 5: pdf-grade-touch
 - pdf-grade/style.css の末尾に `.status { pointer-events: none; }` を足し直した（長いお知らせの上でもペンで書けるように）。人が直したテストと合わせて chromebook・ipad・ふつうの smoke と verify.sh が通った。
 - 次は image-pdf-ipad。
+
+## 周 6: image-pdf-ipad
+- iPad（1180幅）だとカードが約210pxと広く、指定の位置に落とすと前のカードの右半分＝「今の場所のまま」になっていた。shared/js/sortable.js で、1枚を隣のカードの上に落としたら順番が変わらない側でなく「そのカードの場所へ」入るようにした。
+- ipad・ふつうの smoke（sortable を使う5ツールとも）と verify.sh が通った。次は kaotori-ipad。

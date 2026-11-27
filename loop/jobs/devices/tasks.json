@@ -17,7 +17,7 @@
       "id": "image-pdf-ipad",
       "what": "画像→PDF: iPad で写真をドラッグで並べかえられない",
       "check": "node tests/smoke.cjs --device=ipad image-pdf && node tests/smoke.cjs image-pdf",
-      "passes": false
+      "passes": true
     },
     {
       "id": "kaotori-ipad",

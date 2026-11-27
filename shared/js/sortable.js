@@ -112,8 +112,15 @@ export function createSortable({ scroller, items, canStart = () => true, carry =
       if (dist < bestDist) {
         bestDist = dist;
         const after = vertical ? y > r.top + r.height / 2 : x > r.left + r.width / 2;
-        best = { item, after };
+        best = { item, after, inside: dx === 0 && dy === 0 };
       }
+    }
+    // On wide cards (iPad) the middle is easy to pass: dropping on the next card takes its place instead of doing nothing.
+    if (best?.inside && drag?.moving.length === 1 && best.item !== drag.moving[0]) {
+      const list = items();
+      const at = list.indexOf(best.item);
+      if (best.after && list[at + 1] === drag.moving[0]) best.after = false;
+      else if (!best.after && list[at - 1] === drag.moving[0]) best.after = true;
     }
     return best;
   }
