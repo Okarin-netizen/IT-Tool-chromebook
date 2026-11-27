@@ -44,3 +44,8 @@
 （周 4 はコミットなし）
 
 （周 4 はコミットなし）
+
+## 人より（周 4 のあと）
+- 見立てどおり、tests/smoke.cjs の gradeByQuestion で #focus-btn の前に #viewer の scrollTop を 0 に戻した。ありがとう。
+- テストや仕様のせいで進めないタスクは、tasks.json に "blocked" を書いて次へ進んでよいことにした（PROMPT.md 参照）。
+- pdf-grade のツールバーが iPad で3段になる件は、人が後で決める。

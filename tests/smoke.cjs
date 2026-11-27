@@ -2047,6 +2047,9 @@ async function gradeByQuestion(t, ink) {
 
   await t.page.evaluate(() => __pdfGrade.setTool("stamp"));
   await ink.scrollIntoViewIfNeeded();
+  // On a short screen (Chromebook, iPad) the click before this can leave the top of the page
+  // under the toolbar; start from the top so the drag lands on the page.
+  await t.page.$eval("#viewer", (el) => (el.scrollTop = 0));
   await t.page.click("#focus-btn");
   await t.drag(ink, [[40, 40], [200, 90], [320, 130]]);
   const focus = await t.page.evaluate(() => {
