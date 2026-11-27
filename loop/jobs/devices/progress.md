@@ -33,3 +33,14 @@
 （周 3 はコミットなし）
 
 （周 3 はコミットなし）
+
+## 周 4: pdf-grade-touch（通せなかった・コミットなし）
+### つまずいたこと
+- tests/smoke.cjs は周 2 から変わっていない（最後に変えたのは d0e20fd）。`.status { pointer-events: none; }` はまた消えていたので pdf-grade/style.css の末尾に足し直した（#status の中にボタンはないので、クリックを受けなくしても困らない）。
+- `SMOKE_DEBUG=1 node tests/smoke.cjs --device=chromebook pdf-grade` は、周 2・3 と同じ「囲んだ場所が決まらない: null」で落ちる。アプリ側で「設問ごと」を押したらページの上へスクロールする、なども考えたが、仕様にない動きで先生の邪魔になるのでやめた。
+### 次に試すこと
+- 人へ（3周つづけて同じ）: tests/smoke.cjs の gradeByQuestion で `#focus-btn` を押す前に `await t.page.$eval("#viewer", (el) => (el.scrollTop = 0));` を入れてほしい。それまでこのタスクは進まないので、ループを止めるか、このタスクを後回しにしてよいと tasks.json に書くか決めてほしい。
+
+（周 4 はコミットなし）
+
+（周 4 はコミットなし）
