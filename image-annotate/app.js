@@ -3,6 +3,7 @@ import { download, onFileDrop } from "../shared/js/files.js";
 import { addNextTool } from "../shared/js/handoff.js";
 import { isImage, isHeic, readableImage } from "../shared/js/heic.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { canDraw, scrollWithFinger, drawSurface, penButtonGroup, onPenDown } from "../shared/js/pen.js";
 import { canvasToBlob } from "../shared/js/canvas.js";
 import { copyImage } from "../shared/js/clipboard.js";
 import { History } from "../shared/js/history.js";
@@ -16,6 +17,8 @@ const HANDLE_PX = 7;
 const FONT = 'bold {size}px system-ui, "Noto Sans JP", sans-serif';
 const LINE_HEIGHT = 1.25; // must match .text-editor line-height in style.css
 const TWO_POINT = new Set(["arrow", "line", "rect", "ellipse", "mosaic"]);
+// Tools that draw: a finger scrolls instead while 「ペンだけで書く」 is on (shared/js/pen.js).
+const DRAWING_TOOLS = new Set([...TWO_POINT, "pen", "marker", "crop", "callout"]);
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -650,10 +653,16 @@ function toImage(e) {
   return [(e.clientX - r.left) * (state.W / r.width), (e.clientY - r.top) * (state.H / r.height)];
 }
 
-let drag = null; // { mode: "move" | "handle" | "draw" | "crop" | "callout", ... }
+// { mode: "move" | "handle" | "draw" | "crop" | "callout", pointerId, touch, ... }. Only the
+// pointer that started it moves it, so a hand resting next to the pen changes nothing.
+let drag = null;
 
 els.canvas.addEventListener("pointerdown", (e) => {
-  if (!state.base || e.button !== 0) return;
+  if (!state.base || e.button !== 0 || drag) return;
+  if (DRAWING_TOOLS.has(state.tool) && !canDraw(e) && !handleAt(...toImage(e))) {
+    scrollWithFinger(e, els.viewer);
+    return;
+  }
   e.preventDefault(); // keeps focus in the text editor instead of moving it to the canvas
   if (state.editing) {
     closeEditor(true);
@@ -699,12 +708,27 @@ els.canvas.addEventListener("pointerdown", (e) => {
     state.selected = null;
     drag = { mode: "draw", item: it };
   }
-  if (drag) els.canvas.setPointerCapture(e.pointerId);
+  if (!drag) return;
+  drag.pointerId = e.pointerId;
+  drag.touch = e.pointerType === "touch";
+  els.canvas.setPointerCapture(e.pointerId);
+});
+
+// A finger that was already drawing when the pen touched down was the hand holding the pen:
+// what it started is taken back.
+onPenDown(() => {
+  if (!drag?.touch) return;
+  if (drag.mode === "draw") state.items.pop();
+  if (drag.mode === "crop") state.crop = null;
+  drag = null;
+  render();
+  updateButtons();
 });
 
 els.canvas.addEventListener("pointermove", (e) => {
   if (!state.base) return;
   const [x, y] = toImage(e);
+  if (drag && e.pointerId !== drag.pointerId) return;
   if (!drag) {
     const over = handleAt(x, y) || (state.tool === "select" && itemAt(x, y));
     els.canvas.classList.toggle("over-item", !!over);
@@ -794,8 +818,8 @@ function isTooSmall(it) {
   return Math.abs(it.x2 - it.x1) < tiny / 2 || Math.abs(it.y2 - it.y1) < tiny / 2;
 }
 
-function endDrag() {
-  if (!drag) return;
+function endDrag(e) {
+  if (!drag || e.pointerId !== drag.pointerId) return;
   if (drag.mode === "callout") return placeCallout();
   if (drag.mode === "crop") {
     drag = null;
@@ -963,6 +987,8 @@ for (const b of els.tools) b.addEventListener("click", () => setTool(b.dataset.t
 
 // 「その他」: the tools used less often. A pick closes it, so it does not cover the picture.
 const { close: closeMenu, toggle: toggleMenu } = createMenus(els.moreMenu);
+document.querySelector(".toolbar .group.tools").after(penButtonGroup());
+drawSurface(els.canvas);
 els.moreBtn.addEventListener("click", () => toggleMenu(els.moreMenu));
 els.moreMenu.addEventListener("click", (e) => {
   if (e.target.closest("button")) closeMenu();
