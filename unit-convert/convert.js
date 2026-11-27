@@ -50,6 +50,12 @@ const FACTORS = {
   speed: { mps: 1, mpm: 1 / 60, kmph: 1000 / 3600 },
 };
 
+// データ量: ビットにすると何倍か。KB から上は 1024 倍ずつ（options.dataBase で 1000 にもできる）
+function dataFactors(dataBase) {
+  const step = Number(dataBase) === 1000 ? 1000 : 1024;
+  return { bit: 1, B: 8, KB: 8 * step, MB: 8 * step ** 2, GB: 8 * step ** 3, TB: 8 * step ** 4 };
+}
+
 function categoryOf(unitId) {
   const category = CATEGORIES.find((c) => c.units.some((u) => u.id === unitId));
   if (!category) throw new UnitError(`知らない単位です（${unitId}）`);
@@ -81,7 +87,7 @@ export function convert(value, from, to, options = {}) {
   const b = categoryOf(to);
   if (a !== b) throw new UnitError(`${a.name}と${b.name}は変えられません`);
   if (a.id === "temperature") return convertTemperature(value, from, to);
-  const factors = FACTORS[a.id];
+  const factors = a.id === "data" ? dataFactors(options.dataBase) : FACTORS[a.id];
   if (!factors) throw new UnitError(`${a.name}はまだ変えられません`);
   if (from === to) return value;
   return (value * factors[from]) / factors[to];

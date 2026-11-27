@@ -17,7 +17,7 @@
       "id": "data",
       "what": "convert.js: データ量（bit・B・KB…、dataBase 1024 / 1000）",
       "check": "node tests/unit-convert.mjs data",
-      "passes": false
+      "passes": true
     },
     {
       "id": "format",

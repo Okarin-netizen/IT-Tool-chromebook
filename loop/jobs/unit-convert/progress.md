@@ -13,3 +13,7 @@
 ## 周 2（temperature）
 - convert.js に温度を追加。いったん K にしてから変える（TO_KELVIN / FROM_KELVIN）。K が負なら UnitError（-1e-9 までは計算のずれとして許す）。
 - データ量（FACTORS に data がない）は、まだ「まだ変えられません」の UnitError のまま。
+
+## 周 3（data）
+- convert.js にデータ量を追加。dataFactors(dataBase) でビットにする倍率を作る（Number(dataBase) === 1000 なら 1000、それ以外は 1024）。画面の select の文字 "1000" もそのまま渡せる。
+- 次は format（formatNumber はまだ仮の String(n)）。
