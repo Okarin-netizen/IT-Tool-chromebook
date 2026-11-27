@@ -322,6 +322,15 @@ body[data-tool="area"] .page canvas.ink { cursor: crosshair; }
 }
 .selbox.no-resize .resize { display: none; }
 
+/* ---------- narrower screens (iPad held sideways, 1024–1300px) ----------
+   Keep the toolbar to two rows like on the 11.6" Chromebook: the less-used buttons show only
+   their icon (the name stays in the tooltip and for screen readers). */
+@media (max-width: 1300px) {
+  .toolbar .btn .label, .toolbar .btn .long { display: none; }
+  .toolbar .btn { padding: 0 10px; }
+  .toolbar .group { gap: 6px; }
+}
+
 /* ---------- messages ---------- */
 
 @media (max-width: 760px) {
