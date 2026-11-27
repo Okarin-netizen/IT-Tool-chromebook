@@ -56,10 +56,31 @@ function categoryOf(unitId) {
   return category;
 }
 
+// 温度はたし算もいるので、いったんケルビンにしてから変える
+const TO_KELVIN = {
+  c: (v) => v + 273.15,
+  f: (v) => ((v - 32) * 5) / 9 + 273.15,
+  k: (v) => v,
+};
+const FROM_KELVIN = {
+  c: (k) => k - 273.15,
+  f: (k) => ((k - 273.15) * 9) / 5 + 32,
+  k: (k) => k,
+};
+
+function convertTemperature(value, from, to) {
+  const kelvin = TO_KELVIN[from](value);
+  // 計算のわずかなずれ（-459.67℉ など）は絶対零度ちょうどとみなす
+  if (kelvin < -1e-9) throw new UnitError("絶対零度（-273.15℃）より低い温度はありません");
+  if (from === to) return value;
+  return FROM_KELVIN[to](Math.max(kelvin, 0));
+}
+
 export function convert(value, from, to, options = {}) {
   const a = categoryOf(from);
   const b = categoryOf(to);
   if (a !== b) throw new UnitError(`${a.name}と${b.name}は変えられません`);
+  if (a.id === "temperature") return convertTemperature(value, from, to);
   const factors = FACTORS[a.id];
   if (!factors) throw new UnitError(`${a.name}はまだ変えられません`);
   if (from === to) return value;

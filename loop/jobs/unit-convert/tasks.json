@@ -11,7 +11,7 @@
       "id": "temperature",
       "what": "convert.js: 温度（℃・℉・K、絶対零度より下は UnitError）",
       "check": "node tests/unit-convert.mjs temperature",
-      "passes": false
+      "passes": true
     },
     {
       "id": "data",
