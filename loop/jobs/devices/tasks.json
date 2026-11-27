@@ -59,7 +59,7 @@
       "id": "ipad-photo-info",
       "what": "photo-info: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs photo-info の NG）",
       "check": "node tests/ipad-pitfalls.mjs photo-info",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ipad-photo-collage",

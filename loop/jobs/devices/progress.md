@@ -81,3 +81,7 @@
 ## 周 12: ipad-image-annotate
 - ダブルクリックで文字・吹き出しを書きかえるのは、「文字」ボタンを選んでからふれても同じことができる（app.js の文字の道具は文字・吹き出しどちらも openEditor）ので、その行に `// ipad-ok:` を書いた。
 - ipad-pitfalls image-annotate と verify.sh が通った。次は ipad-photo-info。
+
+## 周 13: ipad-photo-info
+- WebP をかき直して保存するとき、iPad の Safari では PNG になるので、できた blob.type で拡張子（webp / png）を決めるようにした（photo-info/app.js redrawn）。
+- ipad-pitfalls photo-info・ふつうの smoke photo-info・verify.sh が通った。次は ipad-photo-collage。
