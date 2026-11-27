@@ -29,3 +29,10 @@
 ## 周 6（ui）
 - 画面を作成: タブは CATEGORIES から app.js で作る。#value は type="text"（"abc" を入れられるように）、全角数字や「,」も読む。答えの単位名は #result の外の #result-unit。
 - 種類・種類ごとの単位・dataBase を localStorage「unit-convert-settings-v1」に覚える。左に入力と答え、右に一覧の2列で 1280×800 に収まる。次は docs（changelog と説明書の写真）。
+
+## 周 7（docs）— 通せなかった（コミットなし。作業は作業ツリーに残してある）
+- やったこと: shared/js/changelog.js の 2026-11-27 に「単位の換算」を追加の1行。manual/shots/unit-convert.webp を完成した画面（1.5 km → m、1366×768、Noto Sans JP 入り）に撮り直し。manual/data.js の説明を画面に合わせた（「下の一覧」→「右の『ほかの単位では』」、ボタン名「1KB は 1024 / 1000 バイト」）。consistency・smoke portal・smoke unit-convert は通る。
+- つまずいたこと: check の `grep -q '単位の換算' changelog.html` が通らない。更新履歴の中身は shared/js/changelog.js にあり、changelog.html は JS で表を描くだけ（ほかのツールの名前も changelog.html には1つも入っていない）。changelog.html に文字を足すのはテストに合わせるためだけの細工になるので、しなかった。
+- 次に試すこと（人へ）: tasks.json の docs の check を `grep -q '単位の換算' shared/js/changelog.js && node tests/smoke.cjs portal` に直してほしい（AI は tasks.json の check を変えられない）。直れば、残してある変更のまま passes を true にしてコミットできる。
+
+（周 6 はコミットなし）
