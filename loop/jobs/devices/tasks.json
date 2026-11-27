@@ -53,7 +53,7 @@
       "id": "ipad-image-annotate",
       "what": "image-annotate: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs image-annotate の NG）",
       "check": "node tests/ipad-pitfalls.mjs image-annotate",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ipad-photo-info",

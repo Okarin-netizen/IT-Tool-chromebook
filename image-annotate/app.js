@@ -872,7 +872,7 @@ function placeCallout() {
 }
 els.canvas.addEventListener("pointercancel", endDrag);
 
-els.canvas.addEventListener("dblclick", (e) => {
+els.canvas.addEventListener("dblclick", (e) => { // ipad-ok: 「文字」ボタンを選んでから文字・吹き出しにふれても書きかえられる
   if (!state.base) return;
   const hit = itemAt(...toImage(e));
   if (hit && hasText(hit)) openEditor(hit);

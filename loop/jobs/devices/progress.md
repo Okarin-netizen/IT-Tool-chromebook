@@ -77,3 +77,7 @@
 ## 周 11: ipad-pdf-grade
 - ダブルクリックで文字・点数を書きかえるのは、「文字」「点数」ボタンを選んでからふれても同じことができるので、pdf-grade/app.js のその行に `// ipad-ok:` を書いた。
 - ipad-pitfalls pdf-grade と verify.sh が通った。次は ipad-image-annotate。
+
+## 周 12: ipad-image-annotate
+- ダブルクリックで文字・吹き出しを書きかえるのは、「文字」ボタンを選んでからふれても同じことができる（app.js の文字の道具は文字・吹き出しどちらも openEditor）ので、その行に `// ipad-ok:` を書いた。
+- ipad-pitfalls image-annotate と verify.sh が通った。次は ipad-photo-info。
