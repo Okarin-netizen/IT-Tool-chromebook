@@ -939,6 +939,54 @@ const TOOLS = {
     },
   },
 
+  lottery: {
+    async run(t) {
+      await t.page.fill("#items", ["青木", "井上", "上田", "江藤", "大野"].join("\n"));
+      await t.until(() => document.querySelector("#count").textContent === "5こ");
+      // ルーレット: with 当たったものは外す, five spins draw everyone once and empty the wheel.
+      await t.page.check("#remove-picked");
+      for (let i = 0; i < 5; i++) {
+        if (i === 1) await t.page.emulateMedia({ reducedMotion: "reduce" }); // only the first spin is slow
+        await t.page.click("#spin-btn");
+        await t.page.waitForFunction((n) => __lottery.store.picked.length === n && !__lottery.state.spinning, i + 1, { timeout: 10000 });
+      }
+      const picked = await t.page.evaluate(() => __lottery.store.picked.slice().sort().join());
+      t.expect(picked === "上田,井上,大野,江藤,青木", `全部が1回ずつ当たっていない: ${picked}`);
+      t.expect(await t.page.isDisabled("#spin-btn"), "全部当たったあとも回せる");
+      t.expect(await t.page.textContent("#wheel-result") === await t.page.evaluate(() => __lottery.store.picked.at(-1)), "当たりの表示が違う");
+      await t.page.click("#wheel-reset");
+      await t.shot("wheel");
+      // あみだくじ: every line ends at a different place; the bottom is hidden until traced.
+      await t.page.click(".tab[data-mode='amida']");
+      await t.page.click("#goals-box summary");
+      await t.page.fill("#goals", "当たり");
+      t.expect((await t.page.textContent("#amida-bottom")).replaceAll("？", "") === "", "たどる前に下が見えている");
+      await t.page.click("#amida-all");
+      await t.page.waitForFunction(() => __lottery.state.amida.traced.size === 5 && !__lottery.state.amida.tracing, null, { timeout: 10000 });
+      const goals = await t.page.$$eval(".amida-goal .goal-word", (els) => els.map((e) => e.textContent).sort().join());
+      t.expect(goals === "はずれ,はずれ,はずれ,はずれ,当たり", `あみだくじの行き先が重なっている: ${goals}`);
+      await t.shot("amida");
+      // めくるくじ: the cards hold the list, shuffled.
+      await t.page.click(".tab[data-mode='cards']");
+      await t.page.click(".card >> nth=0");
+      t.expect(await t.page.textContent("#cards-left") === "のこり 4 / 5枚", `のこりの枚数が違う: ${await t.page.textContent("#cards-left")}`);
+      await t.page.click("#cards-open-all");
+      const deck = await t.page.$$eval(".card-front", (els) => els.map((e) => e.textContent).sort().join());
+      t.expect(deck === "上田,井上,大野,江藤,青木", `カードの中身が違う: ${deck}`);
+      // 順番決め
+      await t.page.click(".tab[data-mode='order']");
+      await t.page.click("#order-btn");
+      t.expect(await t.page.$$eval("#order-list li", (els) => els.length) === 5, "順番が5つ並ばない");
+      await t.shot("order");
+      await t.page.reload();
+      t.expect((await t.page.inputValue("#items")).split("\n").length === 5, "中身が保存されていない");
+      t.expect(await t.page.evaluate(() => __lottery.store.mode) === "order", "選んだくじが保存されていない");
+    },
+    async offline(t) {
+      await t.page.locator("#order-btn").waitFor();
+    },
+  },
+
   "class-screen": {
     async run(t) {
       // The meter turns red over the line and counts once the room stays loud.

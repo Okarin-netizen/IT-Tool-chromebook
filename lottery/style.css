@@ -1,0 +1,391 @@
+/* The shared look is in ../shared/css/base.css. This file sets the tool's colors and layout. */
+:root {
+  --bg: #f4f5f7;
+  --bar: #ffffff;
+  --text: #1d2228;
+  --muted: #5f6670;
+  --line: #dcdfe4;
+  --accent: #c2255c; /* the tool's color: also in icon.svg, manifest.webmanifest and theme-color */
+  --accent-dark: #a01d4b;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, #fff);
+  --accent-text: #ffffff;
+}
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  font-family: system-ui, "Noto Sans JP", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn.big { min-height: 56px; min-width: 200px; border-radius: 10px; font-size: 20px; padding: 0 28px; }
+.btn.big .i { width: 22px; height: 22px; }
+.btn.small { min-height: 30px; font-size: 13px; padding: 0 10px; }
+
+.field { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.field input {
+  min-height: 34px;
+  width: 60px;
+  font: inherit;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* Mode switch as a segmented control, like the timer. */
+.tabs { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.tab {
+  min-height: 34px;
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.tab + .tab { border-left: 1px solid var(--line); }
+.tab[aria-selected="true"] { background: var(--accent-soft); color: var(--accent-dark); font-weight: 600; }
+
+.layout { flex: 1; display: flex; min-height: 0; }
+
+/* ---------- the list ---------- */
+
+.items-panel {
+  flex: none;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--bar);
+  border-right: 1px solid var(--line);
+  overflow: auto;
+}
+.panel-label { font-size: 14px; font-weight: 600; display: flex; justify-content: space-between; }
+#items {
+  flex: 1;
+  min-height: 200px;
+  resize: none;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+}
+#items:focus-visible, .small-text:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.quick { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.quick-title { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); }
+.quick-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.quick-row .field input { width: 48px; }
+.quick > .btn { align-self: flex-start; }
+.quick-row + .btn { margin-bottom: 4px; }
+.note { margin: 0; color: var(--muted); font-size: 13px; }
+.count { color: var(--muted); font-size: 13px; font-weight: normal; }
+.small-text {
+  min-height: 120px;
+  resize: vertical;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.view { flex: 1; min-width: 0; overflow: auto; padding: 20px 24px; }
+.view[hidden] { display: none; }
+
+/* ---------- ルーレット ---------- */
+
+#wheel { display: flex; gap: 24px; align-items: stretch; }
+.wheel-area { flex: 1; min-width: 0; display: flex; }
+.wheel-box { position: relative; flex: 1; min-height: 260px; display: flex; align-items: center; justify-content: center; }
+#wheel-canvas { display: block; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+/* The pointer at the top, over the wheel's edge. */
+.wheel-pointer {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-left: 16px solid transparent;
+  border-right: 16px solid transparent;
+  border-top: 30px solid var(--text);
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.25));
+}
+.wheel-side { flex: none; width: 340px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.result {
+  width: 100%;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+.result.spinning { font-size: 40px; }
+.result.done { color: var(--accent-dark); font-size: clamp(28px, 4vw, 56px); font-weight: 700; animation: pop .35s ease-out; }
+@keyframes pop { from { transform: scale(.9); } to { transform: none; } }
+.options { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; font-size: 14px; }
+.check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+.history-wrap { width: 100%; }
+.history-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.history-head h2 { margin: 0; font-size: 14px; color: var(--muted); }
+.history { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; counter-reset: n; }
+.history li {
+  counter-increment: n;
+  padding: 2px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 14px;
+}
+.history li::before { content: counter(n) ". "; color: var(--muted); }
+
+/* ---------- あみだくじ ---------- */
+
+#amida { display: flex; flex-direction: column; gap: 10px; }
+.amida-bar, .cards-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.goals-box { position: relative; }
+.goals-box summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.goals-pop {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.15);
+}
+.amida-board {
+  flex: 1;
+  min-height: 320px;
+  display: grid;
+  grid-template-rows: auto minmax(200px, 1fr) auto;
+  min-width: calc(var(--lines) * 40px);
+}
+.amida-board[hidden] { display: none; }
+.amida-labels { display: grid; grid-template-columns: repeat(var(--lines), 1fr); gap: 4px; }
+.amida-name, .amida-goal {
+  min-height: 44px;
+  padding: 6px 4px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+.amida-name { cursor: pointer; }
+.amida-name:hover:not(:disabled) { border-color: var(--accent); }
+.amida-name:disabled { cursor: default; color: var(--text); }
+.amida-name.done, .amida-goal.done { border-color: var(--trace); box-shadow: inset 0 -4px 0 var(--trace); }
+.amida-goal { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.amida-goal.hidden-goal { background: var(--soft); color: var(--muted); border-style: dashed; }
+.goal-who { font-size: 12px; font-weight: 500; color: var(--muted); }
+/* Many lines: names written top to bottom, the Japanese way, so they still fit. */
+.amida-board.vertical .amida-name, .amida-board.vertical .goal-word {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  margin-inline: auto;
+}
+.amida-board.vertical .amida-name { min-height: 96px; font-size: 14px; padding: 6px 0; }
+.amida-board.vertical .goal-who { display: none; }
+.amida-svg { width: 100%; height: 100%; display: block; cursor: crosshair; }
+.amida-svg .rail, .amida-svg .rung { stroke: var(--text); stroke-width: 3; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.amida-svg .trace { fill: none; stroke-width: 7; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+
+/* ---------- めくるくじ ---------- */
+
+#cards { display: flex; flex-direction: column; gap: 10px; }
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: 200px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  perspective: 600px;
+}
+.card-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 12px;
+  backface-visibility: hidden;
+  transition: transform .45s ease;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+  text-align: center;
+}
+.card-back {
+  background: var(--accent);
+  color: #fffaea;
+  font-size: 36px;
+  border: 4px solid color-mix(in srgb, var(--accent) 70%, #fff);
+  box-shadow: 0 2px 4px rgba(0,0,0,.15);
+}
+.card-front {
+  background: var(--surface);
+  color: var(--text);
+  font-size: 22px;
+  border: 2px solid var(--accent);
+  transform: rotateY(180deg);
+}
+.card.open .card-back { transform: rotateY(-180deg); }
+.card.open .card-front { transform: rotateY(0deg); }
+.card.open { cursor: default; }
+.card:hover:not(.open) .card-back { filter: brightness(1.08); }
+.card:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 12px; }
+
+/* ---------- 順番決め ---------- */
+
+#order { display: flex; flex-direction: column; gap: 10px; }
+.order-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px 12px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: n;
+}
+.order-list li {
+  counter-increment: n;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  font-size: 18px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  animation: rise .3s ease-out both;
+}
+.order-list li::before {
+  content: counter(n);
+  flex: none;
+  min-width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+}
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Projected on a screen: no list, bigger words. */
+:fullscreen .items-panel { display: none; }
+:fullscreen .amida-name, :fullscreen .amida-goal { font-size: 20px; }
+:fullscreen .card-front { font-size: 28px; }
+:fullscreen .order-list li { font-size: 24px; }
+
+@media (max-width: 900px) {
+  #wheel { flex-direction: column; align-items: center; }
+  .wheel-area { width: 100%; min-height: 320px; }
+  .wheel-side { width: min(420px, 100%); }
+}
+@media (max-width: 760px) {
+  .layout { flex-direction: column; }
+  .items-panel { width: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+  #items { min-height: 140px; }
+  .view { padding: 16px; overflow: visible; }
+  .amida-board { overflow-x: auto; }
+}
+@media (prefers-color-scheme: dark) {
+  .result.done { color: #ff8fb3; }
+  .tab[aria-selected="true"] { color: var(--text); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .result.done, .order-list li { animation: none; }
+  .card-face { transition: none; }
+}
