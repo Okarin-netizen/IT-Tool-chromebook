@@ -2355,6 +2355,18 @@ async function penAndFinger(t, hook) {
   await pause(0);
   const top3 = await scrollTop();
   t.expect(top3 < top2 - 60 && await strokes() === start + 3, `2本指でスクロールできない: ${top2} → ${top3}`);
+  // Spreading two fingers zooms in where they are, and the pages are drawn again at that size.
+  const scale = () => t.page.evaluate((h) => window[h].state.scale, hook);
+  const before = await scale();
+  await t.touch(viewer, "touchStart", [[cx - 40, cy], [cx + 40, cy]]);
+  await t.touch(viewer, "touchMove", [[cx - 80, cy], [cx + 80, cy]]);
+  await t.touch(viewer, "touchMove", [[cx - 100, cy], [cx + 100, cy]]);
+  await t.touch(viewer, "touchEnd", []);
+  await pause(0);
+  const zoomed = await scale();
+  t.expect(zoomed > before * 2 && await strokes() === start + 3, `2本指で広げても拡大しない: ${before} → ${zoomed}`);
+  t.expect(await t.page.$eval(".page", (el) => el.style.transform === ""), "拡大のあと、ページが引きのばしたまま");
+  await t.page.evaluate(([h, s]) => window[h].setScale(s), [hook, before]);
   await pause(1500);
   await t.page.$eval("#viewer", (el) => (el.scrollTop = 0));
 
@@ -2400,6 +2412,16 @@ async function penAndFingerOnImage(t) {
   await t.fingerDrag(canvas, [[200, 400], [200, 320], [200, 240], [200, 160]]);
   await inputSettled(t, 0);
   t.expect(await scrollTop() > top + 100 && await pens() === start + 2, "画像に書き込み: 「ペンだけ」のとき指でスクロールできない");
+  // Two fingers spreading make the picture bigger on screen.
+  const width = () => canvas.evaluate((el) => el.getBoundingClientRect().width);
+  const before = await width();
+  const viewer = t.page.locator("#viewer"); // the picture has scrolled: fingers go on the screen
+  const { width: vw, height: vh } = await viewer.boundingBox();
+  await t.touch(viewer, "touchStart", [[vw / 2 - 40, vh / 2], [vw / 2 + 40, vh / 2]]);
+  await t.touch(viewer, "touchMove", [[vw / 2 - 80, vh / 2], [vw / 2 + 80, vh / 2]]);
+  await t.touch(viewer, "touchEnd", []);
+  await inputSettled(t, 0);
+  t.expect(await width() > before * 1.6, `画像に書き込み: 2本指で広げても大きくならない: ${before} → ${await width()}`);
   await t.page.click(".pen-only-btn"); // back to off, for the offline check
 }
 

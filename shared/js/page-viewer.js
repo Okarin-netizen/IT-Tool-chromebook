@@ -19,14 +19,24 @@ const MAX_SCALE = 4;
 
 export const clampScale = (s) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
 
+// iPad Safari draws nothing on a canvas bigger than about 16.7 million pixels, which a page at
+// 400% on a sharp screen goes past. Pages that big are drawn a little less sharp instead.
+const MAX_CANVAS_PIXELS = 16_000_000;
+
+// Canvas pixels per page point for `view` at zoom `scale` (the screen's sharpness, within the limit).
+export function pixelScale(view, scale) {
+  const wanted = scale * pixelRatio();
+  const limit = Math.sqrt(MAX_CANVAS_PIXELS / (view.viewport.width * view.viewport.height));
+  return Math.min(wanted, limit);
+}
+
 export function createPageViewer({ state, viewer, zoomLabel, views, pdfOf, onRender, onRendered, onRelease, onScale, annotationMode }) {
   async function render(view) {
     view.rendered = true;
     view.task?.cancel();
     onRender?.(view);
     const page = await pdfOf(view).getPage(view.num);
-    const dpr = pixelRatio();
-    const viewport = page.getViewport({ scale: state.scale * dpr });
+    const viewport = page.getViewport({ scale: pixelScale(view, state.scale) });
     const canvas = document.createElement("canvas");
     canvas.width = Math.floor(viewport.width);
     canvas.height = Math.floor(viewport.height);
@@ -70,19 +80,32 @@ export function createPageViewer({ state, viewer, zoomLabel, views, pdfOf, onRen
     return clampScale(Math.min(1.5, available / maxWidth));
   }
 
-  // Zooms, keeping the middle of the screen where it was.
-  function setScale(scale) {
+  // Zooms, keeping the middle of the screen where it was, or the spot at (clientX, clientY)
+  // (where two fingers spread or pinched).
+  function setScale(scale, { clientX, clientY } = {}) {
+    const box = viewer.getBoundingClientRect();
+    const x = clientX === undefined ? viewer.clientWidth / 2 : clientX - box.left;
+    const y = clientY === undefined ? viewer.clientHeight / 2 : clientY - box.top;
     const ratio = scale / state.scale;
-    const centerY = (viewer.scrollTop + viewer.clientHeight / 2) * ratio;
+    const contentX = (viewer.scrollLeft + x) * ratio;
+    const contentY = (viewer.scrollTop + y) * ratio;
     state.scale = scale;
     zoomLabel.textContent = `${Math.round(scale * 100)}%`;
     for (const view of views()) {
       size(view);
       onScale?.(view);
     }
-    viewer.scrollTop = centerY - viewer.clientHeight / 2;
+    viewer.scrollTop = contentY - y;
+    if (clientX !== undefined) viewer.scrollLeft = contentX - x;
     lazy.redrawAll(views());
   }
+
+  // For two fingers (shared/js/pen.js scrollWithFinger): stretch within the zoom limits, then
+  // draw the pages again at the new zoom where the fingers were.
+  const pinchZoom = {
+    limit: (factor) => clampScale(state.scale * factor) / state.scale,
+    done: (factor, clientX, clientY) => setScale(clampScale(state.scale * factor), { clientX, clientY }),
+  };
 
   return {
     add(view) {
@@ -99,6 +122,7 @@ export function createPageViewer({ state, viewer, zoomLabel, views, pdfOf, onRen
     },
     fitWidthScale,
     setScale,
+    pinchZoom,
     zoom: (factor) => setScale(clampScale(state.scale * factor)),
   };
 }

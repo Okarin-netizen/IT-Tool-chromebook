@@ -1,5 +1,5 @@
 import { openPdf, isPasswordCancelled, rasterizePdf, closePdf } from "../shared/js/pdf.js";
-import { createPageViewer, clampScale } from "../shared/js/page-viewer.js";
+import { createPageViewer, clampScale, pixelScale } from "../shared/js/page-viewer.js";
 import { showStatus, hideStatus } from "../shared/js/status.js";
 import { isPdf, baseName, download, onFileDrop } from "../shared/js/files.js";
 import { loadJson, saveJson } from "../shared/js/storage.js";
@@ -15,7 +15,6 @@ import { kvGet, kvSet, kvDelete } from "../shared/js/kv.js";
 import { registerOffline } from "../shared/js/offline.js";
 import { canDraw, scrollWithFinger, drawSurface, penButtonGroup } from "../shared/js/pen.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
-import { pixelRatio } from "../shared/js/canvas.js";
 import { dateText } from "../shared/js/dates.js";
 import "../shared/js/guide.js";
 import { OFFLINE } from "../shared/js/vendor.js";
@@ -639,9 +638,9 @@ const viewer = createPageViewer({
   views: () => state.pages.values(),
   pdfOf: (view) => view.file.pdf,
   onRender: (view) => {
-    const dpr = pixelRatio();
-    view.ink.width = Math.floor(view.viewport.width * state.scale * dpr);
-    view.ink.height = Math.floor(view.viewport.height * state.scale * dpr);
+    const k = pixelScale(view, state.scale);
+    view.ink.width = Math.floor(view.viewport.width * k);
+    view.ink.height = Math.floor(view.viewport.height * k);
     renderInk(view);
   },
   onRelease: (view) => (view.ink.width = view.ink.height = 0),
@@ -662,7 +661,7 @@ function onPointerDown(e, view) {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   closeMenus();
   if (DRAWING_TOOLS.has(state.tool) && !canDraw(e)) {
-    scrollWithFinger(e, els.viewer);
+    scrollWithFinger(e, els.viewer, { zoom: viewer.pinchZoom });
     return;
   }
   commitEditor();
