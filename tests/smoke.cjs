@@ -276,6 +276,7 @@ const TOOLS = {
 
   "pdf-sign": {
     query: "?debug",
+    touch: true, // a touch screen, so the 「ペンだけ」 button shows
     async run(t) {
       await t.setFiles("#file-input", [t.pdf("申込書.pdf", 3)]);
       await t.until(() => __pdfSign.state.pages.length === 3 && __pdfSign.state.pages[0].rendered);
@@ -293,6 +294,7 @@ const TOOLS = {
       await t.page.evaluate(() => __pdfSign.redo());
       t.expect(await t.page.evaluate(() => __pdfSign.state.items.length) === 2, "やり直しでハンコが戻らない");
       await editAndUndo(t, "__pdfSign", ink, [140, 90], "#1d4ed8");
+      await penAndFinger(t, "__pdfSign");
       await t.page.click("#save-btn");
       const [file] = await t.downloads(1);
       t.expectName(file, "申込書_書き込み済み.pdf");
@@ -325,6 +327,7 @@ const TOOLS = {
 
   "pdf-grade": {
     query: "?debug",
+    touch: true,
     async run(t) {
       await t.setFiles("#file-input", [t.pdf("生徒A.pdf", 2), t.pdf("生徒B.pdf", 1)]);
       await t.until(() => __pdfGrade.state.files.length === 2);
@@ -339,6 +342,7 @@ const TOOLS = {
       await editor.press("Enter");
       await t.until(() => __pdfGrade.state.items.some((i) => i.type === "score" && i.value === "80"));
       await editAndUndo(t, "__pdfGrade", ink, [120, 120], "#1d4ed8");
+      await penAndFinger(t, "__pdfGrade");
       await questionScores(t, ink);
       await commentBank(t, ink);
       await gradeByQuestion(t, ink);
@@ -2157,6 +2161,42 @@ class ToolTest {
     }, [b.x + 5, b.y + b.height / 2]);
   }
 
+  // Real pen and finger input through the browser's debugging protocol, so pointerType,
+  // pointer capture and coalesced events behave as with an Apple Pencil, a Chromebook stylus
+  // or a finger. Positions are inside `locator`; `pen` takes "down" / "move" / "up".
+  async pen(locator, type, [x, y]) {
+    const box = await locator.boundingBox();
+    const MOUSE_TYPES = { down: "mousePressed", move: "mouseMoved", up: "mouseReleased" };
+    this.cdp ??= await this.page.context().newCDPSession(this.page);
+    await this.cdp.send("Input.dispatchMouseEvent", {
+      type: MOUSE_TYPES[type], x: box.x + x, y: box.y + y, button: "left",
+      buttons: type === "up" ? 0 : 1, clickCount: 1, pointerType: "pen",
+    });
+  }
+
+  // `fingers`: [[x, y], …] inside `locator`, one entry per finger; an empty list lifts them all.
+  async touch(locator, type, fingers) {
+    const box = await locator.boundingBox();
+    this.cdp ??= await this.page.context().newCDPSession(this.page);
+    const touchPoints = fingers.map(([x, y], id) => ({ id, x: box.x + x, y: box.y + y }));
+    await this.cdp.send("Input.dispatchTouchEvent", { type, touchPoints });
+  }
+
+  async penDrag(locator, points) {
+    const [first, ...rest] = points;
+    await this.pen(locator, "down", first);
+    for (const point of rest) await this.pen(locator, "move", point);
+    await this.pen(locator, "up", points[points.length - 1]);
+  }
+
+  // One finger along `points`.
+  async fingerDrag(locator, points) {
+    const [first, ...rest] = points;
+    await this.touch(locator, "touchStart", [first]);
+    for (const point of rest) await this.touch(locator, "touchMove", [point]);
+    await this.touch(locator, "touchEnd", []);
+  }
+
   // Files the page handed to <a download>, captured by the init script below.
   async downloads(count, timeout = 30000) {
     await this.page.waitForFunction((n) => window.__smokeDownloads.length >= n, count, { timeout });
@@ -2241,6 +2281,88 @@ async function uncachedFiles(page) {
 
 // Moves the first item (a stroke through `on`), recolors it, then undoes and redoes both
 // steps, checking the item after each one.
+// 「ペンだけで書く」 (shared/js/pen.js): fingers draw until a pen is used, then scroll; a hand
+// resting while the pen writes draws nothing; the 「ペンだけ」 button turns it off for good.
+async function penAndFinger(t, hook) {
+  const ink = t.page.locator(".page .ink").first();
+  const strokes = () => t.page.evaluate((h) => window[h].state.items.filter((i) => i.type === "stroke").length, hook);
+  const scrollTop = () => t.page.$eval("#viewer", (el) => el.scrollTop);
+  const pressed = () => t.page.getAttribute(".pen-only-btn", "aria-pressed");
+  // Waits in the page, after the input sent so far has been handled.
+  // Input is handled before the next frames are drawn, so two frames go by first.
+  const pause = (ms) => t.page.evaluate(async (wait) => {
+    for (let i = 0; i < 2; i++) await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => setTimeout(resolve, wait));
+  }, ms);
+  const handGone = () => pause(700); // past the time a finger counts as the hand
+  await t.page.evaluate((h) => window[h].setTool("pen", { hint: false }), hook);
+  const start = await strokes();
+  t.expect(await t.page.isVisible(".pen-only-btn"), "タッチ画面なのに「ペンだけ」ボタンが出ない");
+
+  await t.fingerDrag(ink, [[40, 200], [80, 230], [120, 260]]);
+  t.expect(await strokes() === start + 1, "ペンを使う前なのに、指で書けない");
+  t.expect(await pressed() === "false", "ペンを使う前から「ペンだけ」がオンになっている");
+
+  // The hand lands first and starts a line; the pen then touches down and writes.
+  await t.touch(ink, "touchStart", [[300, 300]]);
+  await t.touch(ink, "touchMove", [[310, 320]]);
+  await t.penDrag(ink, [[60, 300], [100, 330], [140, 300], [180, 330]]);
+  await t.touch(ink, "touchEnd", []);
+  t.expect(await strokes() === start + 2, `手のひらの線が残った、またはペンの線が書けない: ${(await strokes()) - start}本`);
+  t.expect(await pressed() === "true", "ペンで書いても「ペンだけ」がオンにならない");
+
+  // While the pen writes, a finger touching elsewhere neither draws nor cuts the pen's line.
+  await t.pen(ink, "down", [60, 400]);
+  await t.pen(ink, "move", [100, 420]);
+  await t.touch(ink, "touchStart", [[300, 420]]);
+  await t.touch(ink, "touchMove", [[320, 460]]);
+  await t.touch(ink, "touchEnd", []);
+  await t.pen(ink, "move", [140, 400]);
+  await t.pen(ink, "move", [180, 430]);
+  await t.pen(ink, "up", [180, 430]);
+  const last = await t.page.evaluate((h) => window[h].state.items.at(-1).points.length, hook);
+  t.expect(await strokes() === start + 3 && last >= 4, `ペンで書いている間の指で線が増えた・切れた: ${(await strokes()) - start}本, 点${last}`);
+
+  // A finger now scrolls instead of drawing; two fingers too. Fingers go in the middle of the
+  // page area, which stays on a page however far it scrolls (and clear of the message at the bottom).
+  await handGone();
+  const viewer = t.page.locator("#viewer");
+  const { width: vw, height: vh } = await viewer.boundingBox();
+  const cx = vw / 2;
+  const cy = vh / 2;
+  t.expect(await t.page.evaluate(([x, y]) => document.elementFromPoint(x, y).classList.contains("ink"),
+    [(await viewer.boundingBox()).x + cx, (await viewer.boundingBox()).y + cy]), "指を置く場所にページがない（テストの作り）");
+  const top = await scrollTop();
+  await t.fingerDrag(viewer, [[cx, cy + 120], [cx, cy + 40], [cx, cy - 40], [cx, cy - 120]]);
+  await t.page.waitForFunction((min) => document.getElementById("viewer").scrollTop > min, top + 150, { timeout: 5000 })
+    .catch(async () => t.expect(false, `指でスクロールできない: ${top} → ${await scrollTop()}`));
+  t.expect(await strokes() === start + 3, "「ペンだけ」がオンなのに指で線が書けた");
+  await pause(1500); // the page glides on a little after the finger lifts
+  const top2 = await scrollTop();
+  await t.touch(viewer, "touchStart", [[cx - 50, cy - 60], [cx + 50, cy - 60]]);
+  await t.touch(viewer, "touchMove", [[cx - 50, cy], [cx + 50, cy]]);
+  await t.touch(viewer, "touchMove", [[cx - 50, cy + 60], [cx + 50, cy + 60]]);
+  await t.touch(viewer, "touchEnd", []);
+  await pause(0);
+  const top3 = await scrollTop();
+  t.expect(top3 < top2 - 60 && await strokes() === start + 3, `2本指でスクロールできない: ${top2} → ${top3}`);
+  await pause(1500);
+  await t.page.$eval("#viewer", (el) => (el.scrollTop = 0));
+
+  // A mouse still draws.
+  await t.drag(ink, [[60, 120], [120, 150]]);
+  t.expect(await strokes() === start + 4, "「ペンだけ」がオンだとマウスで書けない");
+
+  // Turned off by hand: fingers draw again, and the pen no longer switches it on.
+  await t.page.click(".pen-only-btn");
+  t.expect(await pressed() === "false", "「ペンだけ」ボタンでオフにならない");
+  await t.fingerDrag(ink, [[40, 160], [80, 190]]);
+  t.expect(await strokes() === start + 5, "「ペンだけ」をオフにしても指で書けない");
+  await t.penDrag(ink, [[60, 200], [100, 220]]);
+  t.expect(await pressed() === "false", "自分でオフにしたのに、ペンでまたオンになった");
+  t.expect(await t.page.evaluate(() => localStorage.getItem("portal-pen-only")) === "off", "「ペンだけ」の設定が端末に残らない");
+}
+
 async function editAndUndo(t, hook, ink, on, color) {
   const first = () => t.page.evaluate((h) => {
     const item = window[h].state.items[0];
@@ -2267,7 +2389,7 @@ async function editAndUndo(t, hook, ink, on, color) {
 
 async function testTool(browser, server, name) {
   const tool = TOOLS[name];
-  const context = await browser.newContext({ viewport: VIEWPORT, locale: "ja-JP" });
+  const context = await browser.newContext({ viewport: VIEWPORT, locale: "ja-JP", hasTouch: !!tool.touch });
   await context.addInitScript(captureDownloads);
   const page = await context.newPage();
   const t = new ToolTest(name, page, server);

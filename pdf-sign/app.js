@@ -11,12 +11,15 @@ import {
 import { createStamps, syncToolbar, bindToolbar } from "../shared/js/markup.js";
 import { createMenus } from "../shared/js/menus.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { canDraw, scrollWithFinger, drawSurface, penButtonGroup, isHandResting } from "../shared/js/pen.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { canvasToBlob, pixelRatio } from "../shared/js/canvas.js";
 import { dateText } from "../shared/js/dates.js";
 import "../shared/js/guide.js";
 import { OFFLINE } from "../shared/js/vendor.js";
 
+// Tools that draw: a finger scrolls instead while 「ペンだけで書く」 is on (shared/js/pen.js).
+const DRAWING_TOOLS = new Set(["pen", "marker", "eraser", "redact"]);
 const SIGN_PT = 0.4; // signature pad units → PDF points when first placed
 const MAX_SIGNS = 5;
 const STORE = { name: "pdf-sign-name", signs: "pdf-sign-signatures" };
@@ -181,6 +184,7 @@ function createPageView(num, viewport) {
   const canvas = document.createElement("canvas");
   const ink = document.createElement("canvas");
   ink.className = "ink";
+  drawSurface(ink);
   const selbox = document.createElement("div");
   selbox.className = "selbox";
   selbox.hidden = true;
@@ -225,6 +229,10 @@ const setScale = viewer.setScale;
 function onPointerDown(e, view) {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   closeMenus();
+  if (DRAWING_TOOLS.has(state.tool) && !canDraw(e)) {
+    scrollWithFinger(e, els.viewer);
+    return;
+  }
   const point = editor.pagePoint(e, view);
   const [x, y] = point;
 
@@ -378,6 +386,7 @@ function padPoint(e) {
 
 els.signPad.addEventListener("pointerdown", (e) => {
   if (e.pointerType === "mouse" && e.button !== 0) return;
+  if (isHandResting(e)) return; // the hand holding the pen
   e.preventDefault();
   const pts = [padPoint(e)];
   pad.strokes.push(pts);
@@ -577,6 +586,7 @@ els.sealName.addEventListener("keydown", (e) => {
 
 bindToolbar(els, state, editor, setColor);
 
+document.querySelector(".toolbar .group.tools").after(penButtonGroup());
 els.zoomIn.addEventListener("click", () => state.pdf && setScale(clampScale(state.scale * 1.2)));
 els.zoomOut.addEventListener("click", () => state.pdf && setScale(clampScale(state.scale / 1.2)));
 els.saveBtn.addEventListener("click", save);

@@ -7,6 +7,7 @@
 // plus the tool's own types, which only need x, y, w, h. `page` is the id of a page view.
 
 import { canvasToBlob, pixelRatio } from "./canvas.js";
+import { onPenDown } from "./pen.js";
 
 export const MARKER_FACTOR = 6; // highlighter width = pen width × this
 export const SEAL_COLOR = "#d7261e";
@@ -275,7 +276,8 @@ function moveItem(item, dx, dy) {
 // Follows the pointer that went down in `e` until it is released, on the element that got the
 // event. `toPoint(event)` turns each position into the caller's coordinates; every position
 // in between is passed to onMove (pens report more of them than move events), and onUp is
-// told whether the pointer was cancelled.
+// told whether the pointer was cancelled. A finger is also cancelled when a pen touches the
+// screen while it is down: it was the hand holding the pen (shared/js/pen.js).
 export function trackPointer(e, toPoint, onMove, onUp) {
   const target = e.currentTarget;
   target.setPointerCapture(e.pointerId);
@@ -284,13 +286,17 @@ export function trackPointer(e, toPoint, onMove, onUp) {
     const events = ev.getCoalescedEvents?.() ?? [];
     for (const ce of events.length ? events : [ev]) onMove(toPoint(ce), ce);
   };
-  const up = (ev) => {
-    if (ev.pointerId !== e.pointerId) return;
+  const finish = (cancelled) => {
     target.removeEventListener("pointermove", move);
     target.removeEventListener("pointerup", up);
     target.removeEventListener("pointercancel", up);
-    onUp?.(ev.type === "pointercancel");
+    stopWatchingPen?.();
+    onUp?.(cancelled);
   };
+  const up = (ev) => {
+    if (ev.pointerId === e.pointerId) finish(ev.type === "pointercancel");
+  };
+  const stopWatchingPen = e.pointerType === "touch" ? onPenDown(() => finish(true)) : null;
   target.addEventListener("pointermove", move);
   target.addEventListener("pointerup", up);
   target.addEventListener("pointercancel", up);

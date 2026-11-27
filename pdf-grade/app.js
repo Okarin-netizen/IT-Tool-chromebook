@@ -13,12 +13,15 @@ import { makeZip } from "../shared/js/zip.js";
 import { readZip } from "../shared/js/unzip.js";
 import { kvGet, kvSet, kvDelete } from "../shared/js/kv.js";
 import { registerOffline } from "../shared/js/offline.js";
+import { canDraw, scrollWithFinger, drawSurface, penButtonGroup } from "../shared/js/pen.js";
 import { loadPdfLib } from "../shared/js/pdf-lib.js";
 import { pixelRatio } from "../shared/js/canvas.js";
 import { dateText } from "../shared/js/dates.js";
 import "../shared/js/guide.js";
 import { OFFLINE } from "../shared/js/vendor.js";
 
+// Tools that draw: a finger scrolls instead while 「ペンだけで書く」 is on (shared/js/pen.js).
+const DRAWING_TOOLS = new Set(["pen", "marker", "eraser", "area"]);
 // Tools kept in the 「その他」 menu, so the toolbar fits in two rows on an 11.6-inch screen.
 const MORE_TOOLS = ["marker", "text"];
 const SCORE_H = 34; // height of a new score, in page points
@@ -508,6 +511,7 @@ function createPageView(file, num, viewport) {
   const canvas = document.createElement("canvas");
   const ink = document.createElement("canvas");
   ink.className = "ink";
+  drawSurface(ink);
   const selbox = document.createElement("div");
   selbox.className = "selbox";
   selbox.hidden = true;
@@ -657,6 +661,10 @@ function setScale(scale) {
 function onPointerDown(e, view) {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   closeMenus();
+  if (DRAWING_TOOLS.has(state.tool) && !canDraw(e)) {
+    scrollWithFinger(e, els.viewer);
+    return;
+  }
   commitEditor();
   const point = editor.pagePoint(e, view);
   const [x, y] = point;
@@ -1242,6 +1250,7 @@ els.textSize.addEventListener("change", () => {
   });
 });
 
+document.querySelector(".toolbar .group.tools").after(penButtonGroup());
 els.zoomIn.addEventListener("click", () => state.files.length && setScale(clampScale(state.scale * 1.2)));
 els.zoomOut.addEventListener("click", () => state.files.length && setScale(clampScale(state.scale / 1.2)));
 els.prevBtn.addEventListener("click", () => stepFile(-1));
