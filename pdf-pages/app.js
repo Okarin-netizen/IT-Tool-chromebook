@@ -189,7 +189,7 @@ function createCard(view) {
       movePage(view, e.key === "ArrowLeft" ? -1 : 1);
     }
   });
-  li.addEventListener("dblclick", (e) => {
+  li.addEventListener("dblclick", (e) => { // ipad-ok: 大きく表示ボタン（虫めがね）でも同じことができる
     if (!e.target.closest("[data-act]")) openPreview(view);
   });
   sortable.attach(li, view);

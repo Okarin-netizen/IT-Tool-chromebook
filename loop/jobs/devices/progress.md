@@ -65,3 +65,7 @@
 ## 周 8: ipad-shared-css
 - base.css（説明のダイアログ2か所）・photo-tool.css（.preview）・site.css（.side）の 100vh の次の行に 100dvh を足した（100vh は古い端末のため残した）。
 - ipad-pitfalls shared/css と verify.sh が通った。次は ipad-pdf-pages。
+
+## 周 9: ipad-pdf-pages
+- pdf-pages/app.js のダブルクリックで大きく表示は、どのページにもいつも出ている「大きく表示」ボタン（虫めがね）で同じことができるので、その行に `// ipad-ok:` を書いた。
+- ipad-pitfalls pdf-pages と verify.sh が通った。次は ipad-pdf-text。

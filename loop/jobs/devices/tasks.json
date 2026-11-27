@@ -35,7 +35,7 @@
       "id": "ipad-pdf-pages",
       "what": "pdf-pages: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs pdf-pages の NG）",
       "check": "node tests/ipad-pitfalls.mjs pdf-pages",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ipad-pdf-text",
