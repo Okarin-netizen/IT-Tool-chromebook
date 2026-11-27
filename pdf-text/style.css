@@ -179,6 +179,13 @@ body {
 .witem .tdel { top: -2px; }
 .witem.active .resize, .witem:hover .resize { display: block; }
 
+/* 指やペンの端末（iPad）は、ふれると選ばれて（.active）取っ手が出るので、ふれたあとに残る :hover では出さない。 */
+@media (hover: none) {
+  .titem:not(.active):hover .handle,
+  .iitem:not(.active):hover .resize,
+  .witem:not(.active):hover .resize { display: none; }
+}
+
 @media (max-width: 640px) {
   .group.end { margin-left: 0; }
   .viewer { padding: 16px 8px 64px; }
