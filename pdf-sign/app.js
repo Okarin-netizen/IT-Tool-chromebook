@@ -18,8 +18,9 @@ import { dateText } from "../shared/js/dates.js";
 import "../shared/js/guide.js";
 import { OFFLINE } from "../shared/js/vendor.js";
 
-// Tools that draw: a finger scrolls instead while 「ペンだけで書く」 is on (shared/js/pen.js).
-const DRAWING_TOOLS = new Set(["pen", "marker", "eraser", "redact"]);
+// While 「ペンだけで書く」 is on, only the pen writes, places and types: a finger scrolls (and the
+// hand resting on the screen changes nothing). Only 選択 still answers a finger (shared/js/pen.js).
+const FINGER_TOOLS = new Set(["select"]);
 const SIGN_PT = 0.4; // signature pad units → PDF points when first placed
 const MAX_SIGNS = 5;
 const STORE = { name: "pdf-sign-name", signs: "pdf-sign-signatures" };
@@ -229,7 +230,7 @@ const setScale = viewer.setScale;
 function onPointerDown(e, view) {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   closeMenus();
-  if (DRAWING_TOOLS.has(state.tool) && !canDraw(e)) {
+  if (!FINGER_TOOLS.has(state.tool) && !canDraw(e)) {
     scrollWithFinger(e, els.viewer, { zoom: viewer.pinchZoom });
     return;
   }

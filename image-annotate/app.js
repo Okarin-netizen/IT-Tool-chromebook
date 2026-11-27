@@ -17,8 +17,9 @@ const HANDLE_PX = 7;
 const FONT = 'bold {size}px system-ui, "Noto Sans JP", sans-serif';
 const LINE_HEIGHT = 1.25; // must match .text-editor line-height in style.css
 const TWO_POINT = new Set(["arrow", "line", "rect", "ellipse", "mosaic"]);
-// Tools that draw: a finger scrolls instead while 「ペンだけで書く」 is on (shared/js/pen.js).
-const DRAWING_TOOLS = new Set([...TWO_POINT, "pen", "marker", "crop", "callout"]);
+// While 「ペンだけで書く」 is on, only the pen writes, places and types: a finger scrolls (and the
+// hand resting on the screen changes nothing). Only 選択 still answers a finger (shared/js/pen.js).
+const FINGER_TOOLS = new Set(["select"]);
 const MAX_ZOOM = 5; // two-finger zoom, times the size that fits the screen
 
 const $ = (id) => document.getElementById(id);
@@ -674,7 +675,7 @@ let drag = null;
 
 els.canvas.addEventListener("pointerdown", (e) => {
   if (!state.base || e.button !== 0 || drag) return;
-  if (DRAWING_TOOLS.has(state.tool) && !canDraw(e) && !handleAt(...toImage(e))) {
+  if (!FINGER_TOOLS.has(state.tool) && !canDraw(e) && !handleAt(...toImage(e))) {
     scrollWithFinger(e, els.viewer, { zoom: pinchZoom });
     return;
   }
