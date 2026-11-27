@@ -372,8 +372,10 @@ const TOOLS = {
       await editor.fill("80");
       await editor.press("Enter");
       await t.until(() => __pdfGrade.state.items.some((i) => i.type === "score" && i.value === "80"));
+      await dragPlacedScore(t, ink);
       await editAndUndo(t, "__pdfGrade", ink, [120, 120], "#1d4ed8");
       await penAndFinger(t, "__pdfGrade");
+      await dragScoreWithPen(t, ink);
       await questionScores(t, ink);
       await commentBank(t, ink);
       await gradeByQuestion(t, ink);
@@ -2508,6 +2510,75 @@ async function penAndFingerOnImage(t) {
 }
 
 // Waits in the page until the input sent so far has been handled (two frames), then `ms` more.
+// 一括採点: with the 点数 tool, a placed score follows a drag (mouse or finger) and a tap types it
+// again; a press on a stamp with the 記号 tool moves it, and a tap adds another.
+async function dragPlacedScore(t, ink) {
+  const score = () => t.page.evaluate(() => {
+    const { state } = __pdfGrade;
+    const item = state.items.find((i) => i.type === "score");
+    return { cx: (item.x + item.w / 2) * state.scale, cy: (item.y + item.h / 2) * state.scale, value: item.value, count: state.items.length };
+  });
+  const editing = () => t.page.isVisible("input.inline-edit");
+  await t.page.evaluate(() => __pdfGrade.setTool("score", { hint: false }));
+  const a = await score();
+  await t.drag(ink, [[a.cx, a.cy], [a.cx + 40, a.cy + 30], [a.cx + 80, a.cy + 60]]);
+  const b = await score();
+  t.expect(Math.abs(b.cx - a.cx - 80) < 2 && Math.abs(b.cy - a.cy - 60) < 2 && b.value === "80" && b.count === a.count,
+    `点数の枠をマウスでドラッグしても動かない: (${a.cx}, ${a.cy}) → (${b.cx}, ${b.cy})`);
+  t.expect(!(await editing()), "点数の枠を動かしただけなのに、入力が始まった");
+  await ink.click({ position: { x: b.cx, y: b.cy } });
+  t.expect(await editing() && await t.page.inputValue("input.inline-edit") === "80", "点数の枠をクリックしても入れ直せない");
+  await t.page.press("input.inline-edit", "Escape");
+  await t.fingerDrag(ink, [[b.cx, b.cy], [b.cx - 30, b.cy - 20], [b.cx - 60, b.cy - 40]]);
+  const c = await score();
+  t.expect(Math.abs(c.cx - b.cx + 60) < 2 && Math.abs(c.cy - b.cy + 40) < 2, `点数の枠を指でドラッグしても動かない: (${b.cx}, ${b.cy}) → (${c.cx}, ${c.cy})`);
+  await t.fingerDrag(ink, [[c.cx, c.cy], [c.cx + 2, c.cy + 1]]); // a shaking finger is still a tap
+  t.expect(await editing(), "点数の枠を指でタップしても入れ直せない");
+  await t.page.press("input.inline-edit", "Escape");
+  const moved = await score();
+  t.expect(moved.cx === c.cx && moved.cy === c.cy, "点数の枠をタップしただけで動いた");
+
+  const stamps = () => t.page.evaluate(() => __pdfGrade.state.items.filter((i) => i.type === "stamp").map((i) => `${Math.round(i.x)},${Math.round(i.y)}`));
+  await t.page.evaluate(() => __pdfGrade.setTool("stamp", { hint: false }));
+  const start = (await stamps()).length;
+  await ink.click({ position: { x: 420, y: 320 } });
+  const [placed] = (await stamps()).slice(start);
+  await t.drag(ink, [[420, 320], [460, 340], [500, 360]]);
+  const after = (await stamps()).slice(start);
+  t.expect(after.length === 1 && after[0] !== placed, `押した記号をドラッグしても動かない: ${placed} → ${after}`);
+  await ink.click({ position: { x: 500, y: 360 } });
+  t.expect((await stamps()).length === start + 2, "記号の上をクリックしても、もう1つ押せない");
+  await t.page.evaluate(() => { __pdfGrade.undo(); __pdfGrade.undo(); __pdfGrade.undo(); });
+  t.expect((await stamps()).length === start, "記号を動かしたのが元に戻せない");
+}
+
+// 一括採点 with 「ペンだけ」 on: the pen moves a score, a finger on it scrolls and leaves it.
+async function dragScoreWithPen(t, ink) {
+  const score = () => t.page.evaluate(() => {
+    const { state } = __pdfGrade;
+    const item = state.items.find((i) => i.type === "score" && state.pages.get(i.page)?.file === state.files[0]);
+    return { cx: (item.x + item.w / 2) * state.scale, cy: (item.y + item.h / 2) * state.scale };
+  });
+  await t.page.click(".pen-only-btn");
+  t.expect(await t.page.getAttribute(".pen-only-btn", "aria-pressed") === "true", "「ペンだけ」ボタンでオンにならない");
+  await t.page.evaluate(() => __pdfGrade.setTool("score", { hint: false }));
+  await t.page.$eval("#viewer", (el) => (el.scrollTop = 0));
+  await inputSettled(t, 700);
+  const a = await score();
+  await t.fingerDrag(ink, [[a.cx, a.cy], [a.cx, a.cy - 20], [a.cx, a.cy - 40]]);
+  await inputSettled(t, 1500);
+  const b = await score();
+  t.expect(b.cx === a.cx && b.cy === a.cy, "「ペンだけ」なのに、指で点数の枠が動いた");
+  await t.page.$eval("#viewer", (el) => (el.scrollTop = 0));
+  await inputSettled(t, 0);
+  await t.penDrag(ink, [[a.cx, a.cy], [a.cx + 30, a.cy + 20], [a.cx + 60, a.cy + 40]]);
+  const c = await score();
+  t.expect(Math.abs(c.cx - a.cx - 60) < 2 && Math.abs(c.cy - a.cy - 40) < 2, `ペンで点数の枠をドラッグしても動かない: (${a.cx}, ${a.cy}) → (${c.cx}, ${c.cy})`);
+  t.expect(!(await t.page.isVisible("input.inline-edit")), "ペンで点数の枠を動かしただけなのに、入力が始まった");
+  await t.page.click(".pen-only-btn");
+  await t.page.evaluate(() => __pdfGrade.setTool("pen", { hint: false }));
+}
+
 function inputSettled(t, ms) {
   return t.page.evaluate(async (wait) => {
     for (let i = 0; i < 2; i++) await new Promise((resolve) => requestAnimationFrame(resolve));

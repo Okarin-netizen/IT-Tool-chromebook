@@ -246,7 +246,11 @@ function onPointerDown(e, view) {
   } else if (state.tool === "select") {
     editor.selectFrom(e, view, point);
   } else if (state.tool === "stamp") {
-    editor.placeFrom(e, view, newStamp(state.stamp, view.id, x, y), point);
+    // A press on a stamp moves it; a tap on it still adds a new one on top.
+    const stamp = newStamp(state.stamp, view.id, x, y);
+    const hit = editor.itemAt(view.id, x, y, 4 / state.scale, ["stamp"]);
+    if (hit) editor.dragOrTap(e, view, hit, point, () => { state.items.push(stamp); commit(); select(stamp); });
+    else editor.placeFrom(e, view, stamp, point);
   } else if (state.tool === "sign") {
     const sig = state.signs[state.signIndex];
     if (!sig) {

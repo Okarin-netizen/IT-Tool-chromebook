@@ -499,6 +499,28 @@ export function createInkEditor({ state, history, viewOf, allViews, drawItem, up
     return true;
   }
 
+  // Drags `item` if the pointer moves, or calls `onTap()` if it is let go where it went down.
+  // Tools use it so that a press on a placed score or text moves it, and a tap still edits it.
+  function dragOrTap(e, view, item, [x, y], onTap) {
+    e.preventDefault();
+    const slop = (e.pointerType === "mouse" ? 4 : 10) / state.scale; // a shaking finger is not a drag
+    let last = [x, y];
+    let moving = null;
+    track(e, view, ([px, py]) => {
+      if (!moving) {
+        if (Math.hypot(px - x, py - y) < slop) return;
+        moving = history.edit(item);
+        select(moving);
+      }
+      moveItem(moving, px - last[0], py - last[1]);
+      last = [px, py];
+      renderInk(view);
+    }, (cancelled) => {
+      if (moving) commit();
+      else if (!cancelled) onTap();
+    });
+  }
+
   // Adds a new stamp-like item where the pointer went down; dragging fine-tunes where it lands.
   function placeFrom(e, view, item, point) {
     state.items.push(item);
@@ -529,6 +551,6 @@ export function createInkEditor({ state, history, viewOf, allViews, drawItem, up
     renderInk, renderPageInk, updateSelbox, itemAt, select, deleteSelected, commit, changeSelected,
     undo: () => restore(history.pos - 1),
     redo: () => restore(history.pos + 1),
-    pagePoint, drawStrokeFrom, drawBoxFrom, eraseFrom, selectFrom, placeFrom, onResizeDown,
+    pagePoint, drawStrokeFrom, drawBoxFrom, eraseFrom, selectFrom, placeFrom, dragOrTap, onResizeDown,
   };
 }
