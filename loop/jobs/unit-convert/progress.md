@@ -36,3 +36,10 @@
 - 次に試すこと（人へ）: tasks.json の docs の check を `grep -q '単位の換算' shared/js/changelog.js && node tests/smoke.cjs portal` に直してほしい（AI は tasks.json の check を変えられない）。直れば、残してある変更のまま passes を true にしてコミットできる。
 
 （周 6 はコミットなし）
+
+## 周 8（docs）— 通せなかった（コミットなし）
+- 周 7 で作業ツリーに残したはずの変更は消えていた（新しい作業ツリーで始まったらしい）。同じ作業をやり直した: shared/js/changelog.js の 2026-11-27 に単位の換算の1行、manual/data.js の説明2か所、manual/shots/unit-convert.webp を完成画面（1.5 km → m、1366×768、Noto Sans JP）に撮り直し。consistency・smoke unit-convert は通る。
+- つまずいたこと: check は前と同じ `grep -q '単位の換算' changelog.html` のままで通らない（中身は shared/js/changelog.js にある）。changelog.html にテストのためだけの文字を足すのはやめた。
+- 次に試すこと（人へ）: docs の check を `grep -q '単位の換算' shared/js/changelog.js && node tests/smoke.cjs portal` に直すまで、この周を回しても同じところで止まる。変更はコミットしないと次の周で消えるので、check を直したらすぐ同じ作業ツリーで回すか、人がこの変更をコミットしてほしい。
+
+（周 7 はコミットなし）
