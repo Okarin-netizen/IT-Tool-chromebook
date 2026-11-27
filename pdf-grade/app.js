@@ -525,7 +525,7 @@ function createPageView(file, num, viewport) {
 
   const view = { id: nextId++, file, num, viewport, el, canvas, ink, selbox, label, rendered: false, task: null };
   ink.addEventListener("pointerdown", (e) => onPointerDown(e, view));
-  ink.addEventListener("dblclick", (e) => onDoubleClick(e, view));
+  ink.addEventListener("dblclick", (e) => onDoubleClick(e, view)); // ipad-ok: 「文字」「点数」ボタンを選んでからふれても、同じように書きかえられる
   resize.addEventListener("pointerdown", (e) => editor.onResizeDown(e, view));
   file.views.push(view);
   state.pages.set(view.id, view);

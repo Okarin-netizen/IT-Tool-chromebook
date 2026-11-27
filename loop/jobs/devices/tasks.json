@@ -47,7 +47,7 @@
       "id": "ipad-pdf-grade",
       "what": "pdf-grade: iPad の落とし穴を直す（node tests/ipad-pitfalls.mjs pdf-grade の NG）",
       "check": "node tests/ipad-pitfalls.mjs pdf-grade",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ipad-image-annotate",

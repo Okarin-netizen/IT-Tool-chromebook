@@ -73,3 +73,7 @@
 ## 周 10: ipad-pdf-text
 - 取っ手・大きさ変えは、ふれると選ばれて（.active）出るので iPad でも使える。pdf-text/style.css に @media (hover: none) を足し、ふれたあとに残る :hover で選んでいないものに取っ手が出ないようにした。
 - ipad-pitfalls pdf-text・ふつうの smoke pdf-text・verify.sh が通った。次は ipad-pdf-grade。
+
+## 周 11: ipad-pdf-grade
+- ダブルクリックで文字・点数を書きかえるのは、「文字」「点数」ボタンを選んでからふれても同じことができるので、pdf-grade/app.js のその行に `// ipad-ok:` を書いた。
+- ipad-pitfalls pdf-grade と verify.sh が通った。次は ipad-image-annotate。
