@@ -17,3 +17,7 @@
 ## 周 3（data）
 - convert.js にデータ量を追加。dataFactors(dataBase) でビットにする倍率を作る（Number(dataBase) === 1000 なら 1000、それ以外は 1024）。画面の select の文字 "1000" もそのまま渡せる。
 - 次は format（formatNumber はまだ仮の String(n)）。
+
+## 周 4（format）
+- formatNumber を作成。toPrecision(10) で丸めてから、|n| が 1e15 以上か 1e-6 未満なら「a × 10^b」、それ以外は toFixed（後ろの 0 を消す）＋3けたごとの「,」。
+- 次は scaffold（_template を写して tools.js・ポータル・README・manual などに足す）。

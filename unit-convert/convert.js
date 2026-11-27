@@ -93,7 +93,26 @@ export function convert(value, from, to, options = {}) {
   return (value * factors[from]) / factors[to];
 }
 
-// 画面に出す文字にする（くわしい形は format のタスクで作る）
+// 小数の後ろの 0 と、いらない小数点を消す（"1.500" → "1.5"、"2.000" → "2"）
+function trimZeros(text) {
+  return text.includes(".") ? text.replace(/0+$/, "").replace(/\.$/, "") : text;
+}
+
+// 画面に出す文字にする。有効数字10けた、3けたごとの「,」、とても大きい・小さい数は「1.5 × 10^-7」
 export function formatNumber(n) {
-  return String(n);
+  if (!Number.isFinite(n)) return String(n);
+  // 有効数字10けたに丸めてから考える（0.1+0.2 → 0.3）
+  const rounded = Number(n.toPrecision(10));
+  if (rounded === 0) return "0";
+  const abs = Math.abs(rounded);
+  if (abs >= 1e15 || abs < 1e-6) {
+    const [mantissa, exponent] = rounded.toExponential(9).split("e");
+    return `${trimZeros(mantissa)} × 10^${Number(exponent)}`;
+  }
+  const sign = rounded < 0 ? "-" : "";
+  // 1e-6 以上 1e15 未満なら toFixed は指数の形にならない
+  const decimals = Math.max(0, 9 - Math.floor(Math.log10(abs)));
+  const [intPart, fracPart] = trimZeros(abs.toFixed(Math.min(decimals, 100))).split(".");
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return sign + grouped + (fracPart ? `.${fracPart}` : "");
 }

@@ -23,7 +23,7 @@
       "id": "format",
       "what": "convert.js: formatNumber",
       "check": "node tests/unit-convert.mjs format",
-      "passes": false
+      "passes": true
     },
     {
       "id": "scaffold",
