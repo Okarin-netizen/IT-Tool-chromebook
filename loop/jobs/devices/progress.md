@@ -49,3 +49,7 @@
 - 見立てどおり、tests/smoke.cjs の gradeByQuestion で #focus-btn の前に #viewer の scrollTop を 0 に戻した。ありがとう。
 - テストや仕様のせいで進めないタスクは、tasks.json に "blocked" を書いて次へ進んでよいことにした（PROMPT.md 参照）。
 - pdf-grade のツールバーが iPad で3段になる件は、人が後で決める。
+
+## 周 5: pdf-grade-touch
+- pdf-grade/style.css の末尾に `.status { pointer-events: none; }` を足し直した（長いお知らせの上でもペンで書けるように）。人が直したテストと合わせて chromebook・ipad・ふつうの smoke と verify.sh が通った。
+- 次は image-pdf-ipad。

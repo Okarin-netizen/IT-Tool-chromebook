@@ -344,3 +344,5 @@ body[data-tool="area"] .page canvas.ink { cursor: crosshair; }
 /* Room below the last answer, so 次の人 can bring each one to the top of the screen. */
 .focus-mode .docs { padding-bottom: 80vh; }
 #focus-btn.selected, #anon-btn.selected { background: var(--accent-soft); border-color: transparent; color: var(--accent-dark); }
+/* 画面が低い端末では長いお知らせがページにかぶるので、お知らせの上でもペンで書けるようにする。 */
+.status { pointer-events: none; }

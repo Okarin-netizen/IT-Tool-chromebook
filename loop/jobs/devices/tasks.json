@@ -11,7 +11,7 @@
       "id": "pdf-grade-touch",
       "what": "PDF一括採点: 指が使える端末で、ペンで書いている間の指で線が増えた・切れた",
       "check": "node tests/smoke.cjs --device=chromebook pdf-grade && node tests/smoke.cjs --device=ipad pdf-grade && node tests/smoke.cjs pdf-grade",
-      "passes": false
+      "passes": true
     },
     {
       "id": "image-pdf-ipad",
