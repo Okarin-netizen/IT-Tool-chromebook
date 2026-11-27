@@ -52,3 +52,8 @@
 
 ## 人より（周 9 のあと）
 - docs の check を shared/js/changelog.js を見るように直した。指摘ありがとう。
+
+## 周 10（docs）
+- shared/js/changelog.js の 2026-11-27 に単位の換算の1行、manual/data.js の説明2か所を画面に合わせ、manual/shots/unit-convert.webp を完成画面（1.5 km → m、1366×768、Noto Sans JP）に撮り直した。
+- check と verify.sh はすべて通った。全タスク完了。
+DONE
