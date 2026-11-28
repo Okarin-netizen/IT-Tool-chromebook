@@ -679,12 +679,16 @@ function onPointerDown(e, view) {
   } else if (state.tool === "select") {
     editor.selectFrom(e, view, point);
   } else if (state.tool === "stamp") {
-    editor.placeFrom(e, view, newStamp(state.stamp, view.id, x, y), point);
+    // A press on a stamp moves it; a tap on it still adds a new one on top.
+    const hit = editor.itemAt(view.id, x, y, tolerance, ["stamp"]);
+    const stamp = newStamp(state.stamp, view.id, x, y);
+    if (hit) editor.dragOrTap(e, view, hit, point, () => { state.items.push(stamp); commit(); select(stamp); });
+    else editor.placeFrom(e, view, stamp, point);
   } else if (state.tool === "text") {
     e.preventDefault();
     const hit = editor.itemAt(view.id, x, y, tolerance, ["text"]);
     if (hit) {
-      openEditor(hit);
+      editor.dragOrTap(e, view, hit, point, () => openEditor(hit));
     } else {
       const h = state.textSize;
       openEditor({ type: "text", page: view.id, text: "", color: state.color, x, y: y - h / 2, w: 0, h }, true);
@@ -694,15 +698,16 @@ function onPointerDown(e, view) {
   } else if (state.tool === "qscore") {
     e.preventDefault();
     const hit = editor.itemAt(view.id, x, y, tolerance, ["qscore"]);
-    if (hit) openEditor(hit);
+    if (hit) editor.dragOrTap(e, view, hit, point, () => openEditor(hit));
     else openEditor(newQscore(view, x, y), true);
   } else if (state.tool === "score") {
     e.preventDefault();
     const existing = scoreOf(view.file);
     const total = qscoresOf(view.file).length ? sumOf(qscoresOf(view.file)) : null;
     if (existing && existing.page === view.id && hits(existing, x, y, tolerance)) {
-      // With question scores the total is counted, not typed.
-      if (total === null) openEditor(existing);
+      // A press moves the score; a tap types it again (with question scores the total is
+      // counted, not typed).
+      editor.dragOrTap(e, view, existing, point, () => total === null && openEditor(existing));
     } else if (existing) {
       // One score per student: clicking somewhere else moves it there.
       const score = history.edit(existing);
@@ -978,10 +983,10 @@ function hintForTool() {
     case "pen": return "ページの上をなぞって書いてください";
     case "marker": return "線を引きたいところをなぞってください";
     case "eraser": return "消したい線や記号をなぞってください";
-    case "stamp": return `押したい場所をクリックしてください（${stampDef(state.stamp).label}）`;
-    case "text": return "文字を書きたい場所をクリックして入力し、Enter";
-    case "score": return "点数を入れたい場所をクリックして数字を入力し、Enter（1人に1つ。設問の点があるときは合計が入ります）";
-    case "qscore": return `設問の横をクリックして点を入力し、Enter（次は問${state.nextQ}）`;
+    case "stamp": return `押したい場所をクリックしてください（${stampDef(state.stamp).label}）。押した記号はドラッグで動かせます`;
+    case "text": return "文字を書きたい場所をクリックして入力し、Enter。書いた文字はドラッグで動かせます";
+    case "score": return "点数を入れたい場所をクリックして数字を入力し、Enter（1人に1つ。設問の点があるときは合計が入ります）。置いた点数はドラッグで動かせます";
+    case "qscore": return `設問の横をクリックして点を入力し、Enter（次は問${state.nextQ}）。置いた点はドラッグで動かせます`;
     case "comment": return `置きたい場所をクリックしてください（${state.comment}）`;
     case "area": return "採点したい問題の部分を、ドラッグで四角く囲んでください（全員の同じ場所が続けて出ます）";
     default: return "書いたものをドラッグして動かせます。文字・点数はダブルクリックで書き直し";
